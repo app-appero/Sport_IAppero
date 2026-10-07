@@ -36,6 +36,10 @@ class SportProvider(ABC):
 
 ## SoccerProvider
 
+Maps to Oracle Sports sport id: `football`.
+
+Provider id: `soccer-oracle`.
+
 Environment:
 
 ```text
@@ -44,13 +48,18 @@ SOCCER_ORACLE_BASE_URL=https://soccer-oracle-api-dev.up.railway.app
 
 Responsabilità:
 
-1. chiamare Soccer Oracle;
+1. chiamare Soccer Oracle **così com'è** (path, auth, schema upstream invariati);
 2. validare la risposta upstream;
-3. convertire nel domain model comune;
+3. convertire nel domain model comune (`sport="football"`);
 4. gestire errori e timeout;
-5. non esporre direttamente DTO upstream.
+5. non esporre direttamente DTO upstream;
+6. esporre competizioni, eventi, predizioni e **tutti i mercati** disponibili.
 
 ## TennisProvider
+
+Maps to Oracle Sports sport id: `tennis`.
+
+Provider id: `tennis-oracle`.
 
 Environment:
 
@@ -58,7 +67,7 @@ Environment:
 TENNIS_ORACLE_BASE_URL=https://tennisoracle-backend-dev.up.railway.app
 ```
 
-Stesse responsabilità.
+Stesse responsabilità (senza rinominare/alterare Tennis Oracle).
 
 ## Client vs Mapper
 
@@ -129,20 +138,28 @@ class ProviderResponseError(Exception):
     pass
 ```
 
-## Aggregazione
+## Chiamate per sport (MVP)
 
-Il FeedService deve interrogare Soccer e Tennis in parallelo.
+Nell'MVP non esiste un aggregatore cross-sport per ranking.
 
-Pseudo-code:
+Il tab Football chiama solo `SoccerProvider`.
+Il tab Tennis chiama solo `TennisProvider`.
+
+`asyncio.gather` tra provider serve al massimo per health aggregato o job futuri, non per la Home MVP.
+
+Pseudo-code tab Football:
 
 ```python
-results = await asyncio.gather(
-    soccer_provider.get_predictions(),
-    tennis_provider.get_predictions(),
-    return_exceptions=True
-)
+predictions = await soccer_provider.get_predictions(**filters)
+# sport is always "football" after mapping
 ```
 
-Le prediction valide vengono unite.
+## Health adaptation
 
-Le failure vengono registrate in `meta.providers`.
+I provider tengono i propri endpoint health.
+
+Ogni adapter implementa `healthcheck()` mappando il contratto upstream reale verso uno status Oracle Sports (`ok` / `unavailable`), usato da:
+
+```text
+GET /api/v1/health/providers
+```

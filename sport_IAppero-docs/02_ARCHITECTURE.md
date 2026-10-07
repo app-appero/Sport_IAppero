@@ -20,11 +20,13 @@
 ┌──────────────────────┐             ┌──────────────────────┐
 │ SoccerProvider       │             │ TennisProvider       │
 │ Adapter + Mapper     │             │ Adapter + Mapper     │
+│ sport: football      │             │ sport: tennis        │
 └──────────┬───────────┘             └──────────┬───────────┘
            │                                    │
            ▼                                    ▼
 ┌──────────────────────┐             ┌──────────────────────┐
 │ Soccer Oracle API    │             │ Tennis Oracle API    │
+│ (unchanged)          │             │ (unchanged)          │
 └──────────────────────┘             └──────────────────────┘
 ```
 
@@ -35,16 +37,15 @@ L'app mobile NON deve chiamare direttamente Soccer Oracle o Tennis Oracle.
 Il BFF gestisce:
 
 - normalizzazione;
-- aggregazione;
-- caching;
+- API sport-scoped per tab Football / Tennis;
+- caching opzionale;
 - error handling;
 - timeout;
-- autenticazione futura;
+- autenticazione futura (Oracle Sports) e auth upstream se richiesta;
 - rate limiting;
 - logging;
-- provider health;
-- fallback;
-- feed cross-sport.
+- provider health (adattandosi ai path esistenti);
+- fallback per-sport.
 
 ## Principi
 
@@ -53,6 +54,8 @@ Il BFF gestisce:
 Ogni sport vive dentro un adapter.
 
 Il resto dell'app non deve conoscere il formato upstream.
+
+I provider restano come sono: timeout, path, auth e schema upstream si gestiscono nell'adapter.
 
 ### 2. Unified Domain Model
 
@@ -64,17 +67,20 @@ Tutti i provider vengono convertiti verso modelli comuni:
 - Participant
 - Prediction
 - Probability
+- Market
 - ProviderMetadata
 
 ### 3. Provider failure isolation
 
-Se Tennis Oracle è offline, il feed Soccer deve continuare a funzionare.
+Se Tennis Oracle è offline, il tab Football deve continuare a funzionare.
 
-Una failure upstream non deve far fallire l'intera Home.
+Una failure upstream non deve far fallire l'intero backend: fallisce solo lo sport interessato.
 
 ### 4. Async I/O
 
-Le API provider devono essere interrogate in parallelo tramite `httpx.AsyncClient`.
+Le API provider devono essere interrogate tramite `httpx.AsyncClient`.
+
+Le chiamate multi-provider in parallelo servono solo dove ha senso (es. health aggregato), non per mescolare ranking cross-sport nell'MVP.
 
 ### 5. Timeout
 
@@ -104,6 +110,11 @@ Usare invece:
 prediction.probabilities[]
 ```
 
+### 7. Naming
+
+- `sport`: `football` | `tennis`
+- `provider.name`: `soccer-oracle` | `tennis-oracle`
+
 ## Backend folder structure proposta
 
 ```text
@@ -111,9 +122,11 @@ backend/
 ├── app/
 │   ├── api/
 │   │   └── v1/
-│   │       ├── feed.py
+│   │       ├── health.py
 │   │       ├── sports.py
+│   │       ├── competitions.py
 │   │       ├── events.py
+│   │       ├── markets.py
 │   │       └── predictions.py
 │   │
 │   ├── core/
@@ -124,6 +137,7 @@ backend/
 │   ├── domain/
 │   │   ├── event.py
 │   │   ├── prediction.py
+│   │   ├── market.py
 │   │   └── sport.py
 │   │
 │   ├── providers/
@@ -138,8 +152,9 @@ backend/
 │   │       └── schemas.py
 │   │
 │   ├── services/
-│   │   ├── feed_service.py
+│   │   ├── competition_service.py
 │   │   ├── event_service.py
+│   │   ├── market_service.py
 │   │   └── prediction_service.py
 │   │
 │   ├── repositories/
@@ -158,16 +173,20 @@ backend/
 mobile/
 ├── app/
 │   ├── (tabs)/
-│   │   ├── index.tsx
 │   │   ├── football.tsx
 │   │   ├── tennis.tsx
 │   │   └── saved.tsx
+│   ├── competition/
+│   │   └── [id].tsx
+│   ├── event/
+│   │   └── [id].tsx
 │   └── prediction/
 │       └── [id].tsx
 │
 ├── components/
 │   ├── PredictionCard.tsx
-│   ├── SportFilter.tsx
+│   ├── CompetitionList.tsx
+│   ├── MarketList.tsx
 │   ├── ConfidenceBar.tsx
 │   └── EventHeader.tsx
 │

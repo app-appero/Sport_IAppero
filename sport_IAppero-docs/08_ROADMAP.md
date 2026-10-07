@@ -4,74 +4,82 @@
 
 Obiettivo:
 
-capire esattamente cosa espongono Soccer Oracle e Tennis Oracle.
+capire esattamente cosa espongono Soccer Oracle e Tennis Oracle (OpenAPI/docs reali).
 
 Task:
 
-- verificare `/docs`;
-- verificare `/openapi.json`;
-- censire endpoint;
+- verificare `/docs` e `/openapi.json` di ciascun provider;
+- censire endpoint per competizioni/tornei, eventi, predizioni, mercati;
 - salvare sample response;
-- identificare endpoint prediction;
-- identificare eventi;
-- identificare ID;
+- identificare ID upstream;
 - identificare timestamp;
-- identificare confidence/probabilities.
+- identificare confidence/probabilities;
+- identificare auth richiesta per endpoint utili;
+- mappare tutti i mercati esposti.
 
 Output:
 
 ```text
-docs/provider-soccer-api.md
-docs/provider-tennis-api.md
+sport_IAppero-docs/provider-soccer-api.md
+sport_IAppero-docs/provider-tennis-api.md
 ```
 
 ## Phase 1 — Backend Foundation
 
 Deliverable:
 
-Oracle Sports API funzionante.
+Oracle Sports API funzionante, sport-scoped.
 
 Implementare:
 
-- FastAPI bootstrap;
+- FastAPI bootstrap in `backend/`;
 - config;
-- health;
+- `GET /api/v1/health`;
+- `GET /api/v1/health/providers` (adattandosi ai health upstream);
 - provider interface;
-- SoccerProvider;
-- TennisProvider;
-- mapper;
-- UnifiedPrediction;
-- FeedService;
-- `/sports`;
-- `/feed`;
-- `/predictions/top`;
+- SoccerProvider (`sport=football`);
+- TennisProvider (`sport=tennis`);
+- mapper → `UnifiedPrediction` + mercati;
+- `GET /api/v1/sports`;
+- `GET /api/v1/sports/{sport}/competitions`;
+- `GET /api/v1/sports/{sport}/events`;
+- `GET /api/v1/sports/{sport}/predictions`;
+- `GET /api/v1/events/{event_id}/predictions`;
+- `GET /api/v1/predictions/{id}` (resolve via upstream ids);
 - test unitari mapper.
 
 Definition of Done:
 
 ```text
-GET /api/v1/feed
+GET /api/v1/sports/football/predictions
+GET /api/v1/sports/tennis/predictions
 ```
 
-deve poter restituire prediction Soccer + Tennis nello stesso formato.
+restituiscono prediction nello stesso schema `UnifiedPrediction`, con i mercati esposti dagli upstream.
+
+Non richiesti in Phase 1:
+
+- cross-sport `/feed`
+- `/predictions/top`
 
 ## Phase 2 — Mobile MVP
 
-Implementare:
+Implementare in `mobile/`:
 
 - Expo;
-- navigation;
-- Home;
-- Football;
-- Tennis;
-- Prediction Detail;
+- tab Football;
+- tab Tennis;
+- Saved placeholder;
+- competition / tournament lists;
+- event lists;
+- prediction/event detail con mercati;
 - API client;
 - TanStack Query;
 - loading/error state.
 
 Definition of Done:
 
-un utente apre l'app e può navigare fra prediction dei due sport.
+un utente apre l'app e naviga campionati/tornei → partite → predizioni/mercati per Football e Tennis.
 
 ## Phase 3 — Data Persistence
 
@@ -91,9 +99,11 @@ Implementare:
 - follow;
 - push notifications.
 
-## Phase 5 — Oracle Score
+## Phase 5 — Oracle Score / optional Home
 
-Definire formula e calcolo.
+Definire formula Oracle Score.
+
+Eventuale Home cross-sport solo dopo calibrazione/score (non prima).
 
 ## Phase 6 — Subscription
 
@@ -119,8 +129,9 @@ Possibili piani:
 Ogni nuovo sport deve richiedere principalmente:
 
 ```text
-new provider
+new provider adapter
 new mapper
+new mobile tab
 optional UI specialization
 ```
 
