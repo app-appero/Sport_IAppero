@@ -18,7 +18,15 @@ from abc import ABC, abstractmethod
 class SportProvider(ABC):
 
     @abstractmethod
+    async def get_competitions(self, **filters):
+        pass
+
+    @abstractmethod
     async def get_events(self, **filters):
+        pass
+
+    @abstractmethod
+    async def get_markets(self, **filters):
         pass
 
     @abstractmethod
