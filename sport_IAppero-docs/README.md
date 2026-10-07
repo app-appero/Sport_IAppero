@@ -104,6 +104,11 @@ Non implementare nella prima fase:
 - PostgreSQL Railway (quando serve persistenza)
 - variabili ambiente per gli URL dei provider
 
+## Stato implementazione
+
+- Phase 0 docs: `provider-soccer-api.md`, `provider-tennis-api.md` (re-capture OpenAPI when Railway apps are online).
+- Phase 1 backend scaffold: `../backend/` with sport-scoped `/api/v1` endpoints and fixture mode.
+
 ## Documentazione
 
 Leggere in questo ordine:

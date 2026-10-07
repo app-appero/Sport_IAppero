@@ -1,0 +1,80 @@
+{
+  "matches": [
+    {
+      "fixture_id": "123456",
+      "home": {"id": "inter", "name": "Inter"},
+      "away": {"id": "juventus", "name": "Juventus"},
+      "league": {"id": "serie-a", "name": "Serie A"},
+      "kickoff": "2026-10-10T20:45:00Z",
+      "status": "scheduled",
+      "predictions": [
+        {
+          "market": "match_winner",
+          "selection": {"id": "inter", "name": "Inter"},
+          "confidence": 0.71,
+          "probabilities": [
+            {"key": "home", "label": "Inter", "value": 0.71},
+            {"key": "draw", "label": "Draw", "value": 0.18},
+            {"key": "away", "label": "Juventus", "value": 0.11}
+          ],
+          "generated_at": "2026-10-07T12:00:00Z"
+        },
+        {
+          "market": "over_under_2_5",
+          "selection": {"id": "over", "name": "Over 2.5"},
+          "confidence": 0.58,
+          "probabilities": [
+            {"key": "over", "label": "Over 2.5", "value": 0.58},
+            {"key": "under", "label": "Under 2.5", "value": 0.42}
+          ],
+          "generated_at": "2026-10-07T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "fixture_id": "123457",
+      "home": {"id": "milan", "name": "Milan"},
+      "away": {"id": "napoli", "name": "Napoli"},
+      "league": {"id": "serie-a", "name": "Serie A"},
+      "kickoff": "2026-10-10T18:00:00Z",
+      "status": "scheduled",
+      "predictions": [
+        {
+          "market": "match_winner",
+          "selection": {"id": "napoli", "name": "Napoli"},
+          "confidence": 0.55,
+          "probabilities": {
+            "home": 0.28,
+            "draw": 0.17,
+            "away": 0.55
+          },
+          "generated_at": "2026-10-07T12:00:00Z"
+        },
+        {
+          "market": "btts",
+          "selection": {"id": "yes", "name": "Yes"},
+          "confidence": 0.62,
+          "probabilities": [
+            {"key": "yes", "label": "Yes", "value": 0.62},
+            {"key": "no", "label": "No", "value": 0.38}
+          ],
+          "generated_at": "2026-10-07T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "fixture_id": "223001",
+      "home_team": "Arsenal",
+      "away_team": "Chelsea",
+      "league_name": "Premier League",
+      "league_id": "premier-league",
+      "start_time": "2026-10-11T16:30:00Z",
+      "market": "match_winner",
+      "prob_home": 0.48,
+      "prob_draw": 0.27,
+      "prob_away": 0.25,
+      "confidence": 0.48,
+      "generated_at": "2026-10-07T12:00:00Z"
+    }
+  ]
+}

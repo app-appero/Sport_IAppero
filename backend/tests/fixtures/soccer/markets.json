@@ -1,0 +1,5 @@
+[
+  {"key": "match_winner", "name": "Match Winner"},
+  {"key": "over_under_2_5", "name": "Over/Under 2.5"},
+  {"key": "btts", "name": "Both Teams To Score"}
+]

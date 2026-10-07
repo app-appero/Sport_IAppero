@@ -1,0 +1,30 @@
+{
+  "fixture_id": "123456",
+  "home": {"id": "inter", "name": "Inter"},
+  "away": {"id": "juventus", "name": "Juventus"},
+  "league": {"id": "serie-a", "name": "Serie A"},
+  "kickoff": "2026-10-10T20:45:00Z",
+  "predictions": [
+    {
+      "market": "match_winner",
+      "selection": {"id": "inter", "name": "Inter"},
+      "confidence": 0.71,
+      "probabilities": [
+        {"key": "home", "label": "Inter", "value": 0.71},
+        {"key": "draw", "label": "Draw", "value": 0.18},
+        {"key": "away", "label": "Juventus", "value": 0.11}
+      ],
+      "generated_at": "2026-10-07T12:00:00Z"
+    },
+    {
+      "market": "over_under_2_5",
+      "selection": {"id": "over", "name": "Over 2.5"},
+      "confidence": 0.58,
+      "probabilities": [
+        {"key": "over", "label": "Over 2.5", "value": 0.58},
+        {"key": "under", "label": "Under 2.5", "value": 0.42}
+      ],
+      "generated_at": "2026-10-07T12:00:00Z"
+    }
+  ]
+}

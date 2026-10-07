@@ -1,0 +1,20 @@
+{
+  "fixtures": [
+    {
+      "event_key": "98765",
+      "player_1": {"id": "sinner", "name": "Jannik Sinner"},
+      "player_2": {"id": "alcaraz", "name": "Carlos Alcaraz"},
+      "tournament": {"id": "shanghai-masters", "name": "Shanghai Masters"},
+      "start_time": "2026-10-11T14:00:00Z",
+      "status": "scheduled"
+    },
+    {
+      "event_key": "98766",
+      "player_1": {"id": "djokovic", "name": "Novak Djokovic"},
+      "player_2": {"id": "medvedev", "name": "Daniil Medvedev"},
+      "tournament": {"id": "shanghai-masters", "name": "Shanghai Masters"},
+      "start_time": "2026-10-11T10:00:00Z",
+      "status": "scheduled"
+    }
+  ]
+}
