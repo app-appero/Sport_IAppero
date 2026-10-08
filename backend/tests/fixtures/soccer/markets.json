@@ -1,5 +1,14 @@
-[
-  {"key": "match_winner", "name": "Match Winner"},
-  {"key": "over_under_2_5", "name": "Over/Under 2.5"},
-  {"key": "btts", "name": "Both Teams To Score"}
-]
+{
+  "markets": [
+    "cards_line_3_5",
+    "cards_line_4_5",
+    "cards_line_5_5",
+    "cards_line_6_5",
+    "dc",
+    "goal_no_goal",
+    "h2h",
+    "under_over_1_5",
+    "under_over_2_5",
+    "under_over_3_5"
+  ]
+}

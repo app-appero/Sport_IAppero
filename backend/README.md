@@ -43,8 +43,22 @@ cd backend
 USE_PROVIDER_FIXTURES=true python3 -m pytest -q
 ```
 
+## Live upstream
+
+```bash
+cd backend
+source .venv/bin/activate
+cp .env.example .env
+# set TENNIS_ORACLE_USERNAME / TENNIS_ORACLE_PASSWORD in .env
+export USE_PROVIDER_FIXTURES=false
+uvicorn app.main:app --reload --port 8000
+```
+
+- Soccer day filter uses upstream `target_date`.
+- Tennis login is performed automatically by the adapter.
+- Never commit `.env` (passwords).
+
 ## Notes
 
 - Upstream OpenAPI discovery docs: `../sport_IAppero-docs/provider-soccer-api.md` and `provider-tennis-api.md`.
-- When Soccer/Tennis Oracle are online, set `USE_PROVIDER_FIXTURES=false` and point base URLs in `.env`.
-- Mappers are tolerant to multiple JSON shapes; re-capture real samples when APIs return.
+- Fixture mode remains available for offline/dev.

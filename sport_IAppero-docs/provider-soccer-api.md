@@ -3,8 +3,10 @@
 **Base URL (dev):** `https://soccer-oracle-api-dev.up.railway.app`  
 **OpenAPI title (when online):** `Soccer ML Platform API` v0.1.0  
 **Auth observed:** no global security schemes in OpenAPI (public GETs for consumer paths).  
-**Status at last full probe:** online with `/openapi.json` (~99KB, 66 paths).  
-**Status 2026-10-07 evening:** Railway returns `Application not found` (404). Discovery below is from the successful earlier probe; **re-run OpenAPI capture when the service is back**.
+**Status 2026-10-08:** online again. `/openapi.json` (~99KB, 66 paths).  
+**Database:** `GET /health/database` → `status=ok` (Postgres Railway internal).  
+**Auth:** public GETs for consumer paths today (username/password reserved for later).  
+**Note:** `/dashboard/day` uses query param **`target_date`** (not `date`). Empty recent October days can mean no fixtures that day (daily sync is expected).
 
 ## Health
 

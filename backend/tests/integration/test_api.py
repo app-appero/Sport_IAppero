@@ -56,12 +56,12 @@ def test_football_predictions(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert body["meta"]["sport"] == "football"
-    assert body["meta"]["count"] >= 4
+    assert body["meta"]["count"] >= 10
     assert all(item["sport"] == "football" for item in body["items"])
     assert all(item["provider"]["name"] == "soccer-oracle" for item in body["items"])
     markets = {item["prediction"]["type"] for item in body["items"]}
-    assert "match_winner" in markets
-    assert "btts" in markets
+    assert "h2h" in markets
+    assert "under_over_2_5" in markets
 
 
 def test_tennis_predictions(client: TestClient):
@@ -77,24 +77,26 @@ def test_competitions_and_events(client: TestClient):
     comps = client.get("/api/v1/sports/football/competitions").json()
     assert comps["meta"]["count"] >= 1
     events = client.get("/api/v1/sports/tennis/events").json()
-    assert events["meta"]["count"] >= 2
+    assert events["meta"]["count"] >= 1
 
 
 def test_prediction_detail(client: TestClient):
-    response = client.get("/api/v1/predictions/soccer_123456_match_winner")
+    response = client.get("/api/v1/predictions/soccer_1552176_h2h")
     assert response.status_code == 200
     body = response.json()
-    assert body["id"] == "soccer_123456_match_winner"
+    assert body["id"] == "soccer_1552176_h2h"
     assert body["sport"] == "football"
-    assert body["prediction"]["type"] == "match_winner"
+    assert body["prediction"]["type"] == "h2h"
 
-    tennis = client.get("/api/v1/predictions/tennis_98765_match_winner")
+    listed = client.get("/api/v1/sports/tennis/predictions").json()["items"]
+    tennis_id = next(i["id"] for i in listed if i["prediction"]["type"] == "match_winner")
+    tennis = client.get(f"/api/v1/predictions/{tennis_id}")
     assert tennis.status_code == 200
     assert tennis.json()["sport"] == "tennis"
 
 
 def test_event_predictions(client: TestClient):
-    response = client.get("/api/v1/events/123456/predictions")
+    response = client.get("/api/v1/events/1552176/predictions")
     assert response.status_code == 200
     body = response.json()
     assert body["meta"]["count"] >= 2

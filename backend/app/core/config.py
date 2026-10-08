@@ -10,13 +10,20 @@ class Settings(BaseSettings):
     tennis_oracle_base_url: str = "https://tennisoracle-backend-dev.up.railway.app"
 
     provider_connect_timeout: float = 3.0
-    provider_read_timeout: float = 8.0
+    provider_read_timeout: float = 15.0
 
     use_provider_fixtures: bool = False
 
+    # Optional API keys / static bearer (legacy)
     soccer_oracle_api_key: str | None = None
     tennis_oracle_api_key: str | None = None
     tennis_oracle_bearer_token: str | None = None
+
+    # Username/password login (Tennis today; Soccer later)
+    tennis_oracle_username: str | None = None
+    tennis_oracle_password: str | None = None
+    soccer_oracle_username: str | None = None
+    soccer_oracle_password: str | None = None
 
     log_level: str = "INFO"
 

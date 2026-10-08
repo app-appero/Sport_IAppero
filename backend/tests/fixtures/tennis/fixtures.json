@@ -1,20 +1,122 @@
-{
-  "fixtures": [
-    {
-      "event_key": "98765",
-      "player_1": {"id": "sinner", "name": "Jannik Sinner"},
-      "player_2": {"id": "alcaraz", "name": "Carlos Alcaraz"},
-      "tournament": {"id": "shanghai-masters", "name": "Shanghai Masters"},
-      "start_time": "2026-10-11T14:00:00Z",
-      "status": "scheduled"
+[
+  {
+    "id": 16081,
+    "event_key": 12168292,
+    "event_date": "2026-10-08",
+    "event_time": "04:00:00",
+    "event_first_player": "C. Norrie",
+    "first_player_key": 1103,
+    "event_second_player": "D. Shapovalov",
+    "second_player_key": 431,
+    "tournament_name": "Shanghai",
+    "tournament_key": 1667,
+    "tournament_round": "ATP Shanghai - 1/64-finals",
+    "surface": "Hard",
+    "event_status": "Cancelled",
+    "event_winner": null,
+    "event_live": "0",
+    "event_type_type": "Atp Singles",
+    "live_score": {
+      "sets": [
+        {
+          "score_first": "0",
+          "score_second": "0",
+          "score_set": "1"
+        }
+      ],
+      "current_game": "-",
+      "server": null,
+      "final_result": "-",
+      "status": "Cancelled"
     },
-    {
-      "event_key": "98766",
-      "player_1": {"id": "djokovic", "name": "Novak Djokovic"},
-      "player_2": {"id": "medvedev", "name": "Daniil Medvedev"},
-      "tournament": {"id": "shanghai-masters", "name": "Shanghai Masters"},
-      "start_time": "2026-10-11T10:00:00Z",
-      "status": "scheduled"
-    }
-  ]
-}
+    "live_score_updated_at": "2026-10-08T07:40:12.767679",
+    "imported_at": "2026-10-08T07:40:12.767679",
+    "week_start": "2026-10-05",
+    "week_end": "2026-10-11",
+    "source": "api-tennis",
+    "is_completed": false,
+    "moved_to_fixture_at": null,
+    "match_lifecycle_status": null,
+    "match_lifecycle_label": null
+  },
+  {
+    "id": 16664,
+    "event_key": 12169224,
+    "event_date": "2026-10-08",
+    "event_time": "07:00:00",
+    "event_first_player": "A. Cirotte",
+    "first_player_key": 13324,
+    "event_second_player": "G. Levinsky",
+    "second_player_key": 87542,
+    "tournament_name": "W15 Islamabad (Pakistan)",
+    "tournament_key": 14353,
+    "tournament_round": "W15 Islamabad - 1/8-finals",
+    "surface": null,
+    "event_status": "",
+    "event_winner": null,
+    "event_live": "0",
+    "event_type_type": "Itf Women Singles",
+    "live_score": {
+      "sets": [
+        {
+          "score_first": "0",
+          "score_second": "0",
+          "score_set": "1"
+        }
+      ],
+      "current_game": "-",
+      "server": null,
+      "final_result": "-",
+      "status": ""
+    },
+    "live_score_updated_at": "2026-10-08T07:40:12.767679",
+    "imported_at": "2026-10-08T07:40:12.767679",
+    "week_start": "2026-10-05",
+    "week_end": "2026-10-11",
+    "source": "api-tennis",
+    "is_completed": false,
+    "moved_to_fixture_at": null,
+    "match_lifecycle_status": null,
+    "match_lifecycle_label": null
+  },
+  {
+    "id": 16666,
+    "event_key": 12169226,
+    "event_date": "2026-10-08",
+    "event_time": "07:00:00",
+    "event_first_player": "K. Laskutova",
+    "first_player_key": 7190,
+    "event_second_player": "S. Suslova",
+    "second_player_key": 90177,
+    "tournament_name": "W15 Islamabad (Pakistan)",
+    "tournament_key": 14353,
+    "tournament_round": "W15 Islamabad - 1/8-finals",
+    "surface": null,
+    "event_status": "",
+    "event_winner": null,
+    "event_live": "0",
+    "event_type_type": "Itf Women Singles",
+    "live_score": {
+      "sets": [
+        {
+          "score_first": "0",
+          "score_second": "0",
+          "score_set": "1"
+        }
+      ],
+      "current_game": "-",
+      "server": null,
+      "final_result": "-",
+      "status": ""
+    },
+    "live_score_updated_at": "2026-10-08T07:40:12.767679",
+    "imported_at": "2026-10-08T07:40:12.767679",
+    "week_start": "2026-10-05",
+    "week_end": "2026-10-11",
+    "source": "api-tennis",
+    "is_completed": false,
+    "moved_to_fixture_at": null,
+    "match_lifecycle_status": null,
+    "match_lifecycle_label": null
+  }
+]

@@ -3,8 +3,9 @@
 **Base URL (dev):** `https://tennisoracle-backend-dev.up.railway.app`  
 **OpenAPI title (when online):** `Tennis Oracle API` v0.1.0  
 **Auth:** OpenAPI includes `/api/auth/login`, `/api/auth/logout`, `/api/auth/me` — some routes may require session/token. Consumer GETs under `/api/next-fixtures*` were reachable without auth in the initial probe; **confirm per-route when online**.  
-**Status at last full probe:** online with `/openapi.json` (~232KB, 88 paths).  
-**Status 2026-10-07 evening:** Railway returns `Application not found` (404). Re-run discovery when back.
+**Status 2026-10-08:** online again. `/openapi.json` (~232KB, 88 paths).  
+**Auth:** required for consumer data. `POST /api/auth/login` with `{username,password}` → `access_token` (Bearer).  
+**DB health path:** no `/health/database`; use `/api/ops/checks` (auth) for import/predictions freshness.
 
 ## Health
 

@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "host": "postgres.railway.internal",
+  "database": "railway",
+  "counts": {
+    "match": 47982,
+    "statistics": 81928,
+    "odds": 21054,
+    "odds_snapshot": 544215
+  }
+}

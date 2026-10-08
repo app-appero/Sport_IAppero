@@ -52,6 +52,8 @@ class SoccerProvider(SportProvider):
     def _fixture_for(self, path: str, params: dict[str, Any] | None) -> Any:
         if path == "/health":
             return {"status": "ok"}
+        if path == "/health/database":
+            return load_fixture("soccer", "health_database.json")
         if path == "/markets":
             return load_fixture("soccer", "markets.json")
         if path.startswith("/dashboard/match/") and path.endswith("/oracle-detail"):
@@ -74,7 +76,16 @@ class SoccerProvider(SportProvider):
                 "up",
             }:
                 status = "unavailable"
-            return {"provider": self.provider_name, "status": status, "detail": None}
+            detail = None
+            try:
+                db = await self._get("/health/database")
+                if isinstance(db, dict):
+                    detail = f"database={db.get('status')}"
+                    if db.get("status") not in {None, "ok"}:
+                        status = "unavailable"
+            except Exception:  # noqa: BLE001
+                pass
+            return {"provider": self.provider_name, "status": status, "detail": detail}
         except Exception as exc:  # noqa: BLE001 — health must never raise
             return {"provider": self.provider_name, "status": "unavailable", "detail": str(exc)}
 
@@ -100,8 +111,11 @@ class SoccerProvider(SportProvider):
 
     async def get_events(self, **filters: Any) -> list[Event]:
         params: dict[str, Any] = {}
+        # Upstream query param is target_date (not date)
         if filters.get("date"):
-            params["date"] = filters["date"]
+            params["target_date"] = filters["date"]
+        if filters.get("with_predictions") is not None:
+            params["with_predictions"] = filters["with_predictions"]
         payload = await self._get("/dashboard/day", params=params or None)
         events = mapper.map_events(payload)
         competition_id = filters.get("competition_id")
@@ -119,9 +133,9 @@ class SoccerProvider(SportProvider):
         return mapper.map_competitions_from_events(events)
 
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = {"with_predictions": True}
         if filters.get("date"):
-            params["date"] = filters["date"]
+            params["target_date"] = filters["date"]
         payload = await self._get("/dashboard/day", params=params or None)
         predictions = mapper.map_day_payload(payload)
 
@@ -168,30 +182,24 @@ class SoccerProvider(SportProvider):
         if not parsed:
             return None
         fixture_id, market = parsed
+
+        # Prefer scanning day/list payloads mapped to UnifiedPrediction
+        for candidate in await self.get_predictions(event_id=fixture_id, market=market):
+            if candidate.id == prediction_id or candidate.prediction.type == market:
+                return candidate
+
         try:
             detail = await self._get(f"/dashboard/match/{fixture_id}/oracle-detail")
         except Exception:
-            detail = await self._get(f"/dashboard/match/{fixture_id}")
+            try:
+                detail = await self._get(f"/dashboard/match/{fixture_id}")
+            except Exception:
+                return None
 
-        if isinstance(detail, dict):
-            # prefer matching market inside detail
-            nested = detail.get("predictions") or detail.get("markets")
-            if isinstance(nested, list):
-                for item in nested:
-                    if isinstance(item, dict):
-                        pred = mapper.map_prediction({**item, "event": detail})
-                        if pred.prediction.type == market or pred.id == prediction_id:
-                            return pred
-            pred = mapper.map_prediction(detail)
-            # force id/market alignment when detail is single-market
-            if market and pred.prediction.type != market:
-                pred = pred.model_copy(
-                    update={
-                        "id": prediction_id,
-                        "prediction": pred.prediction.model_copy(update={"type": market}),
-                    }
-                )
-            else:
-                pred = pred.model_copy(update={"id": prediction_id})
-            return pred
-        return None
+        if not isinstance(detail, dict):
+            return None
+        mapped = mapper.map_day_payload({"rows": [detail]})
+        for pred in mapped:
+            if pred.id == prediction_id or pred.prediction.type == market:
+                return pred
+        return mapped[0] if mapped else None
