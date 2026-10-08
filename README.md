@@ -11,6 +11,7 @@ Sport_IAppero/
 
 - Docs: [`sport_IAppero-docs/`](./sport_IAppero-docs/README.md)
 - Backend: [`backend/`](./backend/README.md)
+- Mobile: [`mobile/`](./mobile/README.md)
 
 Provider discovery:
 
