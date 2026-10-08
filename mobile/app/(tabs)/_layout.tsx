@@ -14,6 +14,7 @@ function TabIcon({ label, color }: { label: string; color: ColorValue }) {
 export default function TabLayout() {
   return (
     <Tabs
+      initialRouteName="football"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.brand,

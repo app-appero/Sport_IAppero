@@ -1,10 +1,6 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { ReactNode } from 'react';
 
-// This file is web-only and used to configure the root HTML for every
-// web page during static rendering.
-// The contents of this function only run in Node.js environments and
-// do not have access to the DOM or browser APIs.
 export default function Root({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
@@ -12,28 +8,74 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-
-        {/*
-          Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
-          However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.
-        */}
+        <title>Oracle Sports</title>
         <ScrollViewStyleReset />
-
-        {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
-        <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
-        {/* Add any additional <head> elements that you want globally available on web... */}
+        <style dangerouslySetInnerHTML={{ __html: baseCss }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {/* Visible even before React hydrates (avoids pure white/black blank). */}
+        <div id="boot-fallback" style={fallbackStyle}>
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#0B3D2E', letterSpacing: 1 }}>
+            ORACLE SPORTS
+          </div>
+          <div style={{ marginTop: 8, color: '#5A6B63' }}>Avvio app…</div>
+          <div style={{ marginTop: 16, fontSize: 13, color: '#5A6B63' }}>
+            Se resta così, apri direttamente{' '}
+            <a href="/football" style={{ color: '#0B3D2E' }}>
+              /football
+            </a>
+          </div>
+        </div>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Hide boot fallback once React mounts something real.
+              const hide = () => {
+                const el = document.getElementById('boot-fallback');
+                if (el) el.style.display = 'none';
+              };
+              const obs = new MutationObserver(() => {
+                const root = document.getElementById('root');
+                if (root && root.innerText && root.innerText.includes('ORACLE SPORTS')) hide();
+              });
+              document.addEventListener('DOMContentLoaded', () => {
+                const root = document.getElementById('root');
+                if (root) obs.observe(root, { childList: true, subtree: true, characterData: true });
+                setTimeout(hide, 8000);
+              });
+            `,
+          }}
+        />
+      </body>
     </html>
   );
 }
 
-const responsiveBackground = `
-body {
-  background-color: #fff;
+const fallbackStyle: Record<string, string | number> = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 9999,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: '#F3F6F1',
+  fontFamily: 'system-ui, sans-serif',
+  padding: 24,
+  textAlign: 'center',
+};
+
+const baseCss = `
+html, body, #root {
+  height: 100%;
 }
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #000;
-  }
-}`;
+body {
+  margin: 0;
+  background-color: #F3F6F1;
+}
+#root:not(:empty) ~ #boot-fallback,
+body:has(#root .css-view-g5y9jx) #boot-fallback {
+  display: none !important;
+}
+`;
