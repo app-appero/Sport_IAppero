@@ -10,26 +10,27 @@ import {
 } from '@expo-google-fonts/dm-sans';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import 'react-native-reanimated';
 
-export { ErrorBoundary } from 'expo-router';
+import { colors } from '@/constants/theme';
 
-SplashScreen.preventAutoHideAsync();
+export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
 export default function RootLayout() {
-  const [bebasLoaded] = useBebas({ BebasNeue_400Regular });
-  const [dmLoaded] = useDmSans({
+  // Load brand fonts in the background; never block first paint.
+  useBebas({ BebasNeue_400Regular });
+  useDmSans({
     DMSans_400Regular,
     DMSans_500Medium,
     DMSans_700Bold,
   });
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -42,22 +43,14 @@ export default function RootLayout() {
       }),
   );
 
-  const loaded = bebasLoaded && dmLoaded;
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="dark" />
-      <Stack>
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: colors.surface },
+        }}
+      >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="prediction/[id]"

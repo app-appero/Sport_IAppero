@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const colors = {
   brand: '#0B3D2E',
   brandSoft: '#145C44',
@@ -28,9 +30,18 @@ export const radii = {
   lg: 24,
 };
 
-export const fonts = {
+const webFonts = {
+  display: 'BebasNeue_400Regular, Impact, Haettenschweiler, Arial Black, sans-serif',
+  body: 'DMSans_400Regular, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+  bodyMedium: 'DMSans_500Medium, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+  bodyBold: 'DMSans_700Bold, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+};
+
+const nativeFonts = {
   display: 'BebasNeue_400Regular',
   body: 'DMSans_400Regular',
   bodyMedium: 'DMSans_500Medium',
   bodyBold: 'DMSans_700Bold',
 };
+
+export const fonts = Platform.OS === 'web' ? webFonts : nativeFonts;
