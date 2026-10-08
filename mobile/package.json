@@ -33,8 +33,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web --port 8081",
-    "web:ci": "CI=1 expo start --web --port 8081"
+    "web": "node scripts/serve-web.mjs",
+    "web:ci": "CI=1 expo start --web --port 8081",
+    "web:export": "expo export --platform web",
+    "web:dev": "expo start --web --port 8081 --localhost"
   },
   "private": true
 }
