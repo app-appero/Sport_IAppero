@@ -11,13 +11,22 @@ Aggregates:
 
 ```bash
 cd backend
-python3 -m pip install -e ".[dev]"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 cp .env.example .env
 
 # Demo mode (local fixtures — use when upstream Railway apps are down)
 export USE_PROVIDER_FIXTURES=true
 
 uvicorn app.main:app --reload --port 8000
+```
+
+Without activating the venv:
+
+```bash
+cd backend
+USE_PROVIDER_FIXTURES=true .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 Open:
