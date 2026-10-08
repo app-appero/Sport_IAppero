@@ -1,0 +1,61 @@
+{
+  "id": "soccer:official:05ae74ac-bb93-4621-9242-e911dbd0b178",
+  "event_id": "soccer:event:1579486",
+  "market": {
+    "key": "total_goals",
+    "source_key": "under_over_3_5",
+    "period": "full_time",
+    "line": 3.5
+  },
+  "selection": {
+    "key": "under",
+    "label": "Under 3.5",
+    "participant_role": null,
+    "source_value": "Under 3.5"
+  },
+  "probability": 0.6445167989624025,
+  "outcomes": [],
+  "confidence": {
+    "raw": null,
+    "meaning": null
+  },
+  "decision": {
+    "code": "PLAY",
+    "reason": "Quota sopra la soglia PLAY",
+    "policy_version": "decision_policy_v2_model_break_even"
+  },
+  "pricing": {
+    "odds_decimal": 1.5833333333333333,
+    "fair_odds_market": 1.7175226586102719,
+    "break_even_odds_model": 1.5515499388222065,
+    "probability_edge": 0.06228284997383615,
+    "expected_value": 0.02048493169047072,
+    "bookmaker_count": 3
+  },
+  "model": {
+    "name": "random_forest",
+    "version": null,
+    "run_id": "under_over_3_5_20260914T192150036858Z"
+  },
+  "provenance": {
+    "provider": "soccer",
+    "source_kind": "official_ledger",
+    "source_prediction_id": "05ae74ac-bb93-4621-9242-e911dbd0b178",
+    "content_version": null,
+    "is_official": true,
+    "published_at": "2026-10-03T12:24:22.165189+00:00",
+    "retrieved_at": null
+  },
+  "quality": {
+    "warnings": [
+      "Esempio illustrativo: retrieved_at da valorizzare al fetch; anagrafica evento non inclusa nel ledger."
+    ],
+    "features_available": null,
+    "timestamp_verified": true
+  },
+  "settlement": {
+    "status": "lost",
+    "source_status": "settled_loss",
+    "profit_units": -1.0
+  }
+}

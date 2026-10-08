@@ -1,0 +1,52 @@
+# Roadmap e task
+
+## Sprint 0 — chiudere discovery
+
+| ID | Attività | Criterio di accettazione |
+|---|---|---|
+| D01 | Confrontare snapshot OpenAPI con deployment corrente | Elenco cambiamenti, nessun endpoint inventato |
+| D02 | Confermare branch/commit effettivamente deployati | Deployment SHA registrato, o stato unknown esplicito |
+| D03 | Configurare TENNIS_SERVICE_TOKEN tramite ambiente autorizzato | GET feed Tennis 200 senza secret nel log |
+| D04 | Acquisire fixture Tennis autorizzate e Soccer day popolato | JSON per match winner, extra markets, null/errori; fonti/timestamp |
+| D05 | Verificare timezone eventi e filtri date provider | Test mezzanotte e cambio ora; niente conversione naive implicita |
+| D06 | Confermare label selection, linee, status e modelli attivi | Tabella mapping completa; sconosciuti gestiti |
+
+D03 può impedire integrazione live Tennis ma non scaffold, mapper da schemi e test mock. D05 impedisce dichiarare orari UTC attendibili, non impedisce mostrare null e metadata. La modalità mock deve essere esplicita e non apparire come prediction reale.
+
+## Sprint 1 — BFF
+
+| ID | Attività | Criterio di accettazione |
+|---|---|---|
+| B01 | Scaffold FastAPI/config/logging | health, env example, nessun import motori ML |
+| B02 | Schemi normalizzati e provider Pydantic | Validazione range/null; modello/decision/probability separati |
+| B03 | Soccer client e mapper day | Usa false refresh; niente N+1 di dettaglio; card/line/outcome corretti |
+| B04 | Tennis client e mapper | Header server, offset, First/Second Player, extra markets separati |
+| B05 | Aggregazione/cache/single-flight | Provider indipendenti, 200 parziale, 503 entrambi guasti |
+| B06 | Feed/capability/detail/cursor | Ordinamento deterministico, cursor su snapshot coerente, truncation esposta |
+| B07 | Test integrazione controllati | Nessuna chiamata mutation/training; schemi BFF/OpenAPI generati |
+
+Milestone: `GET /api/v1/feed` serve entrambe le fonti normalizzate quando configurate, e una risposta trasparente se una manca. Non considerare completata integrazione Tennis con sole fixture mock.
+
+## Sprint 2 — Mobile
+
+Expo/TypeScript, API client, home e viste sport, dettaglio, filtri, cache/refresh, empty/degraded/error, preferiti locali. Accettazione: build/typecheck e flussi utente su Android/iOS; nessuna chiave provider nel bundle.
+
+## Sprint 3+ — fiducia e prodotto
+
+Persistenza revisioni e ledger read-only, settlement osservato, storico per mercato/modello con denominatori. Successivamente account/follow/push. Abbonamenti solo dopo validazione uso e analisi del canale di vendita. Live/schedine/Oracle Score non inclusi negli sprint iniziali.
+
+## Test significativi
+
+- Soccer binary prediction=0: probabilità selezione 1-p, non p; preferenza decision_cards.
+- Soccer 1X2 e doppia chance: esiti diversi, nessun calcolo binario improprio.
+- Tennis First/Second Player: corretta probability e quota; label sconosciuta non “corretta” silenziosamente.
+- 2.5 e 3.5, sport diversi o modelli diversi: niente collisione ID.
+- Dati mancanti/NaN/out of range: warning ed esclusione record, non 0.5.
+- Provider 401/timeout/429: nessun leak; feed parziale/cache stale/503 corretto.
+- Pagine Tennis >200: niente duplicati; tetto budget segnala incompletezza.
+- Feed vuoto 200 distinto da provider guasto.
+- Cursor stabile e query diversa invalidata; snapshot scaduto 410.
+- Timezone/date, DST e orari null; finished/live esclusi dal pre-match.
+- Ricalcolo post-evento e draft non promossi a ufficiali/storico pre-match.
+
+Definition of done: spiegare dati verificati, limiti residui, task bloccati e come eseguire. Nessun “tutto pronto” se le credenziali o timezone non sono collaudate.

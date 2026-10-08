@@ -1,0 +1,31 @@
+{
+  "audit_date": "2026-10-07",
+  "source_commits": {
+    "soccer": "6bab8e3f8ba7ce38775a32f0082e8c01457f2eb4",
+    "tennis": "48a7f1040d018ae8a8b79e1b0b84e5e5dcb3d50a"
+  },
+  "deployment_commits_verified": false,
+  "tennis_authenticated_payload_observed": false,
+  "files": [
+    {
+      "path": "soccer-day-empty-real.json",
+      "sha256": "21c591b51eac3fa9c05af692a086c87b3b602e817c0a93c044055b0bca96e6a4",
+      "bytes": 217
+    },
+    {
+      "path": "soccer-official-plays-real.json",
+      "sha256": "de16e726cc8ce013259a23cacb4bf8d3ead8519ca195e6274173924c592e3171",
+      "bytes": 1392
+    },
+    {
+      "path": "soccer-openapi-2026-10-07.json",
+      "sha256": "ab6c5ba76862a0fc8ec51b286c6b2a2cd4c175993718567a99b585c681ad5a56",
+      "bytes": 99148
+    },
+    {
+      "path": "tennis-openapi-2026-10-07.json",
+      "sha256": "3dcf8ad54cecbab01690fa7aca90f194df24ea804928a4d97bb596696b95e5b2",
+      "bytes": 232183
+    }
+  ]
+}
