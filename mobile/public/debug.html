@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oracle Sports Debug</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #F3F6F1; color: #12201A; padding: 24px; }
+    h1 { color: #0B3D2E; margin: 0 0 8px; }
+    .ok { color: #0B3D2E; font-weight: 700; }
+    .bad { color: #B42318; font-weight: 700; }
+    pre { background: #fff; border: 1px solid #D5DED7; padding: 12px; overflow: auto; }
+    a { color: #0B3D2E; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>ORACLE SPORTS — DEBUG</h1>
+  <p>Se vedi questa pagina, il port forward di <code>8081</code> funziona.</p>
+  <p><a href="/football">Apri app Football →</a></p>
+  <p id="api">Test API in corso…</p>
+  <pre id="out">…</pre>
+  <script>
+    const api = 'http://localhost:8000';
+    const el = document.getElementById('api');
+    const out = document.getElementById('out');
+    Promise.all([
+      fetch(api + '/api/v1/health').then(r => r.json()),
+      fetch(api + '/api/v1/sports/football/predictions?date=2026-09-20&limit=2').then(r => r.json()),
+    ]).then(([health, preds]) => {
+      el.innerHTML = '<span class="ok">API OK</span> — health=' + health.status +
+        ', football items=' + (preds.meta && preds.meta.count);
+      out.textContent = JSON.stringify({ health, first: preds.items && preds.items[0] }, null, 2);
+    }).catch((e) => {
+      el.innerHTML = '<span class="bad">API FAIL</span> — porta 8000 non raggiungibile dal browser';
+      out.textContent = String(e);
+    });
+  </script>
+</body>
+</html>
