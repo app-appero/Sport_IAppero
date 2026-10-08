@@ -6,6 +6,26 @@ Creare un contratto unico che rappresenti prediction provenienti da sport differ
 
 Il frontend deve dipendere esclusivamente da questo schema.
 
+## Naming sport vs provider
+
+| Campo | Valori ammessi MVP |
+|-------|--------------------|
+| `sport` | `football`, `tennis` |
+| `provider.name` | `soccer-oracle`, `tennis-oracle` |
+
+Esempio corretto:
+
+```json
+{
+  "sport": "football",
+  "provider": { "name": "soccer-oracle" }
+}
+```
+
+Non usare mai `"soccer"` come valore di `sport`.
+
+`prediction.type` deve supportare **tutti i mercati** scoperti dagli upstream, non solo `match_winner`.
+
 ## UnifiedPrediction
 
 Esempio:

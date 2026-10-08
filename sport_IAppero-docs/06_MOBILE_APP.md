@@ -21,7 +21,6 @@ Non ottimizzare per desktop/web nella fase iniziale.
 Bottom navigation iniziale:
 
 ```text
-Home
 Football
 Tennis
 Saved
@@ -29,34 +28,23 @@ Saved
 
 `Saved` può essere placeholder finché non viene implementata autenticazione/persistenza.
 
+Non c'è una Home cross-sport nell'MVP: ogni sport ha il proprio tab e chiama le API del proprio sport.
+
 ## Screens
 
-## 1. Home
+## 1. Football
 
-Componenti:
-
-- app header;
-- sport selector;
-- Top Predictions;
-- lista prediction;
-- loading state;
-- error/partial provider state.
-
-Card base:
+Flusso:
 
 ```text
-┌────────────────────────────┐
-│ ⚽ Serie A                  │
-│ Inter vs Juventus          │
-│                            │
-│ Prediction                 │
-│ INTER                      │
-│                            │
-│ Confidence 81%             │
-└────────────────────────────┘
+Lista campionati / competizioni
+        ↓
+Lista partite
+        ↓
+Dettaglio evento / prediction (mercati)
 ```
 
-## 2. Football
+Il tab Football chiama solo endpoint `sport=football` (backed by `soccer-oracle`).
 
 Filtri possibili:
 
@@ -65,9 +53,21 @@ Filtri possibili:
 - Calendar
 - Competition
 
-MVP: Today + lista.
+MVP: Today + lista competizioni/partite.
 
-## 3. Tennis
+## 2. Tennis
+
+Flusso:
+
+```text
+Lista tornei
+        ↓
+Lista partite
+        ↓
+Dettaglio evento / prediction (mercati)
+```
+
+Il tab Tennis chiama solo endpoint `sport=tennis` (backed by `tennis-oracle`).
 
 Filtri possibili:
 
@@ -76,21 +76,22 @@ Filtri possibili:
 - Today
 - Tournament
 
-MVP: lista giornaliera.
+MVP: lista giornaliera / tornei disponibili.
 
-## 4. Prediction detail
+## 3. Prediction / event detail
 
 Mostrare:
 
 - sport;
-- competition;
+- competition / tournament;
 - data;
 - partecipanti;
 - prediction;
 - confidence;
 - distribuzione probabilità;
+- market type;
 - provider;
-- eventuale Oracle Score.
+- eventuale Oracle Score (null nell'MVP).
 
 ## Componenti condivisi
 
@@ -100,6 +101,7 @@ SportBadge
 CompetitionBadge
 ConfidenceBar
 ProbabilityRow
+MarketList
 EventParticipants
 EmptyState
 ProviderWarning
@@ -120,6 +122,18 @@ Sempre:
 
 ```text
 mobile → oracle sports backend
+```
+
+Esempi MVP:
+
+```text
+GET /api/v1/sports/football/competitions
+GET /api/v1/sports/football/events
+GET /api/v1/sports/football/predictions
+GET /api/v1/sports/tennis/competitions
+GET /api/v1/sports/tennis/events
+GET /api/v1/events/{id}/predictions
+GET /api/v1/predictions/{id}
 ```
 
 ## State
@@ -145,4 +159,5 @@ Evitare Redux salvo necessità reale.
 - card dense ma leggibili;
 - confidence immediatamente visibile;
 - colori per sport ma non dipendere solo dal colore;
-- tap target mobile >= 44px.
+- tap target mobile >= 44px;
+- mercati multipli leggibili (non solo match winner).

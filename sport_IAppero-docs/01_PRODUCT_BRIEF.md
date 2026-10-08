@@ -6,7 +6,7 @@ Creare una sola app mobile capace di raccogliere e presentare predizioni sportiv
 
 L'utente non deve sapere che dietro Oracle Sports esistono backend diversi.
 
-Per l'utente esiste un solo prodotto.
+Per l'utente esiste un solo prodotto, con una sezione per ogni sport.
 
 ## Problema
 
@@ -16,15 +16,21 @@ Questo comporta:
 
 - UX frammentata;
 - due applicazioni o interfacce separate;
-- nessun feed cross-sport;
-- nessun ranking globale delle prediction;
-- nessun livello comune per preferiti, notifiche o abbonamenti.
+- nessun contenitore comune per preferiti, notifiche o abbonamenti;
+- nessuna base condivisa per aggiungere nuovi sport.
 
 ## Soluzione
 
 Oracle Sports crea un livello comune sopra i modelli esistenti.
 
-Il sistema deve consentire di aggiungere nuovi sport con impatto minimo sull'applicazione.
+Ogni sport ha il proprio tab. Il tab chiama le API Oracle Sports per ottenere:
+
+- campionati / tornei;
+- partite / eventi;
+- predizioni;
+- mercati.
+
+Il sistema deve consentire di aggiungere nuovi sport con impatto minimo (nuovo tab + nuovo adapter).
 
 Esempi futuri:
 
@@ -38,49 +44,58 @@ Esempi futuri:
 
 > Tutte le migliori prediction sportive in una sola app.
 
+## Naming
+
+| Sport in app | Sport id | Provider upstream |
+|--------------|----------|-------------------|
+| Football | `football` | `soccer-oracle` |
+| Tennis | `tennis` | `tennis-oracle` |
+
 ## MVP
 
-### Home
+### Football (tab)
 
-Feed cross-sport con le migliori prediction disponibili.
-
-Esempio:
+Flusso:
 
 ```text
-TOP PREDICTIONS
-
-Football
-Inter vs Juventus
-Prediction: Inter
-Confidence: 81%
-
-Tennis
-Sinner vs Alcaraz
-Prediction: Sinner
-Confidence: 76%
+Campionati / competizioni
+        ↓
+Partite del giorno / selezionate
+        ↓
+Predizioni + mercati (tutti quelli esposti da Soccer Oracle)
 ```
 
-### Football
+### Tennis (tab)
 
-Lista eventi e prediction Soccer Oracle.
+Flusso:
 
-### Tennis
+```text
+Tornei
+        ↓
+Partite
+        ↓
+Predizioni + mercati (tutti quelli esposti da Tennis Oracle)
+```
 
-Lista eventi e prediction Tennis Oracle.
-
-### Prediction detail
+### Prediction / event detail
 
 Dettaglio di:
 
 - evento;
-- competizione;
+- competizione / torneo;
 - partecipanti;
 - data/ora;
 - prediction;
 - probabilità;
 - confidence;
+- market type;
 - provider;
 - eventuale metadata.
+
+### Cosa non fare nell'MVP
+
+- Home cross-sport che ordina Football e Tennis insieme per confidence;
+- assumere che le confidence dei due provider siano confrontabili.
 
 ## Evoluzione prodotto
 
@@ -93,6 +108,7 @@ Dettaglio di:
 - notifiche push;
 - storico prediction;
 - performance dei modelli;
+- eventuale Home / ranking cross-sport;
 - Oracle Score;
 - abbonamento Pro.
 
