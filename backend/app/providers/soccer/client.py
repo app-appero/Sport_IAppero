@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
 
 from app.core.config import Settings
-from app.core.exceptions import ProviderUnavailable
+from app.core.exceptions import ProviderResponseError, ProviderUnavailable
 from app.domain.models import Competition, Event, MarketInfo, UnifiedPrediction
 from app.providers.base import SportProvider
 from app.providers.http_utils import load_fixture, request_json
 from app.providers.soccer import mapper
+
+logger = logging.getLogger(__name__)
+
+_PUBLIC_PATHS = {"/health", "/health/database"}
 
 
 class SoccerProvider(SportProvider):
@@ -19,6 +24,7 @@ class SoccerProvider(SportProvider):
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
         self._settings = settings
         self._owns_client = client is None
+        self._token: str | None = None
         timeout = httpx.Timeout(
             connect=settings.provider_connect_timeout,
             read=settings.provider_read_timeout,
@@ -38,16 +44,77 @@ class SoccerProvider(SportProvider):
         if self._owns_client:
             await self._client.aclose()
 
+    async def _ensure_auth(self) -> None:
+        if self._settings.use_provider_fixtures:
+            return
+        if self._token:
+            return
+        # Static API key alone may be enough for some deployments.
+        if self._settings.soccer_oracle_api_key and not (
+            self._settings.soccer_oracle_username and self._settings.soccer_oracle_password
+        ):
+            return
+        username = self._settings.soccer_oracle_username
+        password = self._settings.soccer_oracle_password
+        if not username or not password:
+            return
+        try:
+            response = await self._client.post(
+                "/auth/login",
+                json={"username": username, "password": password},
+            )
+        except httpx.HTTPError as exc:
+            raise ProviderUnavailable(self.provider_name, f"Login failed: {exc}") from exc
+        if response.status_code >= 400:
+            raise ProviderResponseError(
+                self.provider_name,
+                f"Login returned {response.status_code}",
+                response.status_code,
+            )
+        data = response.json()
+        token = (
+            data.get("access_token")
+            or data.get("token")
+            or data.get("accessToken")
+            or (data.get("data") or {}).get("access_token")
+        )
+        if not token:
+            raise ProviderResponseError(self.provider_name, "Login response missing access_token")
+        self._token = token
+        self._client.headers["Authorization"] = f"Bearer {token}"
+        logger.info("Authenticated against soccer-oracle as %s", username)
+
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if self._settings.use_provider_fixtures:
             return self._fixture_for(path, params)
-        return await request_json(
-            self._client,
-            provider=self.provider_name,
-            method="GET",
-            path=path,
-            params=params,
-        )
+        if path not in _PUBLIC_PATHS:
+            await self._ensure_auth()
+        try:
+            return await request_json(
+                self._client,
+                provider=self.provider_name,
+                method="GET",
+                path=path,
+                params=params,
+            )
+        except ProviderResponseError as exc:
+            # refresh token once on 401 for protected routes
+            if (
+                exc.status_code == 401
+                and path not in _PUBLIC_PATHS
+                and self._settings.soccer_oracle_username
+            ):
+                self._token = None
+                self._client.headers.pop("Authorization", None)
+                await self._ensure_auth()
+                return await request_json(
+                    self._client,
+                    provider=self.provider_name,
+                    method="GET",
+                    path=path,
+                    params=params,
+                )
+            raise
 
     def _fixture_for(self, path: str, params: dict[str, Any] | None) -> Any:
         if path == "/health":

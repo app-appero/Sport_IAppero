@@ -22,6 +22,8 @@ Il BFF è un servizio API separato (repo Sport_IAppero, contesto `backend/`). He
 | TENNIS_ORACLE_BASE_URL | https://tennisoracle-backend-dev.up.railway.app | Solo lato server |
 | TENNIS_ORACLE_USERNAME / PASSWORD | Segreti | Login Tennis upstream |
 | TENNIS_ORACLE_BEARER_TOKEN | Opzionale | Alternativa al login |
+| SOCCER_ORACLE_USERNAME / PASSWORD | Segreti | Login Soccer `POST /auth/login` (dashboard protetto) |
+| SOCCER_ORACLE_API_KEY | Opzionale | Solo se upstream accetta `X-API-Key` al posto del login |
 | USE_PROVIDER_FIXTURES | false in Railway | true solo locale/test |
 | APP_TIMEZONE | Europe/Rome | Query giorno consumer |
 | PROVIDER_CONNECT_TIMEOUT | 3 | |

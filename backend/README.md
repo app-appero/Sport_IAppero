@@ -77,6 +77,7 @@ uvicorn app.main:app --reload --port 8000
 3. **Variables**:
    - `USE_PROVIDER_FIXTURES=false`
    - `SOCCER_ORACLE_BASE_URL`, `TENNIS_ORACLE_BASE_URL` (default in `.env.example`)
+   - `SOCCER_ORACLE_USERNAME`, `SOCCER_ORACLE_PASSWORD` (login `POST /auth/login`)
    - `TENNIS_ORACLE_USERNAME`, `TENNIS_ORACLE_PASSWORD`
    - `LOG_LEVEL=INFO`
    (`PORT` è impostata da Railway; il container fa bind su `${PORT}`.)
