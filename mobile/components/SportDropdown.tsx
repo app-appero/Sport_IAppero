@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   chevron: { fontFamily: fonts.bodyBold, color: colors.inkMuted, fontSize: 16 },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(18,32,26,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     padding: spacing.lg,
   },
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
-  optionActive: { backgroundColor: colors.brand },
+  optionActive: { backgroundColor: colors.accent },
   optionText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 16 },
-  optionTextActive: { color: colors.accent, fontFamily: fonts.bodyBold },
+  optionTextActive: { color: colors.onAccent, fontFamily: fonts.bodyBold },
 });

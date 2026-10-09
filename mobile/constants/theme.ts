@@ -1,19 +1,33 @@
 import { Platform } from 'react-native';
 
+/** Dark theme — charcoal / forest with lime accent (Sport IApperò). */
 export const colors = {
-  brand: '#0B3D2E',
-  brandSoft: '#145C44',
+  brand: '#C8F135',
+  brandSoft: '#9BC41A',
   accent: '#C8F135',
-  accentDeep: '#8FBC00',
-  ink: '#12201A',
-  inkMuted: '#5A6B63',
-  surface: '#F3F6F1',
-  surfaceElevated: '#FFFFFF',
-  line: '#D5DED7',
-  danger: '#B42318',
-  football: '#0B3D2E',
-  tennis: '#1F5C8A',
-  warning: '#9A6700',
+  accentDeep: '#A8D000',
+  ink: '#F2F5F0',
+  inkMuted: '#9AA89F',
+  surface: '#0E1411',
+  surfaceElevated: '#1A221D',
+  line: '#2C3831',
+  danger: '#F87171',
+  football: '#3D7A5C',
+  tennis: '#3B7EA6',
+  warning: '#E6B84D',
+  hit: '#2F9E44',
+  miss: '#C92A2A',
+  hitBg: '#14261A',
+  missBg: '#2A1515',
+  warnBg: '#2A2414',
+  errorBg: '#2A1515',
+  infoBg: '#15241C',
+  /** Text on lime / brand fills */
+  onAccent: '#0E1411',
+};
+
+export const gradients = {
+  screen: ['#0E1411', '#121A16', '#0B1A14'] as const,
 };
 
 export const spacing = {

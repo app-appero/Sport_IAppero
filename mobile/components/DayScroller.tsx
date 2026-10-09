@@ -84,8 +84,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipPast: { backgroundColor: '#EEF1ED' },
+  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  chipPast: { backgroundColor: '#151C18' },
   weekday: {
     fontFamily: fonts.bodyMedium,
     fontSize: 11,
@@ -93,5 +93,5 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   label: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink },
-  textActive: { color: colors.accent },
+  textActive: { color: colors.onAccent },
 });

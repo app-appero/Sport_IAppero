@@ -128,13 +128,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     minHeight: 44,
   },
-  cardHit: { borderColor: '#2F9E44', backgroundColor: '#F1FBF3' },
-  cardMiss: { borderColor: '#C92A2A', backgroundColor: '#FFF5F5' },
+  cardHit: { borderColor: colors.hit, backgroundColor: colors.hitBg },
+  cardMiss: { borderColor: colors.miss, backgroundColor: colors.missBg },
   pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   topRight: { alignItems: 'flex-end', gap: 4 },
   badge: {
-    color: colors.accent,
+    color: colors.ink,
     overflow: 'hidden',
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  hit: { backgroundColor: '#2F9E44' },
-  miss: { backgroundColor: '#C92A2A' },
+  hit: { backgroundColor: colors.hit },
+  miss: { backgroundColor: colors.miss },
   outcomeText: {
     color: '#fff',
     fontFamily: fonts.bodyBold,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   pick: {
     fontFamily: fonts.display,
     fontSize: 28,
-    color: colors.brand,
+    color: colors.accent,
     letterSpacing: 0.5,
     lineHeight: 30,
   },
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   marketPick: {
     fontFamily: fonts.display,
     fontSize: 24,
-    color: colors.brand,
+    color: colors.accent,
     lineHeight: 26,
   },
 });

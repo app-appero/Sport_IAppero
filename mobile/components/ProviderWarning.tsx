@@ -30,8 +30,8 @@ export function ProviderWarning({
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: '#FFF4CE',
-    borderColor: '#E6C200',
+    backgroundColor: colors.warnBg,
+    borderColor: colors.warning,
     borderWidth: 1,
     borderRadius: radii.sm,
     padding: spacing.sm,

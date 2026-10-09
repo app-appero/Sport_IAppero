@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   brand: {
     fontFamily: fonts.display,
     fontSize: 34,
-    color: colors.brand,
+    color: colors.accent,
     letterSpacing: 0.5,
   },
   title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },

@@ -45,25 +45,28 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.surface },
+          headerStyle: { backgroundColor: colors.surfaceElevated },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { color: colors.ink },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="prediction/[id]"
           options={{
-            title: 'Prediction',
-            headerBackTitle: 'Back',
+            title: 'Predizione',
+            headerBackTitle: 'Indietro',
           }}
         />
         <Stack.Screen
           name="event/[id]"
           options={{
-            title: 'Event',
-            headerBackTitle: 'Back',
+            title: 'Evento',
+            headerBackTitle: 'Indietro',
           }}
         />
       </Stack>
