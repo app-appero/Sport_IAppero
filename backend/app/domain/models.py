@@ -15,6 +15,14 @@ class Participant(BaseModel):
     role: str | None = None
 
 
+class EventScore(BaseModel):
+    """Final or live score. Football uses home/away; tennis may use display only."""
+
+    home: int | float | None = None
+    away: int | float | None = None
+    display: str | None = None
+
+
 class Event(BaseModel):
     id: str
     name: str
@@ -22,6 +30,8 @@ class Event(BaseModel):
     start_time: datetime | None = None
     participants: list[Participant] = Field(default_factory=list)
     status: str | None = None
+    score: EventScore | None = None
+    actual_totals: dict[str, Any] | None = None
 
 
 class Selection(BaseModel):
@@ -62,6 +72,7 @@ class UnifiedPrediction(BaseModel):
     provider: ProviderMetadata
     oracle_score: float | None = None
     generated_at: datetime | None = None
+    correct: bool | None = None
     raw: dict[str, Any] | None = Field(default=None, exclude=True)
 
 

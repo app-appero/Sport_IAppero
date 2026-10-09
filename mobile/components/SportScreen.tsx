@@ -11,28 +11,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DayScroller } from '@/components/DayScroller';
 import { EmptyState } from '@/components/EmptyState';
+import { EventCard } from '@/components/EventCard';
 import { FilterChips } from '@/components/FilterChips';
-import { PredictionCard } from '@/components/PredictionCard';
 import { ProviderWarning } from '@/components/ProviderWarning';
 import { marketsForSport } from '@/constants/markets';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
-import { API_BASE_URL } from '@/services/api';
-
-type DateOption = { label: string; value: string | undefined };
+import type { FeedItem } from '@/types/api';
+import { todayKey } from '@/utils/dates';
 
 type Props = {
   sport: 'football' | 'tennis';
   title: string;
   eyebrow: string;
   emptyHint: string;
-  dateOptions?: DateOption[];
 };
 
-export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: Props) {
+export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
   const router = useRouter();
-  const [date, setDate] = useState<string | undefined>(dateOptions?.[0]?.value);
+  const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
 
@@ -62,10 +61,28 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
     return opts;
   }, [competitions.data?.items, sport]);
 
-  const filtersActive = Boolean(market || competitionId || date);
+  const events: FeedItem[] = useMemo(() => {
+    const byEvent = new Map<string, FeedItem>();
+    for (const pred of query.data?.items ?? []) {
+      const key = pred.event.id;
+      const existing = byEvent.get(key);
+      if (!existing) {
+        byEvent.set(key, {
+          event: pred.event,
+          predictions: [pred],
+          sport: String(pred.sport),
+        });
+      } else {
+        existing.predictions.push(pred);
+      }
+    }
+    return Array.from(byEvent.values());
+  }, [query.data?.items]);
+
+  const filtersActive = Boolean(market || competitionId || date !== todayKey());
 
   const clearFilters = () => {
-    setDate(dateOptions?.[0]?.value);
+    setDate(todayKey());
     setMarket(undefined);
     setCompetitionId(undefined);
   };
@@ -83,17 +100,7 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
           <Text style={styles.brand}>ORACLE SPORTS</Text>
           <Text style={styles.eyebrow}>{eyebrow}</Text>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.apiHint}>
-            API {API_BASE_URL || '(same origin /api → :8000)'}
-          </Text>
-          {dateOptions && dateOptions.length > 0 ? (
-            <FilterChips
-              options={dateOptions}
-              value={date}
-              onChange={setDate}
-              accessibilityLabel="Filtro data"
-            />
-          ) : null}
+          <DayScroller value={date} onChange={setDate} />
           <FilterChips
             options={marketOptions}
             value={market}
@@ -127,8 +134,8 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
           </View>
         ) : (
           <FlatList
-            data={query.data?.items ?? []}
-            keyExtractor={(item) => item.id}
+            data={events}
+            keyExtractor={(item) => item.event.id}
             contentContainerStyle={styles.list}
             refreshControl={
               <RefreshControl refreshing={query.isRefetching} onRefresh={() => query.refetch()} />
@@ -138,24 +145,23 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
                 tone={
                   providerHealth?.status && providerHealth.status !== 'ok' ? 'degraded' : 'empty'
                 }
-                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna predizione'}
+                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
                 subtitle={
-                  filtersActive
-                    ? 'Prova a cambiare mercato, competizione o giorno.'
-                    : emptyHint
+                  filtersActive ? 'Prova a cambiare mercato, competizione o giorno.' : emptyHint
                 }
                 actionLabel={filtersActive ? 'Azzera filtri' : undefined}
                 onAction={filtersActive ? clearFilters : undefined}
               />
             }
             renderItem={({ item, index }) => (
-              <PredictionCard
+              <EventCard
                 item={item}
                 index={index}
+                preferredMarket={market}
                 onPress={() =>
                   router.push({
-                    pathname: '/prediction/[id]',
-                    params: { id: item.id },
+                    pathname: '/event/[id]',
+                    params: { id: item.event.id },
                   })
                 }
               />
@@ -193,11 +199,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 20,
     color: colors.ink,
-  },
-  apiHint: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.inkMuted,
     marginBottom: spacing.sm,
   },
   list: {

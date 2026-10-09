@@ -6,6 +6,7 @@ from typing import Any
 from app.domain.models import (
     Competition,
     Event,
+    EventScore,
     MarketInfo,
     Participant,
     PredictionValue,
@@ -166,6 +167,21 @@ def map_event(raw: dict[str, Any]) -> Event:
     if start is not None and start.tzinfo is None:
         start = None
 
+    score_obj = None
+    live = _dig(raw, "live_score", "score")
+    if isinstance(live, dict):
+        final = live.get("final_result")
+        if isinstance(final, str) and final.strip() and final.strip() != "-":
+            score_obj = EventScore(display=final.strip())
+        else:
+            sets = live.get("event_games") or live.get("sets")
+            # Prefer explicit set scores when present
+            if isinstance(sets, list) and sets:
+                # leave display null; UI can still show status
+                pass
+    elif isinstance(live, str) and live.strip() and live.strip() != "-":
+        score_obj = EventScore(display=live.strip())
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
@@ -173,6 +189,8 @@ def map_event(raw: dict[str, Any]) -> Event:
         start_time=start,
         participants=participants,
         status=str(_dig(raw, "event_status", "status", "match_lifecycle_status") or "") or None,
+        score=score_obj,
+        actual_totals=None,
     )
 
 

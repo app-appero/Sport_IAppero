@@ -46,17 +46,35 @@ export default function PredictionDetailScreen() {
       <Text style={styles.sport}>{String(item.sport).toUpperCase()}</Text>
       <Text style={styles.event}>{item.event.name}</Text>
       <Text style={styles.meta}>
-        {item.event.competition?.name ?? 'Competition'}
-        {item.event.start_time ? ` · ${new Date(item.event.start_time).toLocaleString()}` : ''}
+        {item.event.competition?.name ?? 'Competizione'}
+        {item.event.start_time
+          ? ` · ${new Date(item.event.start_time).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}`
+          : ''}
       </Text>
 
+      {item.event.score?.display ||
+      (item.event.score?.home != null && item.event.score?.away != null) ? (
+        <View style={styles.block}>
+          <Text style={styles.label}>Risultato</Text>
+          <Text style={styles.value}>
+            {item.event.score?.display ??
+              `${item.event.score?.home}-${item.event.score?.away}`}
+          </Text>
+          {item.correct === true ? (
+            <Text style={styles.hit}>Esito verde</Text>
+          ) : item.correct === false ? (
+            <Text style={styles.miss}>Esito rosso</Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={styles.block}>
-        <Text style={styles.label}>Market</Text>
+        <Text style={styles.label}>Mercato</Text>
         <Text style={styles.value}>{item.prediction.type.replace(/_/g, ' ')}</Text>
       </View>
 
       <View style={styles.block}>
-        <Text style={styles.label}>Prediction</Text>
+        <Text style={styles.label}>Predizione</Text>
         <Text style={styles.pick}>{item.prediction.selection.name}</Text>
         <ConfidenceBar value={item.prediction.confidence} />
       </View>
@@ -188,4 +206,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 15,
   },
+  hit: { fontFamily: fonts.bodyBold, color: '#2F9E44', fontSize: 14 },
+  miss: { fontFamily: fonts.bodyBold, color: '#C92A2A', fontSize: 14 },
 });
+

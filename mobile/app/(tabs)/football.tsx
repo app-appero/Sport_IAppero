@@ -5,12 +5,8 @@ export default function FootballTab() {
     <SportScreen
       sport="football"
       title="Campionati e mercati"
-      eyebrow="Football tab · soccer-oracle"
+      eyebrow="Calcio"
       emptyHint="Nessuna partita per la giornata selezionata."
-      dateOptions={[
-        { label: 'Oggi', value: undefined },
-        { label: '20 Sep', value: '2026-09-20' },
-      ]}
     />
   );
 }

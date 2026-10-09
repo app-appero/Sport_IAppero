@@ -2,9 +2,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/EmptyState';
-import { PredictionCard } from '@/components/PredictionCard';
+import { MarketRow } from '@/components/EventCard';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
+import { formatEventTime } from '@/utils/dates';
+import { scoreForMarket } from '@/utils/outcome';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,14 +24,19 @@ export default function EventDetailScreen() {
   if (query.isError) {
     return (
       <EmptyState
-        title="Unable to load event markets"
+        title="Impossibile caricare i mercati"
         subtitle={query.error instanceof Error ? query.error.message : undefined}
       />
     );
   }
 
   const items = query.data?.items ?? [];
-  const title = items[0]?.event.name ?? `Event ${id}`;
+  const event = items[0]?.event;
+  const title = event?.name ?? `Evento ${id}`;
+  const timeLabel = formatEventTime(event?.start_time ?? null);
+  const scoreSample = event
+    ? scoreForMarket(event, items[0]?.prediction.type || 'h2h')
+    : null;
 
   return (
     <FlatList
@@ -41,14 +48,17 @@ export default function EventDetailScreen() {
         <View style={styles.header}>
           <Text style={styles.brand}>ORACLE SPORTS</Text>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{items.length} markets / predictions</Text>
+          <Text style={styles.subtitle}>
+            {event?.competition?.name ?? 'Competizione'} · {timeLabel}
+          </Text>
+          {scoreSample ? <Text style={styles.score}>Risultato · {scoreSample}</Text> : null}
+          <Text style={styles.subtitle}>{items.length} mercati predetti</Text>
         </View>
       }
-      ListEmptyComponent={<EmptyState title="No markets for this event" />}
-      renderItem={({ item, index }) => (
-        <PredictionCard
+      ListEmptyComponent={<EmptyState title="Nessun mercato per questo evento" />}
+      renderItem={({ item }) => (
+        <MarketRow
           item={item}
-          index={index}
           onPress={() =>
             router.push({
               pathname: '/prediction/[id]',
@@ -74,4 +84,5 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },
   subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
+  score: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink, marginTop: 4 },
 });
