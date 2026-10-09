@@ -29,8 +29,8 @@ const SPORT_CHIPS: { label: string; value: SportFilter }[] = [
 ];
 
 const DATE_CHIPS = [
-  { label: '20 Sep', value: '2026-09-20' as string | undefined },
-  { label: 'Today', value: undefined },
+  { label: 'Today', value: undefined as string | undefined },
+  { label: '20 Sep', value: '2026-09-20' },
 ];
 
 export function HomeFeedScreen() {

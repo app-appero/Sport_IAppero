@@ -11,12 +11,15 @@ import {
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { EmptyState } from '@/components/EmptyState';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useIsFavorite, useToggleFavorite } from '@/hooks/favorites';
 import { usePredictionDetail } from '@/hooks/queries';
 
 export default function PredictionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const query = usePredictionDetail(String(id ?? ''));
+  const favorite = useIsFavorite(String(id ?? ''));
+  const toggle = useToggleFavorite();
 
   if (query.isLoading) {
     return (
@@ -74,6 +77,16 @@ export default function PredictionDetailScreen() {
         <Text style={styles.label}>Provider</Text>
         <Text style={styles.value}>{item.provider.name}</Text>
       </View>
+
+      <Pressable
+        style={[styles.cta, styles.secondaryCta]}
+        onPress={() => toggle.mutate(item)}
+        disabled={toggle.isPending}
+      >
+        <Text style={styles.secondaryCtaText}>
+          {favorite.data ? 'Rimuovi dai preferiti' : 'Salva nei preferiti'}
+        </Text>
+      </Pressable>
 
       <Pressable
         style={styles.cta}
@@ -162,6 +175,16 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: colors.accent,
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+  },
+  secondaryCta: {
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  secondaryCtaText: {
+    color: colors.brand,
     fontFamily: fonts.bodyBold,
     fontSize: 15,
   },
