@@ -180,9 +180,16 @@ async def _fetch_sport(
     except ProviderError as exc:
         status = _provider_status_from_error(exc)
         label = "Tennis" if sport == "tennis" else "Football"
-        warn = f"{label} temporaneamente non disponibile"
+        # Keep warning actionable but never include secrets.
+        detail = (exc.message or "").split(":")[0][:120]
         if status == "unauthorized":
             warn = f"{label} non autorizzato"
+            if detail:
+                warn = f"{warn} ({detail})"
+        else:
+            warn = f"{label} temporaneamente non disponibile"
+            if detail:
+                warn = f"{warn} ({detail})"
         return ProviderSlice(
             sport=sport,
             provider=provider.provider_name,

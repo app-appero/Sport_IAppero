@@ -44,6 +44,16 @@ class SoccerProvider(SportProvider):
         if self._owns_client:
             await self._client.aclose()
 
+    def _extract_token(self, data: Any) -> str | None:
+        if not isinstance(data, dict):
+            return None
+        nested = data.get("data") if isinstance(data.get("data"), dict) else {}
+        for key in ("access_token", "token", "accessToken", "jwt", "id_token"):
+            value = data.get(key) or nested.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
     async def _ensure_auth(self) -> None:
         if self._settings.use_provider_fixtures:
             return
@@ -53,11 +63,16 @@ class SoccerProvider(SportProvider):
         if self._settings.soccer_oracle_api_key and not (
             self._settings.soccer_oracle_username and self._settings.soccer_oracle_password
         ):
+            self._token = "api-key"
             return
         username = self._settings.soccer_oracle_username
         password = self._settings.soccer_oracle_password
         if not username or not password:
-            return
+            raise ProviderResponseError(
+                self.provider_name,
+                "Missing SOCCER_ORACLE_USERNAME/PASSWORD",
+                401,
+            )
         try:
             response = await self._client.post(
                 "/auth/login",
@@ -71,18 +86,31 @@ class SoccerProvider(SportProvider):
                 f"Login returned {response.status_code}",
                 response.status_code,
             )
-        data = response.json()
-        token = (
-            data.get("access_token")
-            or data.get("token")
-            or data.get("accessToken")
-            or (data.get("data") or {}).get("access_token")
+
+        data: Any = {}
+        if response.content:
+            try:
+                data = response.json()
+            except ValueError:
+                data = {}
+
+        token = self._extract_token(data)
+        if token:
+            self._token = token
+            self._client.headers["Authorization"] = f"Bearer {token}"
+            logger.info("Authenticated against soccer-oracle as %s (bearer)", username)
+            return
+
+        # Session/cookie auth: httpx keeps cookies on the shared client.
+        if response.cookies or "set-cookie" in {k.lower() for k in response.headers.keys()}:
+            self._token = "cookie-session"
+            logger.info("Authenticated against soccer-oracle as %s (session cookie)", username)
+            return
+
+        raise ProviderResponseError(
+            self.provider_name,
+            "Login succeeded but no access_token or session cookie was returned",
         )
-        if not token:
-            raise ProviderResponseError(self.provider_name, "Login response missing access_token")
-        self._token = token
-        self._client.headers["Authorization"] = f"Bearer {token}"
-        logger.info("Authenticated against soccer-oracle as %s", username)
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if self._settings.use_provider_fixtures:
