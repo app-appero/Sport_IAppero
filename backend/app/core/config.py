@@ -33,7 +33,16 @@ class Settings(BaseSettings):
     provider_max_items: int = 1000
     snapshot_ttl_seconds: int = 300
 
+    # Deploy identity (D02). Railway injects RAILWAY_GIT_COMMIT_SHA when linked to GitHub.
+    git_sha: str | None = None
+    railway_git_commit_sha: str | None = None
+
     log_level: str = "INFO"
+
+    @property
+    def deploy_sha(self) -> str:
+        sha = (self.git_sha or self.railway_git_commit_sha or "").strip()
+        return sha or "unknown"
 
 
 @lru_cache

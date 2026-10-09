@@ -12,22 +12,46 @@ export function FeedBanner({
 }) {
   if (!meta) return null;
   const lines: string[] = [];
+
   if (source === 'fallback') {
-    lines.push('Modalità compatibilità: /feed non ancora sul BFF deployato.');
+    lines.push('Modalità compatibilità: feed ricostruito dagli endpoint per sport.');
   }
-  if (meta.status === 'degraded') {
-    lines.push('Feed parziale: un provider non è disponibile.');
+
+  if (meta.status === 'unavailable') {
+    lines.push('Feed non disponibile: entrambi i provider sono offline.');
+  } else if (meta.status === 'degraded') {
+    const down = (meta.providers ?? [])
+      .filter((p) => p.status !== 'ok' && p.status !== 'empty')
+      .map((p) => p.provider);
+    lines.push(
+      down.length
+        ? `Feed parziale: ${down.join(', ')} non disponibile.`
+        : 'Feed parziale: un provider non è disponibile.',
+    );
   } else if (meta.status === 'empty') {
     lines.push('Nessun evento per i filtri selezionati.');
   }
+
   for (const w of meta.warnings ?? []) {
     if (!lines.includes(w)) lines.push(w);
   }
   if (lines.length === 0) return null;
 
-  const tone = meta.status === 'degraded' || source === 'fallback' ? 'warn' : 'info';
+  const tone =
+    meta.status === 'unavailable'
+      ? 'error'
+      : meta.status === 'degraded' || source === 'fallback'
+        ? 'warn'
+        : 'info';
+
   return (
-    <View style={[styles.wrap, tone === 'warn' ? styles.warn : styles.info]}>
+    <View
+      style={[
+        styles.wrap,
+        tone === 'warn' ? styles.warn : tone === 'error' ? styles.error : styles.info,
+      ]}
+      accessibilityRole="text"
+    >
       {lines.map((line) => (
         <Text key={line} style={styles.text}>
           {line}
@@ -48,6 +72,10 @@ const styles = StyleSheet.create({
   warn: {
     backgroundColor: '#FFF4CE',
     borderColor: '#E6C200',
+  },
+  error: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#F5C2C0',
   },
   info: {
     backgroundColor: '#E7F2E4',

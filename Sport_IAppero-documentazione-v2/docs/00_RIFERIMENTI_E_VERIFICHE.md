@@ -57,3 +57,41 @@ Tennis:
 - https://github.com/romy1992/tennis_oracle/blob/48a7f1040d018ae8a8b79e1b0b84e5e5dcb3d50a/backend/Dockerfile
 
 Il mapping delle righe Soccer usa il serializer del servizio: OpenAPI descrive `rows` come dizionari generici e non basta da sola a tipizzarli. Tennis ha schemi Pydantic espliciti; il payload autenticato non è stato letto. Vedi `evidence/manifest.json` per integrità degli snapshot.
+
+## Sprint 0 residuali — chiusura 2026-10-09
+
+### D02 — SHA deploy
+
+Il BFF espone `git_sha` su `/`, `/health` e `/ready`. Sorgente: `GIT_SHA` oppure `RAILWAY_GIT_COMMIT_SHA` (iniezione Railway se Source GitHub collegato). Se assente → `"unknown"` esplicito (non inventato).
+
+Verifica: `curl -sS https://bff-sport-iappero-dev.up.railway.app/ready | jq .git_sha`
+
+Aggregatore: repository `https://github.com/app-appero/Sport_IAppero` (branch `main`). Il SHA runtime è autoritativo rispetto al commit GitHub locale.
+
+### D05 — Timezone e filtri data
+
+| Aspetto | Policy MVP | Stato |
+|---|---|---|
+| Query feed `timezone` | Solo `Europe/Rome` (default `APP_TIMEZONE`) | Enforce in `feed_service` |
+| Giorno calendario | Helper `rome_day_bounds` → `[start,end)` UTC; test unit mezzanotte + DST | Verificato in codice |
+| Soccer `target_date` | Passato al provider come YYYY-MM-DD; nessun rebase silenzioso | OK |
+| Tennis `event_date`+`event_time` | **Nessun offset confermato** → `start_time=null` (non UTC inventato) | Chiuso in mapper |
+| Timestamp aware | Conservati e normalizzati a UTC in output/sort | OK |
+| Naive in sort feed | Solo stabilità d'ordine; non dichiarato come TZ sorgente | Documentato |
+
+Limite residuo: orari Tennis restano null finché l'upstream non pubblica offset o timezone ufficiale.
+
+### D06 — Mapping selection / linee / status / modelli
+
+| Sport | Market key | Selection | Linea | Note |
+|---|---|---|---|---|
+| football | `h2h` | home/away/draw → nomi squadre | — | Codici 1/2/0/X |
+| football | `under_over_*` | over/under + linea dal key | da `under_over_{n}_{d}` | |
+| football | `goal_no_goal` | goal / no_goal | — | |
+| football | `dc` | 1X / 12 / X2 | — | Codici 1/2/0 |
+| football | `cards_line_*` | direction da signal o over/under | da key | mapping incompleto → label sorgente |
+| tennis | `match_winner` | player_1 / player_2 (First/Second Player) | — | Label sconosciuta → source string, non “corretta” |
+| tennis | `first_set_winner` | come match_winner | period first_set | da extra_markets |
+| tennis | `over_under_games` / `total_games` | selection sorgente | linea null se non parsabile | nessun numero inventato |
+
+Sconosciuti: `Selection(id=str(code), name=str(code))` o label raw; market key preservato. Status evento: stringa provider o null. Modello: `ProviderMetadata.name` + `version` se presente; assente → null, mai placeholder finto.

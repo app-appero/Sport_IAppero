@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -14,9 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/EmptyState';
 import { FeedBanner } from '@/components/FeedBanner';
+import { FilterChips } from '@/components/FilterChips';
 import { PredictionCard } from '@/components/PredictionCard';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
-import { useFeed } from '@/hooks/queries';
+import { marketsForSport } from '@/constants/markets';
+import { colors, fonts, spacing } from '@/constants/theme';
+import { useFeed, useSportCompetitions } from '@/hooks/queries';
 import { API_BASE_URL } from '@/services/api';
 import type { UnifiedPrediction } from '@/types/api';
 
@@ -29,7 +30,7 @@ const SPORT_CHIPS: { label: string; value: SportFilter }[] = [
 ];
 
 const DATE_CHIPS = [
-  { label: 'Today', value: undefined as string | undefined },
+  { label: 'Oggi', value: undefined as string | undefined },
   { label: '20 Sep', value: '2026-09-20' },
 ];
 
@@ -37,10 +38,42 @@ export function HomeFeedScreen() {
   const router = useRouter();
   const [sport, setSport] = useState<SportFilter>('all');
   const [date, setDate] = useState<string | undefined>(DATE_CHIPS[0].value);
+  const [market, setMarket] = useState<string | undefined>(undefined);
+  const [competition, setCompetition] = useState<string | undefined>(undefined);
+
   const sportsParam =
     sport === 'all' ? 'football,tennis' : sport === 'football' ? 'football' : 'tennis';
 
-  const feed = useFeed({ date, sports: sportsParam, limit: 40 });
+  const feed = useFeed({
+    date,
+    sports: sportsParam,
+    market,
+    competition,
+    limit: 40,
+  });
+
+  const footballComps = useSportCompetitions('football', date);
+  const tennisComps = useSportCompetitions('tennis', date);
+
+  const marketOptions = useMemo(() => marketsForSport(sport), [sport]);
+
+  const competitionOptions = useMemo(() => {
+    const items = [
+      ...(sport === 'all' || sport === 'football' ? footballComps.data?.items ?? [] : []),
+      ...(sport === 'all' || sport === 'tennis' ? tennisComps.data?.items ?? [] : []),
+    ];
+    const seen = new Set<string>();
+    const opts: { label: string; value: string | undefined }[] = [
+      { label: 'Tutte le competizioni', value: undefined },
+    ];
+    for (const c of items) {
+      const key = c.id || c.name;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      opts.push({ label: c.name, value: key });
+    }
+    return opts.length > 1 ? opts : opts;
+  }, [sport, footballComps.data?.items, tennisComps.data?.items]);
 
   const predictions = useMemo(() => {
     const items = feed.data?.items ?? [];
@@ -52,6 +85,15 @@ export function HomeFeedScreen() {
     }
     return flat;
   }, [feed.data?.items]);
+
+  const filtersActive = Boolean(market || competition || sport !== 'all' || date);
+
+  const clearFilters = () => {
+    setSport('all');
+    setDate(undefined);
+    setMarket(undefined);
+    setCompetition(undefined);
+  };
 
   return (
     <View style={styles.root}>
@@ -70,39 +112,36 @@ export function HomeFeedScreen() {
             API {API_BASE_URL || '(same origin /api → :8000)'}
           </Text>
 
-          <View style={styles.chips}>
-            {SPORT_CHIPS.map((opt) => {
-              const active = sport === opt.value;
-              return (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setSport(opt.value)}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.chips}>
-            {DATE_CHIPS.map((opt) => {
-              const active = date === opt.value;
-              return (
-                <Pressable
-                  key={opt.label}
-                  onPress={() => setDate(opt.value)}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <FilterChips
+            options={SPORT_CHIPS}
+            value={sport}
+            onChange={(v) => {
+              setSport(v);
+              setMarket(undefined);
+              setCompetition(undefined);
+            }}
+            accessibilityLabel="Filtro sport"
+          />
+          <FilterChips
+            options={DATE_CHIPS}
+            value={date}
+            onChange={setDate}
+            accessibilityLabel="Filtro data"
+          />
+          <FilterChips
+            options={marketOptions}
+            value={market}
+            onChange={setMarket}
+            accessibilityLabel="Filtro mercato"
+          />
+          {competitionOptions.length > 1 ? (
+            <FilterChips
+              options={competitionOptions}
+              value={competition}
+              onChange={setCompetition}
+              accessibilityLabel="Filtro competizione"
+            />
+          ) : null}
 
           <FeedBanner meta={feed.data?.meta} source={feed.data?.source} />
         </View>
@@ -112,10 +151,15 @@ export function HomeFeedScreen() {
             <ActivityIndicator color={colors.brand} />
           </View>
         ) : feed.isError ? (
-          <EmptyState
-            title="Unable to load feed"
-            subtitle={feed.error instanceof Error ? feed.error.message : 'Unknown error'}
-          />
+          <View style={styles.emptyPad}>
+            <EmptyState
+              tone="error"
+              title="Impossibile caricare il feed"
+              subtitle={feed.error instanceof Error ? feed.error.message : 'Errore sconosciuto'}
+              actionLabel="Riprova"
+              onAction={() => feed.refetch()}
+            />
+          </View>
         ) : (
           <FlatList
             data={predictions}
@@ -126,8 +170,15 @@ export function HomeFeedScreen() {
             }
             ListEmptyComponent={
               <EmptyState
-                title="Nessuna predizione"
-                subtitle="Prova un altro giorno o sport, oppure attendi il redeploy Railway del /feed."
+                tone={feed.data?.meta.status === 'degraded' ? 'degraded' : 'empty'}
+                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna predizione'}
+                subtitle={
+                  filtersActive
+                    ? 'Prova a togliere mercato o competizione, oppure cambia giorno/sport.'
+                    : 'Nessun evento pre-match al momento. Tira per aggiornare.'
+                }
+                actionLabel={filtersActive ? 'Azzera filtri' : undefined}
+                onAction={filtersActive ? clearFilters : undefined}
               />
             }
             renderItem={({ item, index }) => (
@@ -182,24 +233,11 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     marginBottom: spacing.sm,
   },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.sm },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
-  chipTextActive: { color: colors.accent },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 });

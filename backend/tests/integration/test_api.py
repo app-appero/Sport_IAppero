@@ -106,11 +106,15 @@ def test_event_predictions(client: TestClient):
 
 
 def test_liveness_and_ready(client: TestClient):
-    assert client.get("/health").json()["status"] == "ok"
+    health = client.get("/health").json()
+    assert health["status"] == "ok"
+    assert "git_sha" in health
     ready = client.get("/ready").json()
     assert ready["status"] == "ok"
     assert "football" in ready["providers"]
     assert "tennis" in ready["providers"]
+    assert ready["git_sha"]
+    assert ready["timezone"] == "Europe/Rome"
 
 
 def test_feed_ok(client: TestClient):

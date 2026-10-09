@@ -37,3 +37,36 @@ def test_parse_prediction_id():
         "12168292",
         "first_set_winner",
     )
+
+
+def test_naive_event_date_time_does_not_become_start_time():
+    """D05: bare event_date+event_time must not invent a timezone."""
+    events = mapper.map_events(
+        [
+            {
+                "event_key": "tz-naive-1",
+                "event_first_player": "A",
+                "event_second_player": "B",
+                "event_date": "2026-10-08",
+                "event_time": "04:00:00",
+                "tournament_name": "Test Open",
+            }
+        ]
+    )
+    assert len(events) == 1
+    assert events[0].start_time is None
+
+
+def test_aware_start_time_preserved():
+    events = mapper.map_events(
+        [
+            {
+                "event_key": "tz-aware-1",
+                "event_first_player": "A",
+                "event_second_player": "B",
+                "start_time": "2026-10-08T12:00:00+00:00",
+            }
+        ]
+    )
+    assert events[0].start_time is not None
+    assert events[0].start_time.tzinfo is not None

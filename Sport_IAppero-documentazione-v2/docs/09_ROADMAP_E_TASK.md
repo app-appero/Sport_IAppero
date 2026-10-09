@@ -5,11 +5,11 @@
 | ID | Attività | Criterio di accettazione |
 |---|---|---|
 | D01 | Confrontare snapshot OpenAPI con deployment corrente | Elenco cambiamenti, nessun endpoint inventato |
-| D02 | Confermare branch/commit effettivamente deployati | Deployment SHA registrato, o stato unknown esplicito |
+| D02 | Confermare branch/commit effettivamente deployati | **Chiuso**: `git_sha` su `/ready` (`RAILWAY_GIT_COMMIT_SHA` / `GIT_SHA`, altrimenti `unknown`) |
 | D03 | Configurare TENNIS_SERVICE_TOKEN tramite ambiente autorizzato | GET feed Tennis 200 senza secret nel log |
 | D04 | Acquisire fixture Tennis autorizzate e Soccer day popolato | JSON per match winner, extra markets, null/errori; fonti/timestamp |
-| D05 | Verificare timezone eventi e filtri date provider | Test mezzanotte e cambio ora; niente conversione naive implicita |
-| D06 | Confermare label selection, linee, status e modelli attivi | Tabella mapping completa; sconosciuti gestiti |
+| D05 | Verificare timezone eventi e filtri date provider | **Chiuso**: Rome day bounds + Tennis naive → `start_time=null`; vedi `00_RIFERIMENTI` |
+| D06 | Confermare label selection, linee, status e modelli attivi | **Chiuso**: tabella mapping in `00_RIFERIMENTI`; sconosciuti → label sorgente |
 
 D03 può impedire integrazione live Tennis ma non scaffold, mapper da schemi e test mock. D05 impedisce dichiarare orari UTC attendibili, non impedisce mostrare null e metadata. La modalità mock deve essere esplicita e non apparire come prediction reale.
 

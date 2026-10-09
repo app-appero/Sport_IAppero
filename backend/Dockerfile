@@ -11,6 +11,9 @@ COPY app ./app
 
 RUN pip install --no-cache-dir .
 
+# D02: prefer Railway-injected RAILWAY_GIT_COMMIT_SHA at runtime; ARG/ENV as fallback.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
 ENV PORT=8000
 EXPOSE 8000
 
