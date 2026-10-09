@@ -93,3 +93,48 @@ export interface SportInfo {
   provider: string;
   enabled: boolean;
 }
+
+export interface FeedQuery {
+  date: string | null;
+  timezone: string;
+  sports: string[];
+  market: string | null;
+  competition: string | null;
+  sort: string;
+  limit: number;
+}
+
+export interface FeedPage {
+  limit: number;
+  next_cursor: string | null;
+}
+
+export interface ProviderFeedStatus {
+  provider: string;
+  status: string;
+  item_count: number;
+  truncated: boolean;
+}
+
+export interface FeedMeta {
+  status: string;
+  is_complete: boolean;
+  providers: ProviderFeedStatus[];
+  warnings: string[];
+}
+
+export interface FeedItem {
+  event: Event;
+  predictions: UnifiedPrediction[];
+  sport: string;
+}
+
+export interface FeedResponse {
+  schema_version: string;
+  snapshot_id: string;
+  generated_at: string;
+  query: FeedQuery;
+  items: FeedItem[];
+  page: FeedPage;
+  meta: FeedMeta;
+}

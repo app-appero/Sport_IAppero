@@ -1,7 +1,5 @@
-import FootballTab from './football';
+import { HomeFeedScreen } from '@/components/HomeFeedScreen';
 
-// Render Football directly instead of <Redirect /> so / never stays blank
-// if client-side navigation fails in Simple Browser.
-export default function Index() {
-  return <FootballTab />;
+export default function HomeTab() {
+  return <HomeFeedScreen />;
 }

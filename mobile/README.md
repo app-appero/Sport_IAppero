@@ -4,6 +4,7 @@ Expo (React Native) app for Sport_IAppero.
 
 ## Tabs
 
+- **Home** → `/api/v1/feed` (fallback automatico agli endpoint per-sport se `/feed` 404)
 - **Football** → `/api/v1/sports/football/predictions`
 - **Tennis** → `/api/v1/sports/tennis/predictions`
 - **Saved** → placeholder
