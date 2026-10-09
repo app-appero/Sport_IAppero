@@ -55,6 +55,7 @@ def test_naive_event_date_time_does_not_become_start_time():
     )
     assert len(events) == 1
     assert events[0].start_time is None
+    assert events[0].calendar_date == "2026-10-08"
 
 
 def test_aware_start_time_preserved():

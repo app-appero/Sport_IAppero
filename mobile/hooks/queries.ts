@@ -100,10 +100,13 @@ export function usePredictionDetail(id: string) {
   });
 }
 
-export function useEventPredictions(eventId: string) {
+export function useEventPredictions(
+  eventId: string,
+  opts?: { sport?: string; date?: string },
+) {
   return useQuery({
-    queryKey: ['event-predictions', eventId],
-    queryFn: () => getEventPredictions(eventId),
+    queryKey: ['event-predictions', eventId, opts?.sport ?? null, opts?.date ?? null],
+    queryFn: () => getEventPredictions(eventId, opts),
     enabled: Boolean(eventId),
   });
 }

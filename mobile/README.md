@@ -4,9 +4,7 @@ Expo (React Native) app for Sport IApperò.
 
 ## Tabs
 
-- **Sport** → hub: ogni sport ha la sua sezione (niente feed “Tutti”)
-- **Calcio** → `/api/v1/sports/football/predictions`
-- **Tennis** → `/api/v1/sports/tennis/predictions`
+- **Partite** → default Calcio, menù a tendina per Tennis (e futuri sport)
 - **Salvati** → preferiti locali (AsyncStorage, nessun account)
 
 ## Setup

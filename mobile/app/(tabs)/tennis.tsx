@@ -1,12 +1,6 @@
-import { SportScreen } from '@/components/SportScreen';
+import { Redirect } from 'expo-router';
 
+/** Deep-link compat: use Partite tab + sport dropdown. */
 export default function TennisTab() {
-  return (
-    <SportScreen
-      sport="tennis"
-      title="Tornei e mercati"
-      eyebrow="Tennis"
-      emptyHint="Nessuna prediction tennis disponibile al momento."
-    />
-  );
+  return <Redirect href="/" />;
 }

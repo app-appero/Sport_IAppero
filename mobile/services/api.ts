@@ -226,10 +226,20 @@ export function getPrediction(id: string) {
   return getJson<UnifiedPrediction>(`/api/v1/predictions/${encodeURIComponent(id)}`);
 }
 
-export async function getEventPredictions(eventId: string) {
-  // Prefer feed snapshot (keeps score/correct from the card the user tapped).
+export async function getEventPredictions(
+  eventId: string,
+  opts?: { sport?: string; date?: string },
+) {
+  const params = new URLSearchParams();
+  if (opts?.sport) params.set('sport', opts.sport);
+  if (opts?.date) params.set('date', opts.date);
+  const q = params.toString() ? `?${params}` : '';
+
+  // Prefer feed snapshot / provider rebuild on BFF event detail.
   try {
-    const snap = await getJson<FeedItem>(`/api/v1/events/${encodeURIComponent(eventId)}`);
+    const snap = await getJson<FeedItem>(
+      `/api/v1/events/${encodeURIComponent(eventId)}${q}`,
+    );
     if (snap?.predictions?.length) {
       return {
         items: snap.predictions,
@@ -242,10 +252,10 @@ export async function getEventPredictions(eventId: string) {
       } satisfies PredictionListResponse;
     }
   } catch {
-    // fall through to provider lookup
+    // fall through
   }
   return getJson<PredictionListResponse>(
-    `/api/v1/events/${encodeURIComponent(eventId)}/predictions`,
+    `/api/v1/events/${encodeURIComponent(eventId)}/predictions${q}`,
   );
 }
 

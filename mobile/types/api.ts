@@ -22,6 +22,7 @@ export interface Event {
   name: string;
   competition: Competition | null;
   start_time: string | null;
+  calendar_date?: string | null;
   participants: Participant[];
   status: string | null;
   score?: EventScore | null;

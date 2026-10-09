@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,22 +17,41 @@ import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { FilterChips } from '@/components/FilterChips';
 import { ProviderWarning } from '@/components/ProviderWarning';
+import { SportDropdown, type SportId } from '@/components/SportDropdown';
 import { APP_NAME } from '@/constants/brand';
 import { marketsForSport } from '@/constants/markets';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
-import type { FeedItem } from '@/types/api';
+import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { todayKey } from '@/utils/dates';
 
-type Props = {
-  sport: 'football' | 'tennis';
-  title: string;
-  eyebrow: string;
-  emptyHint: string;
+const SPORT_COPY: Record<
+  SportId,
+  { title: string; emptyHint: string }
+> = {
+  football: {
+    title: 'Campionati e mercati',
+    emptyHint: 'Nessuna partita per la giornata selezionata.',
+  },
+  tennis: {
+    title: 'Tornei e mercati',
+    emptyHint: 'Nessuna prediction tennis per questa giornata.',
+  },
 };
 
-export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
+type Props = {
+  /** Initial sport when embedding a fixed tab; omit for dropdown-driven browse. */
+  initialSport?: SportId;
+  showSportDropdown?: boolean;
+};
+
+export function SportScreen({
+  initialSport = 'football',
+  showSportDropdown = true,
+}: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [sport, setSport] = useState<SportId>(initialSport);
   const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
@@ -44,8 +64,8 @@ export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
     limit: 50,
   });
   const competitions = useSportCompetitions(sport, date);
-  const providerKey = sport === 'football' ? 'football' : 'tennis';
-  const providerHealth = health.data?.[providerKey];
+  const providerHealth = health.data?.[sport];
+  const copy = SPORT_COPY[sport];
 
   const marketOptions = useMemo(() => marketsForSport(sport), [sport]);
   const competitionOptions = useMemo(() => {
@@ -88,6 +108,24 @@ export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
     setCompetitionId(undefined);
   };
 
+  const openEvent = (item: FeedItem) => {
+    const payload: PredictionListResponse = {
+      items: item.predictions,
+      meta: {
+        count: item.predictions.length,
+        sport: item.sport,
+        provider: item.predictions[0]?.provider?.name ?? 'unknown',
+        provider_status: 'ok',
+      },
+    };
+    // Seed cache so detail is instant even if snapshot/provider lookup lags.
+    queryClient.setQueryData(['event-predictions', item.event.id, sport, date], payload);
+    router.push({
+      pathname: '/event/[id]',
+      params: { id: item.event.id, sport, date },
+    });
+  };
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -99,8 +137,17 @@ export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.brand}>{APP_NAME}</Text>
-          <Text style={styles.eyebrow}>{eyebrow}</Text>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          {showSportDropdown ? (
+            <SportDropdown
+              value={sport}
+              onChange={(next) => {
+                setSport(next);
+                setMarket(undefined);
+                setCompetitionId(undefined);
+              }}
+            />
+          ) : null}
           <DayScroller value={date} onChange={setDate} />
           <FilterChips
             options={marketOptions}
@@ -148,7 +195,7 @@ export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
                 }
                 title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
                 subtitle={
-                  filtersActive ? 'Prova a cambiare mercato, competizione o giorno.' : emptyHint
+                  filtersActive ? 'Prova a cambiare mercato, competizione o giorno.' : copy.emptyHint
                 }
                 actionLabel={filtersActive ? 'Azzera filtri' : undefined}
                 onAction={filtersActive ? clearFilters : undefined}
@@ -159,12 +206,7 @@ export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
                 item={item}
                 index={index}
                 preferredMarket={market}
-                onPress={() =>
-                  router.push({
-                    pathname: '/event/[id]',
-                    params: { id: item.event.id },
-                  })
-                }
+                onPress={() => openEvent(item)}
               />
             )}
           />
@@ -185,16 +227,10 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 42,
+    fontSize: 38,
     color: colors.brand,
-    letterSpacing: 1,
-    lineHeight: 44,
-  },
-  eyebrow: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMuted,
-    fontSize: 13,
-    marginTop: 4,
+    letterSpacing: 0.5,
+    lineHeight: 40,
   },
   title: {
     fontFamily: fonts.bodyBold,

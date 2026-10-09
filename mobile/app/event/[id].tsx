@@ -10,9 +10,16 @@ import { formatEventTime } from '@/utils/dates';
 import { scoreForMarket } from '@/utils/outcome';
 
 export default function EventDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, sport, date } = useLocalSearchParams<{
+    id: string;
+    sport?: string;
+    date?: string;
+  }>();
   const router = useRouter();
-  const query = useEventPredictions(String(id ?? ''));
+  const query = useEventPredictions(String(id ?? ''), {
+    sport: sport ? String(sport) : undefined,
+    date: date ? String(date) : undefined,
+  });
 
   if (query.isLoading) {
     return (
@@ -27,6 +34,8 @@ export default function EventDetailScreen() {
       <EmptyState
         title="Impossibile caricare i mercati"
         subtitle={query.error instanceof Error ? query.error.message : undefined}
+        actionLabel="Riprova"
+        onAction={() => query.refetch()}
       />
     );
   }
@@ -56,7 +65,14 @@ export default function EventDetailScreen() {
           <Text style={styles.subtitle}>{items.length} mercati predetti</Text>
         </View>
       }
-      ListEmptyComponent={<EmptyState title="Nessun mercato per questo evento" />}
+      ListEmptyComponent={
+        <EmptyState
+          title="Nessun mercato per questo evento"
+          subtitle="Prova a tornare indietro e riaprire la card, oppure cambia giorno."
+          actionLabel="Riprova"
+          onAction={() => query.refetch()}
+        />
+      }
       renderItem={({ item }) => (
         <MarketRow
           item={item}
@@ -81,7 +97,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: 34,
     color: colors.brand,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },
   subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },

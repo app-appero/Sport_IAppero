@@ -115,11 +115,40 @@ async def get_prediction(prediction_id: str) -> UnifiedPrediction:
     return found
 
 
-async def list_event_predictions(event_id: str) -> list[UnifiedPrediction]:
+async def list_event_predictions(
+    event_id: str,
+    *,
+    sport: str | None = None,
+    date: str | None = None,
+) -> list[UnifiedPrediction]:
+    # Prefer recent feed snapshot (same markets the list card showed).
+    try:
+        from app.services import feed_service
+
+        snap = await feed_service.get_event_from_snapshots(event_id)
+        if snap.predictions:
+            return snap.predictions
+    except Exception:  # noqa: BLE001
+        pass
+
+    filters: dict = {"event_id": event_id}
+    if date:
+        filters["date"] = date
+
     items: list[UnifiedPrediction] = []
-    for provider in get_providers().values():
+    providers = get_providers()
+    ordered = []
+    if sport and sport in providers:
+        ordered.append(providers[sport])
+        ordered.extend(p for s, p in providers.items() if s != sport)
+    else:
+        ordered = list(providers.values())
+
+    for provider in ordered:
         try:
-            items.extend(await provider.get_predictions(event_id=event_id))
+            found = await provider.get_predictions(**filters)
+            if found:
+                return found
         except ProviderError:
             continue
     return items

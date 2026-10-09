@@ -1,12 +1,6 @@
-import { SportScreen } from '@/components/SportScreen';
+import { Redirect } from 'expo-router';
 
+/** Deep-link compat: sport switch is on Partite via dropdown. */
 export default function FootballTab() {
-  return (
-    <SportScreen
-      sport="football"
-      title="Campionati e mercati"
-      eyebrow="Calcio"
-      emptyHint="Nessuna partita per la giornata selezionata."
-    />
-  );
+  return <Redirect href="/" />;
 }

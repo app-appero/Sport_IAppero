@@ -35,24 +35,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Sport',
-          tabBarIcon: ({ color }) => <TabIcon label="SP" color={color} />,
+          title: 'Partite',
+          tabBarIcon: ({ color }) => <TabIcon label="PT" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="football"
-        options={{
-          title: 'Calcio',
-          tabBarIcon: ({ color }) => <TabIcon label="CA" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tennis"
-        options={{
-          title: 'Tennis',
-          tabBarIcon: ({ color }) => <TabIcon label="TN" color={color} />,
-        }}
-      />
+      {/* Legacy routes kept for deep links; hidden from tab bar. */}
+      <Tabs.Screen name="football" options={{ href: null }} />
+      <Tabs.Screen name="tennis" options={{ href: null }} />
       <Tabs.Screen
         name="saved"
         options={{
