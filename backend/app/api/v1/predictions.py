@@ -10,7 +10,9 @@ router = APIRouter(tags=["predictions"])
 @router.get("/predictions/{prediction_id}", response_model=UnifiedPrediction)
 async def prediction_detail(prediction_id: str) -> UnifiedPrediction:
     try:
-        return await sport_service.get_prediction(prediction_id)
+        from app.services import feed_service
+
+        return await feed_service.require_prediction(prediction_id)
     except PredictionNotFound as exc:
         raise HTTPException(
             status_code=404,

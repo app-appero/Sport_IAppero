@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     soccer_oracle_username: str | None = None
     soccer_oracle_password: str | None = None
 
+    # Feed / cache (B05–B06)
+    app_timezone: str = "Europe/Rome"
+    cache_ttl_seconds: int = 60
+    cache_stale_max_seconds: int = 300
+    feed_deadline_seconds: float = 10.0
+    provider_max_items: int = 1000
+    snapshot_ttl_seconds: int = 300
+
     log_level: str = "INFO"
 
 

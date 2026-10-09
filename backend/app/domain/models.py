@@ -103,3 +103,48 @@ class CompetitionListResponse(BaseModel):
 class MarketListResponse(BaseModel):
     items: list[MarketInfo]
     meta: ListMeta
+
+
+class FeedQuery(BaseModel):
+    date: str | None = None
+    timezone: str = "Europe/Rome"
+    sports: list[str] = Field(default_factory=lambda: ["football", "tennis"])
+    market: str | None = None
+    competition: str | None = None
+    sort: str = "start_time_asc"
+    limit: int = 30
+
+
+class FeedPage(BaseModel):
+    limit: int
+    next_cursor: str | None = None
+
+
+class ProviderFeedStatus(BaseModel):
+    provider: str
+    status: str
+    item_count: int = 0
+    truncated: bool = False
+
+
+class FeedMeta(BaseModel):
+    status: str
+    is_complete: bool
+    providers: list[ProviderFeedStatus] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class FeedItem(BaseModel):
+    event: Event
+    predictions: list[UnifiedPrediction] = Field(default_factory=list)
+    sport: str
+
+
+class FeedResponse(BaseModel):
+    schema_version: str = "1"
+    snapshot_id: str
+    generated_at: datetime
+    query: FeedQuery
+    items: list[FeedItem] = Field(default_factory=list)
+    page: FeedPage
+    meta: FeedMeta

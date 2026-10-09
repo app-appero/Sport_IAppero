@@ -1,47 +1,50 @@
-# Configurazione Railway — riferimenti reali e proposta BFF
+# Configurazione Railway — riferimenti reali e BFF
 
-I soli domini disponibili dei motori sono:
-- https://soccer-oracle-api-dev.up.railway.app
-- https://tennisoracle-backend-dev.up.railway.app
+## Domini
 
-Git sorgenti:
+| Servizio | URL |
+|---|---|
+| **BFF Sport_IAppero (dev)** | https://bff-sport-iappero-dev.up.railway.app |
+| Soccer Oracle (dev) | https://soccer-oracle-api-dev.up.railway.app |
+| Tennis Oracle (dev) | https://tennisoracle-backend-dev.up.railway.app |
+
+Git sorgenti motori:
 - https://github.com/romy1992/ia_predict_soccer.git
 - https://github.com/romy1992/tennis_oracle.git
 
-Non abbiamo ID progetto/ambiente/servizio, link dashboard, URL production o domini privati. Non dedurli dal dominio pubblico. Nessun servizio Railway nuovo è stato creato.
+Il BFF è un servizio API separato (repo Sport_IAppero, contesto `backend/`). Health liveness: `GET /health` (non interroga i provider). Readiness: `GET /ready`. Feed unificato: `GET /api/v1/feed`. Docs: `/docs`.
 
-## Config BFF proposta
+## Config BFF
 
-| Variabile nuova | Valore/default | Utilizzo |
+| Variabile | Valore/default | Utilizzo |
 |---|---|---|
-| SOCCER_API_BASE_URL | https://soccer-oracle-api-dev.up.railway.app | Solo lato server |
-| TENNIS_API_BASE_URL | https://tennisoracle-backend-dev.up.railway.app | Solo lato server |
-| TENNIS_API_PREFIX | /api | Verificato OpenAPI distribuita |
-| TENNIS_SERVICE_TOKEN | Segreto da configurare | Header X-Service-Token del feed |
-| TENNIS_MODEL_VERSION | v4, da confermare per prodotto | Non fallback silenzioso |
-| SOCCER_PROVIDER_TIMEZONE | Vuoto finché verificata | Necessaria solo per date naive/filter policy |
-| TENNIS_PROVIDER_TIMEZONE | Vuoto finché verificata | Date+time upstream |
+| SOCCER_ORACLE_BASE_URL | https://soccer-oracle-api-dev.up.railway.app | Solo lato server |
+| TENNIS_ORACLE_BASE_URL | https://tennisoracle-backend-dev.up.railway.app | Solo lato server |
+| TENNIS_ORACLE_USERNAME / PASSWORD | Segreti | Login Tennis upstream |
+| TENNIS_ORACLE_BEARER_TOKEN | Opzionale | Alternativa al login |
+| USE_PROVIDER_FIXTURES | false in Railway | true solo locale/test |
 | APP_TIMEZONE | Europe/Rome | Query giorno consumer |
-| UPSTREAM_CONNECT_TIMEOUT_SECONDS | 3 | Proposto |
-| UPSTREAM_READ_TIMEOUT_SECONDS | 8 | Proposto |
-| FEED_DEADLINE_SECONDS | 10 | Proposto |
-| CACHE_TTL_SECONDS | 60 | Proposto |
-| CACHE_STALE_MAX_SECONDS | 300 | Proposto |
-| PROVIDER_MAX_ITEMS | 1000 | Budget proposto, incompletezza dichiarata |
-| DATABASE_URL | Segreto opzionale foundation | DB nuovo, mai quello dei motori |
+| PROVIDER_CONNECT_TIMEOUT | 3 | |
+| PROVIDER_READ_TIMEOUT | 15 | |
+| FEED_DEADLINE_SECONDS | 10 | Budget per sport nel feed |
+| CACHE_TTL_SECONDS | 60 | Fresh cache feed |
+| CACHE_STALE_MAX_SECONDS | 300 | Serve stale se rebuild fallisce |
+| SNAPSHOT_TTL_SECONDS | 300 | Cursor/snapshot pagination |
+| PROVIDER_MAX_ITEMS | 1000 | Truncation dichiarata |
 | PORT | Iniettata da Railway | Binding 0.0.0.0 |
 | LOG_LEVEL | INFO | Log sanificati |
 
-Questi nomi appartengono al BFF proposto. Nel motore Tennis le variabili reali sono SERVICE_API_KEY, SERVICE_API_KEY_PREVIOUS, ALLOW_UNAUTHENTICATED_SERVICE_READS, API_PREFIX e ADMIN_JWT_SECRET. TENNIS_SERVICE_TOKEN deve corrispondere a una chiave servizio autorizzata del motore, ma non va generato o modificato dall'aggregatore senza configurazione concordata.
+Mobile: `EXPO_PUBLIC_API_URL=https://bff-sport-iappero-dev.up.railway.app`. Nessun token in `EXPO_PUBLIC_*`.
 
-Mobile: solo EXPO_PUBLIC_API_BASE_URL=https://<dominio-bff-da-creare>. Nessun token in EXPO_PUBLIC_*, frontend config o repository.
+## Deployment
 
-## Deployment BFF suggerito, da implementare
+Dockerfile con contesto `backend/`, dipendenze FastAPI/httpx/Pydantic; nessun dataset o artifact pickle. Command: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`. Dev e production separati con base URL esplicite; non puntare automaticamente produzione verso i due motori dev.
 
-Un servizio API nuovo separato. Dockerfile con contesto backend e dipendenze leggere FastAPI/httpx/Pydantic; nessun dataset o artifact pickle. Command: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`. Health /health non interroga provider. Introducendo DB, migrazione Alembic in pre-deploy; cache condivisa se si usano repliche. Dev e production separati con base URL esplicite; non puntare automaticamente produzione verso i due motori dev.
+## Verifica rilascio
 
-Il Dockerfile Tennis esistente usa contesto repository root e modulo `backend.src.app.main:app`; non copiarlo nel BFF, che ha struttura diversa. Il compose Soccer dichiara DB remoto Railway e scheduler separato: l'aggregatore non deve ereditare config.env o connettersi al DB remoto. Non clonare modelli/training nel container BFF.
-
-## Verifica rilascio futura
-
-Verificare domini e variabili effettive, token feed Tennis, date/timezone, schema, empty/degraded, limiti API, latenza, cache e assenza segreti nel bundle. Registrare commit distribuito BFF/provider e OpenAPI hash. Questo documento prepara il rilascio, non attesta un deployment effettuato.
+- [x] Dominio BFF dev pubblicato
+- [ ] SHA commit deployato registrato
+- [ ] Variabili effettive verificate (fixtures off in Railway)
+- [ ] Feed live: ok / degraded / empty collaudati
+- [ ] Token Tennis e Soccer day popolato
+- [ ] Assenza segreti nel bundle mobile

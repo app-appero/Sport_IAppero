@@ -32,9 +32,12 @@ USE_PROVIDER_FIXTURES=true .venv/bin/uvicorn app.main:app --reload --port 8000
 Open:
 
 - http://localhost:8000/docs
-- http://localhost:8000/api/v1/health
+- http://localhost:8000/health · http://localhost:8000/ready
+- http://localhost:8000/api/v1/feed
 - http://localhost:8000/api/v1/sports/football/predictions
 - http://localhost:8000/api/v1/sports/tennis/predictions
+
+Deployed dev BFF: https://bff-sport-iappero-dev.up.railway.app
 
 ## Tests
 
