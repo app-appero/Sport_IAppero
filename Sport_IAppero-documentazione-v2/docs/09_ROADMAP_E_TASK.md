@@ -21,11 +21,11 @@ D03 può impedire integrazione live Tennis ma non scaffold, mapper da schemi e t
 | B02 | Schemi normalizzati e provider Pydantic | Validazione range/null; modello/decision/probability separati |
 | B03 | Soccer client e mapper day | Usa false refresh; niente N+1 di dettaglio; card/line/outcome corretti |
 | B04 | Tennis client e mapper | Header server, offset, First/Second Player, extra markets separati |
-| B05 | Aggregazione/cache/single-flight | Provider indipendenti, 200 parziale, 503 entrambi guasti |
-| B06 | Feed/capability/detail/cursor | Ordinamento deterministico, cursor su snapshot coerente, truncation esposta |
-| B07 | Test integrazione controllati | Nessuna chiamata mutation/training; schemi BFF/OpenAPI generati |
+| B05 | Aggregazione/cache/single-flight | Provider indipendenti, 200 parziale, 503 entrambi guasti — **implementato in-process** |
+| B06 | Feed/capability/detail/cursor | `GET /api/v1/feed` + event da snapshot + cursor — **implementato**; collaudo live Railway ancora aperto |
+| B07 | Test integrazione controllati | Fixture + test feed/cursor; OpenAPI via `/docs` |
 
-Milestone: `GET /api/v1/feed` serve entrambe le fonti normalizzate quando configurate, e una risposta trasparente se una manca. Non considerare completata integrazione Tennis con sole fixture mock.
+Milestone: `GET /api/v1/feed` serve entrambe le fonti normalizzate quando configurate, e una risposta trasparente se una manca. Non considerare completata integrazione Tennis con sole fixture mock. BFF deployato su `https://bff-sport-iappero-dev.up.railway.app`.
 
 ## Sprint 2 — Mobile
 

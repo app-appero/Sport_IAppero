@@ -1,6 +1,6 @@
 # API proposta del BFF
 
-Prefisso nuovo `/api/v1`. Versione schema `1`. Nessuna di queste route è già distribuita.
+Prefisso `/api/v1`. Versione schema `1`. Route `feed`, `sports/*`, `predictions/*`, `/health`, `/ready` implementate nel BFF; verificare sul deploy Railway corrente.
 
 | Metodo/path | Funzione |
 |---|---|
