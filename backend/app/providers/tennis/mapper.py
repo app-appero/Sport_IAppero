@@ -167,6 +167,11 @@ def map_event(raw: dict[str, Any]) -> Event:
     if start is not None and start.tzinfo is None:
         start = None
 
+    calendar_date = None
+    raw_date = _dig(raw, "event_date", "date")
+    if isinstance(raw_date, str) and len(raw_date) >= 10:
+        calendar_date = raw_date[:10]
+
     score_obj = None
     live = _dig(raw, "live_score", "score")
     if isinstance(live, dict):
@@ -187,6 +192,7 @@ def map_event(raw: dict[str, Any]) -> Event:
         name=name or "Unknown match",
         competition=competition,
         start_time=start,
+        calendar_date=calendar_date,
         participants=participants,
         status=str(_dig(raw, "event_status", "status", "match_lifecycle_status") or "") or None,
         score=score_obj,

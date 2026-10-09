@@ -161,7 +161,17 @@ class TennisProvider(SportProvider):
         return mapper.map_competitions_from_events(events)
 
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
-        payload = await self._get("/api/next-fixtures/predictions")
+        params: dict[str, Any] = {}
+        day = filters.get("date")
+        if day:
+            # Upstream day filter (same calendar day). Still filter locally below —
+            # without this, every selected day returned the full upcoming bag.
+            params["from"] = day
+            params["to"] = day
+        payload = await self._get(
+            "/api/next-fixtures/predictions",
+            params=params or None,
+        )
         predictions = mapper.map_predictions_payload(payload)
 
         competition_id = filters.get("competition_id")
@@ -169,6 +179,16 @@ class TennisProvider(SportProvider):
         market = filters.get("market")
         min_confidence = filters.get("min_confidence")
 
+        if day:
+            predictions = [
+                p
+                for p in predictions
+                if p.event.calendar_date == day
+                or (
+                    p.event.start_time is not None
+                    and p.event.start_time.date().isoformat() == day
+                )
+            ]
         if competition_id:
             predictions = [
                 p
@@ -195,6 +215,7 @@ class TennisProvider(SportProvider):
             key=lambda p: (
                 -(p.prediction.confidence or 0.0),
                 p.event.start_time.isoformat() if p.event.start_time else "",
+                p.event.calendar_date or "",
             )
         )
         limit = filters.get("limit")

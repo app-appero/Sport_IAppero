@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.core.exceptions import PredictionNotFound, ProviderError
 from app.domain.models import MarketListResponse, PredictionListResponse, UnifiedPrediction
@@ -37,9 +37,13 @@ async def prediction_detail(prediction_id: str) -> UnifiedPrediction:
 
 
 @router.get("/events/{event_id}/predictions", response_model=PredictionListResponse)
-async def event_predictions(event_id: str) -> PredictionListResponse:
-    items = await sport_service.list_event_predictions(event_id)
-    sport = items[0].sport if items else "unknown"
+async def event_predictions(
+    event_id: str,
+    sport: str | None = Query(default=None),
+    date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+) -> PredictionListResponse:
+    items = await sport_service.list_event_predictions(event_id, sport=sport, date=date)
+    sport_id = items[0].sport if items else (sport or "unknown")
     provider = items[0].provider.name if items else "unknown"
     from app.domain.models import ListMeta
 
@@ -47,7 +51,7 @@ async def event_predictions(event_id: str) -> PredictionListResponse:
         items=items,
         meta=ListMeta(
             count=len(items),
-            sport=sport,
+            sport=sport_id,
             provider=provider,
             provider_status="ok" if items else "unavailable",
         ),

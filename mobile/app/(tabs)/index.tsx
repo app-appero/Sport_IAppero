@@ -1,5 +1,6 @@
-import { SportsHubScreen } from '@/components/SportsHubScreen';
+import { SportScreen } from '@/components/SportScreen';
 
-export default function HomeTab() {
-  return <SportsHubScreen />;
+/** Default vista: Calcio, con menù a tendina per cambiare sport. */
+export default function BrowseTab() {
+  return <SportScreen initialSport="football" showSportDropdown />;
 }

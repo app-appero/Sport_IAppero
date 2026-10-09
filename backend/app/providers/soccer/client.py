@@ -228,6 +228,16 @@ class SoccerProvider(SportProvider):
         return mapper.map_competitions_from_events(events)
 
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
+        event_id = filters.get("event_id")
+        # Direct match lookup when listing markets for one fixture (detail screen).
+        if event_id and not filters.get("date"):
+            detail_preds = await self._predictions_from_match(str(event_id))
+            if detail_preds:
+                market = filters.get("market")
+                if market:
+                    detail_preds = [p for p in detail_preds if p.prediction.type == market]
+                return detail_preds
+
         params: dict[str, Any] = {"with_predictions": True}
         if filters.get("date"):
             params["target_date"] = filters["date"]
@@ -235,7 +245,6 @@ class SoccerProvider(SportProvider):
         predictions = mapper.map_day_payload(payload)
 
         competition_id = filters.get("competition_id")
-        event_id = filters.get("event_id")
         market = filters.get("market")
         min_confidence = filters.get("min_confidence")
 
@@ -250,7 +259,11 @@ class SoccerProvider(SportProvider):
                 )
             ]
         if event_id:
-            predictions = [p for p in predictions if p.event.id == event_id]
+            eid = str(event_id)
+            predictions = [p for p in predictions if p.event.id == eid]
+            # Day payload for "today" may omit the fixture; fall back to match detail.
+            if not predictions:
+                predictions = await self._predictions_from_match(eid)
         if market:
             predictions = [p for p in predictions if p.prediction.type == market]
         if min_confidence is not None:
@@ -271,6 +284,19 @@ class SoccerProvider(SportProvider):
         if limit is not None:
             predictions = predictions[: int(limit)]
         return predictions
+
+    async def _predictions_from_match(self, fixture_id: str) -> list[UnifiedPrediction]:
+        detail: Any = None
+        try:
+            detail = await self._get(f"/dashboard/match/{fixture_id}/oracle-detail")
+        except Exception:
+            try:
+                detail = await self._get(f"/dashboard/match/{fixture_id}")
+            except Exception:
+                return []
+        if not isinstance(detail, dict):
+            return []
+        return mapper.map_day_payload({"rows": [detail]})
 
     async def get_prediction(self, prediction_id: str) -> UnifiedPrediction | None:
         parsed = mapper.parse_prediction_id(prediction_id)

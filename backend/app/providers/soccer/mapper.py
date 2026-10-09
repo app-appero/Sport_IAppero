@@ -192,11 +192,20 @@ def map_event(raw: dict[str, Any]) -> Event:
     totals = _dig(raw, "actual_totals", "totals", "stats")
     actual_totals = totals if isinstance(totals, dict) else None
 
+    start = _parse_dt(_dig(raw, "datetime", "start_time", "kickoff", "date", "start"))
+    calendar_date = None
+    raw_date = _dig(raw, "date")
+    if isinstance(raw_date, str) and len(raw_date) >= 10:
+        calendar_date = raw_date[:10]
+    elif start is not None:
+        calendar_date = start.date().isoformat()
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
         competition=competition,
-        start_time=_parse_dt(_dig(raw, "datetime", "start_time", "kickoff", "date", "start")),
+        start_time=start,
+        calendar_date=calendar_date,
         participants=participants,
         status=str(_dig(raw, "status", "phase", "state") or "") or None,
         score=score_obj,
