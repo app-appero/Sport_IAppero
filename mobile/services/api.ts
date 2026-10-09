@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import type {
   CompetitionListResponse,
   EventListResponse,
+  FeedItem,
   FeedResponse,
   MarketListResponse,
   PredictionListResponse,
@@ -225,7 +226,24 @@ export function getPrediction(id: string) {
   return getJson<UnifiedPrediction>(`/api/v1/predictions/${encodeURIComponent(id)}`);
 }
 
-export function getEventPredictions(eventId: string) {
+export async function getEventPredictions(eventId: string) {
+  // Prefer feed snapshot (keeps score/correct from the card the user tapped).
+  try {
+    const snap = await getJson<FeedItem>(`/api/v1/events/${encodeURIComponent(eventId)}`);
+    if (snap?.predictions?.length) {
+      return {
+        items: snap.predictions,
+        meta: {
+          count: snap.predictions.length,
+          sport: snap.sport,
+          provider: snap.predictions[0]?.provider?.name ?? 'unknown',
+          provider_status: 'ok',
+        },
+      } satisfies PredictionListResponse;
+    }
+  } catch {
+    // fall through to provider lookup
+  }
   return getJson<PredictionListResponse>(
     `/api/v1/events/${encodeURIComponent(eventId)}/predictions`,
   );

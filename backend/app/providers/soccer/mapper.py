@@ -6,6 +6,7 @@ from typing import Any
 from app.domain.models import (
     Competition,
     Event,
+    EventScore,
     MarketInfo,
     Participant,
     PredictionValue,
@@ -170,6 +171,27 @@ def map_event(raw: dict[str, Any]) -> Event:
             name=str(_dig(raw, "league_name")),
         )
 
+    score_obj = None
+    score_raw = _dig(raw, "score", "ft_score", "result")
+    if isinstance(score_raw, dict):
+        home_s = _dig(score_raw, "home", "home_goals", "goals_home")
+        away_s = _dig(score_raw, "away", "away_goals", "goals_away")
+        try:
+            home_n = int(home_s) if home_s is not None else None
+            away_n = int(away_s) if away_s is not None else None
+        except (TypeError, ValueError):
+            home_n, away_n = None, None
+        display = None
+        if home_n is not None and away_n is not None:
+            display = f"{home_n}-{away_n}"
+        if home_n is not None or away_n is not None or display:
+            score_obj = EventScore(home=home_n, away=away_n, display=display)
+    elif isinstance(score_raw, str) and score_raw.strip() and score_raw.strip() != "-":
+        score_obj = EventScore(display=score_raw.strip())
+
+    totals = _dig(raw, "actual_totals", "totals", "stats")
+    actual_totals = totals if isinstance(totals, dict) else None
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
@@ -177,6 +199,8 @@ def map_event(raw: dict[str, Any]) -> Event:
         start_time=_parse_dt(_dig(raw, "datetime", "start_time", "kickoff", "date", "start")),
         participants=participants,
         status=str(_dig(raw, "status", "phase", "state") or "") or None,
+        score=score_obj,
+        actual_totals=actual_totals,
     )
 
 
@@ -252,6 +276,15 @@ def map_market_prediction(
         market_payload,
     )
     probabilities = _probabilities_for_market(market, confidence, selection, event)
+    correct_raw = market_payload.get("correct")
+    correct: bool | None
+    if correct_raw is True:
+        correct = True
+    elif correct_raw is False:
+        correct = False
+    else:
+        correct = None
+
     return UnifiedPrediction(
         id=f"soccer_{event.id}_{market}",
         sport=SPORT,
@@ -261,6 +294,7 @@ def map_market_prediction(
         provider=ProviderMetadata(name=PROVIDER, version=None),
         oracle_score=None,
         generated_at=None,
+        correct=correct,
         raw=market_payload,
     )
 

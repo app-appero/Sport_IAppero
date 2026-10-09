@@ -11,6 +11,12 @@ export interface Participant {
   role: string | null;
 }
 
+export interface EventScore {
+  home?: number | null;
+  away?: number | null;
+  display?: string | null;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -18,6 +24,8 @@ export interface Event {
   start_time: string | null;
   participants: Participant[];
   status: string | null;
+  score?: EventScore | null;
+  actual_totals?: Record<string, number | string | null> | null;
 }
 
 export interface Selection {
@@ -51,6 +59,7 @@ export interface UnifiedPrediction {
   provider: ProviderMetadata;
   oracle_score: number | null;
   generated_at: string | null;
+  correct?: boolean | null;
 }
 
 export interface ListMeta {

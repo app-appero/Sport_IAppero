@@ -5,7 +5,7 @@ export default function TennisTab() {
     <SportScreen
       sport="tennis"
       title="Tornei e mercati"
-      eyebrow="Tennis tab · tennis-oracle"
+      eyebrow="Tennis"
       emptyHint="Nessuna prediction tennis disponibile al momento."
     />
   );

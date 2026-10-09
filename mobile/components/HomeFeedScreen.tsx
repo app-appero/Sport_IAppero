@@ -11,33 +11,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DayScroller } from '@/components/DayScroller';
 import { EmptyState } from '@/components/EmptyState';
+import { EventCard } from '@/components/EventCard';
 import { FeedBanner } from '@/components/FeedBanner';
 import { FilterChips } from '@/components/FilterChips';
-import { PredictionCard } from '@/components/PredictionCard';
+import { SportDropdown, type SportFilter } from '@/components/SportDropdown';
 import { marketsForSport } from '@/constants/markets';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useFeed, useSportCompetitions } from '@/hooks/queries';
-import { API_BASE_URL } from '@/services/api';
-import type { UnifiedPrediction } from '@/types/api';
-
-type SportFilter = 'all' | 'football' | 'tennis';
-
-const SPORT_CHIPS: { label: string; value: SportFilter }[] = [
-  { label: 'Tutti', value: 'all' },
-  { label: 'Calcio', value: 'football' },
-  { label: 'Tennis', value: 'tennis' },
-];
-
-const DATE_CHIPS = [
-  { label: 'Oggi', value: undefined as string | undefined },
-  { label: '20 Sep', value: '2026-09-20' },
-];
+import type { FeedItem } from '@/types/api';
+import { todayKey } from '@/utils/dates';
 
 export function HomeFeedScreen() {
   const router = useRouter();
   const [sport, setSport] = useState<SportFilter>('all');
-  const [date, setDate] = useState<string | undefined>(DATE_CHIPS[0].value);
+  const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competition, setCompetition] = useState<string | undefined>(undefined);
 
@@ -72,25 +61,16 @@ export function HomeFeedScreen() {
       seen.add(key);
       opts.push({ label: c.name, value: key });
     }
-    return opts.length > 1 ? opts : opts;
+    return opts;
   }, [sport, footballComps.data?.items, tennisComps.data?.items]);
 
-  const predictions = useMemo(() => {
-    const items = feed.data?.items ?? [];
-    const flat: UnifiedPrediction[] = [];
-    for (const item of items) {
-      for (const pred of item.predictions) {
-        flat.push(pred);
-      }
-    }
-    return flat;
-  }, [feed.data?.items]);
+  const events: FeedItem[] = useMemo(() => feed.data?.items ?? [], [feed.data?.items]);
 
-  const filtersActive = Boolean(market || competition || sport !== 'all' || date);
+  const filtersActive = Boolean(market || competition || sport !== 'all' || date !== todayKey());
 
   const clearFilters = () => {
     setSport('all');
-    setDate(undefined);
+    setDate(todayKey());
     setMarket(undefined);
     setCompetition(undefined);
   };
@@ -107,27 +87,17 @@ export function HomeFeedScreen() {
         <View style={styles.header}>
           <Text style={styles.brand}>ORACLE SPORTS</Text>
           <Text style={styles.eyebrow}>Home · feed unificato</Text>
-          <Text style={styles.title}>Oggi e mercati</Text>
-          <Text style={styles.apiHint}>
-            API {API_BASE_URL || '(same origin /api → :8000)'}
-          </Text>
+          <Text style={styles.title}>Partite e mercati</Text>
 
-          <FilterChips
-            options={SPORT_CHIPS}
+          <SportDropdown
             value={sport}
             onChange={(v) => {
               setSport(v);
               setMarket(undefined);
               setCompetition(undefined);
             }}
-            accessibilityLabel="Filtro sport"
           />
-          <FilterChips
-            options={DATE_CHIPS}
-            value={date}
-            onChange={setDate}
-            accessibilityLabel="Filtro data"
-          />
+          <DayScroller value={date} onChange={setDate} />
           <FilterChips
             options={marketOptions}
             value={market}
@@ -162,8 +132,8 @@ export function HomeFeedScreen() {
           </View>
         ) : (
           <FlatList
-            data={predictions}
-            keyExtractor={(item) => item.id}
+            data={events}
+            keyExtractor={(item) => `${item.sport}:${item.event.id}`}
             contentContainerStyle={styles.list}
             refreshControl={
               <RefreshControl refreshing={feed.isRefetching} onRefresh={() => feed.refetch()} />
@@ -171,24 +141,25 @@ export function HomeFeedScreen() {
             ListEmptyComponent={
               <EmptyState
                 tone={feed.data?.meta.status === 'degraded' ? 'degraded' : 'empty'}
-                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna predizione'}
+                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
                 subtitle={
                   filtersActive
-                    ? 'Prova a togliere mercato o competizione, oppure cambia giorno/sport.'
-                    : 'Nessun evento pre-match al momento. Tira per aggiornare.'
+                    ? 'Prova un altro giorno, mercato o competizione.'
+                    : 'Nessun evento per questa giornata. Tira per aggiornare.'
                 }
                 actionLabel={filtersActive ? 'Azzera filtri' : undefined}
                 onAction={filtersActive ? clearFilters : undefined}
               />
             }
             renderItem={({ item, index }) => (
-              <PredictionCard
+              <EventCard
                 item={item}
                 index={index}
+                preferredMarket={market}
                 onPress={() =>
                   router.push({
-                    pathname: '/prediction/[id]',
-                    params: { id: item.id },
+                    pathname: '/event/[id]',
+                    params: { id: item.event.id },
                   })
                 }
               />
@@ -226,11 +197,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 20,
     color: colors.ink,
-  },
-  apiHint: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.inkMuted,
     marginBottom: spacing.sm,
   },
   list: {

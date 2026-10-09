@@ -22,6 +22,11 @@ def test_map_day_payload_all_markets_and_naming():
     assert h2h.prediction.selection.name == "Feyenoord"
     assert h2h.prediction.confidence is not None
     assert 0 < h2h.prediction.confidence <= 1
+    assert h2h.event.score is not None
+    assert h2h.event.score.display == "5-0"
+    assert h2h.event.actual_totals is not None
+    assert h2h.event.actual_totals.get("cards") == 4
+    assert h2h.correct is True
 
 
 def test_parse_prediction_id():
