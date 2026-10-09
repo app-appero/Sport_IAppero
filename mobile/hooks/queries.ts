@@ -21,15 +21,26 @@ export function useProviderHealth() {
 export function useFeed(opts?: {
   date?: string;
   sports?: string;
+  market?: string;
+  competition?: string;
   limit?: number;
   enabled?: boolean;
 }) {
   return useQuery({
-    queryKey: ['feed', opts?.date ?? null, opts?.sports ?? null, opts?.limit ?? null],
+    queryKey: [
+      'feed',
+      opts?.date ?? null,
+      opts?.sports ?? null,
+      opts?.market ?? null,
+      opts?.competition ?? null,
+      opts?.limit ?? null,
+    ],
     queryFn: () =>
       getFeedWithFallback({
         date: opts?.date,
         sports: opts?.sports,
+        market: opts?.market,
+        competition: opts?.competition,
         limit: opts?.limit ?? 40,
       }),
     enabled: opts?.enabled ?? true,
@@ -39,11 +50,30 @@ export function useFeed(opts?: {
 
 export function useSportPredictions(
   sport: string,
-  opts?: { date?: string; limit?: number; enabled?: boolean },
+  opts?: {
+    date?: string;
+    market?: string;
+    competitionId?: string;
+    limit?: number;
+    enabled?: boolean;
+  },
 ) {
   return useQuery({
-    queryKey: ['predictions', sport, opts?.date ?? null, opts?.limit ?? null],
-    queryFn: () => getPredictions(sport, { date: opts?.date, limit: opts?.limit ?? 40 }),
+    queryKey: [
+      'predictions',
+      sport,
+      opts?.date ?? null,
+      opts?.market ?? null,
+      opts?.competitionId ?? null,
+      opts?.limit ?? null,
+    ],
+    queryFn: () =>
+      getPredictions(sport, {
+        date: opts?.date,
+        market: opts?.market,
+        competitionId: opts?.competitionId,
+        limit: opts?.limit ?? 40,
+      }),
     enabled: opts?.enabled ?? true,
   });
 }

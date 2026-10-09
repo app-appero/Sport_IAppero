@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ConfidenceBar } from '@/components/ConfidenceBar';
+import { marketLabel } from '@/constants/markets';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
 
@@ -24,7 +25,7 @@ export function PredictionCard({ item, index = 0, onPress }: Props) {
           <Text style={[styles.badge, { backgroundColor: sportColor }]}>
             {(item.event.competition?.name || item.sport).toUpperCase()}
           </Text>
-          <Text style={styles.market}>{item.prediction.type.replace(/_/g, ' ')}</Text>
+          <Text style={styles.market}>{marketLabel(item.prediction.type)}</Text>
         </View>
         <Text style={styles.event}>{item.event.name}</Text>
         <Text style={styles.pickLabel}>Prediction</Text>

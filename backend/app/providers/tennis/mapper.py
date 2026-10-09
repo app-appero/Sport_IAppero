@@ -159,13 +159,12 @@ def map_event(raw: dict[str, Any]) -> Event:
         elif isinstance(tournament, str):
             competition = Competition(name=tournament)
 
-    date = _dig(raw, "event_date")
-    time = _dig(raw, "event_time")
-    start = None
-    if isinstance(date, str) and isinstance(time, str):
-        start = _parse_dt(f"{date}T{time}")
-    if start is None:
-        start = _parse_dt(_dig(raw, "start_time", "scheduled_at", "datetime", "start"))
+    # D05: Tennis event_date + event_time have no confirmed upstream timezone.
+    # Keep start_time only when the source string carries an explicit offset/Z.
+    # Do not invent Europe/Rome or UTC for bare local clock times.
+    start = _parse_dt(_dig(raw, "start_time", "scheduled_at", "datetime", "start"))
+    if start is not None and start.tzinfo is None:
+        start = None
 
     return Event(
         id=event_id or name or "unknown",

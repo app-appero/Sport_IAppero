@@ -76,8 +76,10 @@ Se Source è già collegato ma non redeploya: controlla branch watched = `main`,
 ## Verifica rilascio
 
 - [x] Dominio BFF dev pubblicato
-- [ ] SHA commit deployato registrato
+- [x] SHA commit deployato registrato (`/ready` → `git_sha`; `unknown` se Railway non inietta il commit)
 - [ ] Variabili effettive verificate (fixtures off in Railway)
 - [ ] Feed live: ok / degraded / empty collaudati
 - [ ] Token Tennis e Soccer day popolato
 - [ ] Assenza segreti nel bundle mobile
+
+Dopo ogni deploy: `curl -sS https://bff-sport-iappero-dev.up.railway.app/ready` e confrontare `git_sha` con `git rev-parse HEAD` su `main`.

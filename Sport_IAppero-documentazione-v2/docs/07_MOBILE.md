@@ -4,9 +4,9 @@ React Native, Expo, TypeScript, Expo Router. Verificare SDK e dipendenze corrent
 
 ## Schermate
 
-1. Home: giorno selezionato, chip Tutti/Calcio/Tennis, eventi ordinati per orario, card con predizioni disponibili. Banner discreto per feed parziale e timestamp aggiornamento.
+1. Home: giorno selezionato, chip Tutti/Calcio/Tennis + mercato + competizione, eventi ordinati per orario, card con predizioni disponibili. Banner discreto per feed parziale/degraded/empty e CTA azzera filtri.
 2. Calcio: stesso feed filtrato, campionato e mercato, stato pre-match, scelta esito e probabilità. Evitare card duplicate per ogni outcome.
-3. Tennis: filtri circuito e torneo quando disponibili; nomi giocatori, superficie, match winner e extra markets separati.
+3. Tennis: filtri torneo e mercato quando disponibili; nomi giocatori, superficie, match winner e extra markets separati.
 4. Dettaglio: evento, esiti, probability, modello, decisione e quote se disponibili, timestamp e warning. Distinguere dati tecnici da pubblicazioni ufficiali.
 
 Bottom tabs Home/Sport/Salvati opzionale. Preferiti locali in AsyncStorage o equivalente; nessun account necessario nell'MVP. ID namespace impediscono collisioni tra sport. Non includere schermi pagamento o login finti.

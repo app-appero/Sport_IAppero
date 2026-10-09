@@ -37,6 +37,7 @@ app.include_router(api_router)
 
 @app.get("/")
 async def root() -> dict[str, str]:
+    settings = get_settings()
     return {
         "service": "Oracle Sports API",
         "version": "0.2.0",
@@ -44,13 +45,15 @@ async def root() -> dict[str, str]:
         "health": "/health",
         "ready": "/ready",
         "feed": "/api/v1/feed",
+        "git_sha": settings.deploy_sha,
     }
 
 
 @app.get("/health")
 async def liveness() -> dict[str, str]:
     """Process liveness — never calls upstream providers."""
-    return {"status": "ok"}
+    settings = get_settings()
+    return {"status": "ok", "git_sha": settings.deploy_sha}
 
 
 @app.get("/ready")
@@ -63,4 +66,5 @@ async def readiness() -> dict:
         "providers": sorted(providers.keys()),
         "fixtures": settings.use_provider_fixtures,
         "timezone": settings.app_timezone,
+        "git_sha": settings.deploy_sha,
     }

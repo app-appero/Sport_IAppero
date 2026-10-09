@@ -1,10 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -13,13 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/EmptyState';
+import { FilterChips } from '@/components/FilterChips';
 import { PredictionCard } from '@/components/PredictionCard';
 import { ProviderWarning } from '@/components/ProviderWarning';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
-import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
+import { marketsForSport } from '@/constants/markets';
+import { colors, fonts, spacing } from '@/constants/theme';
+import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
 import { API_BASE_URL } from '@/services/api';
 
-type DateOption = { label: string; value?: string };
+type DateOption = { label: string; value: string | undefined };
 
 type Props = {
   sport: 'football' | 'tennis';
@@ -32,10 +33,42 @@ type Props = {
 export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: Props) {
   const router = useRouter();
   const [date, setDate] = useState<string | undefined>(dateOptions?.[0]?.value);
+  const [market, setMarket] = useState<string | undefined>(undefined);
+  const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
+
   const health = useProviderHealth();
-  const query = useSportPredictions(sport, { date, limit: 50 });
+  const query = useSportPredictions(sport, {
+    date,
+    market,
+    competitionId,
+    limit: 50,
+  });
+  const competitions = useSportCompetitions(sport, date);
   const providerKey = sport === 'football' ? 'football' : 'tennis';
   const providerHealth = health.data?.[providerKey];
+
+  const marketOptions = useMemo(() => marketsForSport(sport), [sport]);
+  const competitionOptions = useMemo(() => {
+    const opts: { label: string; value: string | undefined }[] = [
+      { label: sport === 'tennis' ? 'Tutti i tornei' : 'Tutti i campionati', value: undefined },
+    ];
+    const seen = new Set<string>();
+    for (const c of competitions.data?.items ?? []) {
+      const key = c.id || c.name;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      opts.push({ label: c.name, value: key });
+    }
+    return opts;
+  }, [competitions.data?.items, sport]);
+
+  const filtersActive = Boolean(market || competitionId || date);
+
+  const clearFilters = () => {
+    setDate(dateOptions?.[0]?.value);
+    setMarket(undefined);
+    setCompetitionId(undefined);
+  };
 
   return (
     <View style={styles.root}>
@@ -54,22 +87,26 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
             API {API_BASE_URL || '(same origin /api → :8000)'}
           </Text>
           {dateOptions && dateOptions.length > 0 ? (
-            <View style={styles.chips}>
-              {dateOptions.map((opt) => {
-                const active = date === opt.value;
-                return (
-                  <Pressable
-                    key={opt.label}
-                    onPress={() => setDate(opt.value)}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <FilterChips
+              options={dateOptions}
+              value={date}
+              onChange={setDate}
+              accessibilityLabel="Filtro data"
+            />
+          ) : null}
+          <FilterChips
+            options={marketOptions}
+            value={market}
+            onChange={setMarket}
+            accessibilityLabel="Filtro mercato"
+          />
+          {competitionOptions.length > 1 ? (
+            <FilterChips
+              options={competitionOptions}
+              value={competitionId}
+              onChange={setCompetitionId}
+              accessibilityLabel="Filtro competizione"
+            />
           ) : null}
           <ProviderWarning status={providerHealth?.status} provider={providerHealth?.provider} />
         </View>
@@ -79,10 +116,15 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
             <ActivityIndicator color={colors.brand} />
           </View>
         ) : query.isError ? (
-          <EmptyState
-            title="Unable to load predictions"
-            subtitle={query.error instanceof Error ? query.error.message : 'Unknown error'}
-          />
+          <View style={styles.emptyPad}>
+            <EmptyState
+              tone="error"
+              title="Impossibile caricare le predizioni"
+              subtitle={query.error instanceof Error ? query.error.message : 'Errore sconosciuto'}
+              actionLabel="Riprova"
+              onAction={() => query.refetch()}
+            />
+          </View>
         ) : (
           <FlatList
             data={query.data?.items ?? []}
@@ -92,7 +134,19 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
               <RefreshControl refreshing={query.isRefetching} onRefresh={() => query.refetch()} />
             }
             ListEmptyComponent={
-              <EmptyState title="No predictions right now" subtitle={emptyHint} />
+              <EmptyState
+                tone={
+                  providerHealth?.status && providerHealth.status !== 'ok' ? 'degraded' : 'empty'
+                }
+                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna predizione'}
+                subtitle={
+                  filtersActive
+                    ? 'Prova a cambiare mercato, competizione o giorno.'
+                    : emptyHint
+                }
+                actionLabel={filtersActive ? 'Azzera filtri' : undefined}
+                onAction={filtersActive ? clearFilters : undefined}
+              />
             }
             renderItem={({ item, index }) => (
               <PredictionCard
@@ -146,24 +200,11 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     marginBottom: spacing.sm,
   },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.sm },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
-  chipTextActive: { color: colors.accent },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 });

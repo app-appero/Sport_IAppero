@@ -224,6 +224,8 @@ def _group_items(slices: list[ProviderSlice], sort: str) -> list[FeedItem]:
     items = list(grouped.values())
 
     def _aware(dt: datetime | None) -> datetime | None:
+        # Sorting only: naive timestamps (should be rare after D05 tennis policy)
+        # are treated as UTC for order stability — not claimed as verified source TZ.
         if dt is None:
             return None
         if dt.tzinfo is None:

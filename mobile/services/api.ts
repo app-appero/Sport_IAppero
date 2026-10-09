@@ -120,6 +120,8 @@ export function getFeed(opts?: {
 export async function getFeedWithFallback(opts?: {
   date?: string;
   sports?: string;
+  market?: string;
+  competition?: string;
   limit?: number;
 }): Promise<FeedResponse & { source: 'feed' | 'fallback' }> {
   try {
@@ -136,7 +138,12 @@ export async function getFeedWithFallback(opts?: {
     const results = await Promise.all(
       sportList.map(async (sport) => {
         try {
-          const res = await getPredictions(sport, { date: opts?.date, limit });
+          const res = await getPredictions(sport, {
+            date: opts?.date,
+            market: opts?.market,
+            competitionId: opts?.competition,
+            limit,
+          });
           return { sport, res, ok: true as const };
         } catch {
           return {
@@ -189,8 +196,8 @@ export async function getFeedWithFallback(opts?: {
         date: opts?.date ?? null,
         timezone: 'Europe/Rome',
         sports: sportList,
-        market: null,
-        competition: null,
+        market: opts?.market ?? null,
+        competition: opts?.competition ?? null,
         sort: 'start_time_asc',
         limit,
       },
