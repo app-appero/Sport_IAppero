@@ -49,10 +49,18 @@ Impostazione **solo dalla dashboard Railway** (richiede account owner del proget
 1. Apri il servizio BFF → **Settings** → **Source**
 2. **Connect GitHub Repo** → `app-appero/Sport_IAppero` (autorizza l’org se richiesto)
 3. **Branch**: `main`
-4. **Root Directory**: `backend`
+4. Scegli **una** delle due config (non mischiarle):
+
+   | Opzione | Root Directory | Dockerfile |
+   |---|---|---|
+   | A (consigliata) | `backend` | `backend/Dockerfile` |
+   | B (root monorepo) | `/` (vuoto) | `Dockerfile` in root del repo |
+
+   Errore tipico di build: `COPY pyproject.toml` / `"/app": not found` → Root Directory non allineato al Dockerfile.
 5. **Wait for CI** / checks: off (salvo CI obbligatori)
 6. Assicurati che **Deploy Triggers** / deploy on push sia attivo sul branch `main`
 7. Opzionale: **Watch Paths** → `backend/**` (evita redeploy per sole modifiche mobile/docs)
+8. Se il deploy fallisce: apri **Build Logs** e verifica che stia usando il Dockerfile giusto
 
 Verifica: un commit su `main` che tocca `backend/` deve creare un deployment automatico; poi:
 
