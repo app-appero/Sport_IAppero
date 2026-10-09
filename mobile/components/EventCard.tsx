@@ -11,7 +11,7 @@ import { outcomeTone, pickBestPrediction, scoreForMarket } from '@/utils/outcome
 type Props = {
   item: FeedItem;
   index?: number;
-  onPress: () => void;
+  onPress?: () => void;
   /** When filtering by a single market, prefer that prediction as hero. */
   preferredMarket?: string;
 };
@@ -29,74 +29,78 @@ export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) 
   const scoreLine = scoreForMarket(item.event, best.prediction.type);
   const timeLabel = formatEventTime(item.event.start_time);
   const marketsCount = item.predictions.length;
+  const cardStyle = [
+    styles.card,
+    tone === 'hit' && styles.cardHit,
+    tone === 'miss' && styles.cardMiss,
+  ];
+
+  const body = (
+    <>
+      <View style={styles.top}>
+        <Text style={[styles.badge, { backgroundColor: sportColor }]}>
+          {(item.event.competition?.name || item.sport).toUpperCase()}
+        </Text>
+        <View style={styles.topRight}>
+          {tone ? (
+            <View style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}>
+              <Text style={styles.outcomeText}>{tone === 'hit' ? 'Verde' : 'Rosso'}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.time}>{timeLabel}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.event}>{item.event.name}</Text>
+
+      {scoreLine ? (
+        <Text style={styles.score}>Risultato · {scoreLine}</Text>
+      ) : (
+        <Text style={styles.scoreMuted}>
+          {item.event.status && item.event.status !== 'NS'
+            ? `Stato · ${item.event.status}`
+            : 'Pre-match'}
+        </Text>
+      )}
+
+      <View style={styles.bestBlock}>
+        <Text style={styles.pickLabel}>
+          Miglior mercato · {marketLabel(best.prediction.type)}
+        </Text>
+        <Text style={styles.pick}>{best.prediction.selection.name}</Text>
+        <ConfidenceBar value={best.prediction.confidence} />
+      </View>
+
+      <Text style={styles.more}>
+        {marketsCount} {marketsCount === 1 ? 'mercato' : 'mercati'}
+        {onPress ? ' · tocca per tutti' : ''}
+      </Text>
+    </>
+  );
 
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.card,
-          tone === 'hit' && styles.cardHit,
-          tone === 'miss' && styles.cardMiss,
-          pressed && styles.pressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <View style={styles.top}>
-          <Text style={[styles.badge, { backgroundColor: sportColor }]}>
-            {(item.event.competition?.name || item.sport).toUpperCase()}
-          </Text>
-          <View style={styles.topRight}>
-            {tone ? (
-              <View style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}>
-                <Text style={styles.outcomeText}>{tone === 'hit' ? 'Verde' : 'Rosso'}</Text>
-              </View>
-            ) : null}
-            <Text style={styles.time}>{timeLabel}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.event}>{item.event.name}</Text>
-
-        {scoreLine ? (
-          <Text style={styles.score}>Risultato · {scoreLine}</Text>
-        ) : (
-          <Text style={styles.scoreMuted}>
-            {item.event.status && item.event.status !== 'NS'
-              ? `Stato · ${item.event.status}`
-              : 'Pre-match'}
-          </Text>
-        )}
-
-        <View style={styles.bestBlock}>
-          <Text style={styles.pickLabel}>
-            Miglior mercato · {marketLabel(best.prediction.type)}
-          </Text>
-          <Text style={styles.pick}>{best.prediction.selection.name}</Text>
-          <ConfidenceBar value={best.prediction.confidence} />
-        </View>
-
-        <Text style={styles.more}>
-          {marketsCount} {marketsCount === 1 ? 'mercato' : 'mercati'} · tocca per tutti
-        </Text>
-      </Pressable>
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          style={({ pressed }) => [...cardStyle, pressed && styles.pressed]}
+          accessibilityRole="button"
+        >
+          {body}
+        </Pressable>
+      ) : (
+        <View style={cardStyle}>{body}</View>
+      )}
     </Animated.View>
   );
 }
 
-/** Compact row for a single market inside event detail. */
-export function MarketRow({
-  item,
-  onPress,
-}: {
-  item: UnifiedPrediction;
-  onPress: () => void;
-}) {
+/** Compact row for a single market inside event detail (not tappable). */
+export function MarketRow({ item }: { item: UnifiedPrediction }) {
   const tone = outcomeTone(item);
   const scoreLine = scoreForMarket(item.event, item.prediction.type);
   return (
-    <Pressable
-      onPress={onPress}
+    <View
       style={[
         styles.marketRow,
         tone === 'hit' && styles.cardHit,
@@ -114,7 +118,7 @@ export function MarketRow({
       <Text style={styles.marketPick}>{item.prediction.selection.name}</Text>
       {scoreLine ? <Text style={styles.score}>Score · {scoreLine}</Text> : null}
       <ConfidenceBar value={item.prediction.confidence} />
-    </Pressable>
+    </View>
   );
 }
 

@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -21,21 +20,16 @@ import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportDropdown, type SportId } from '@/components/SportDropdown';
 import { APP_NAME } from '@/constants/brand';
 import { marketsForSport } from '@/constants/markets';
-import { colors, fonts, gradients, radii, spacing } from '@/constants/theme';
+import { colors, fonts, gradients, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { todayKey } from '@/utils/dates';
 
-const SPORT_COPY: Record<
-  SportId,
-  { title: string; emptyHint: string }
-> = {
+const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
   football: {
-    title: 'Campionati e mercati',
     emptyHint: 'Nessuna partita per la giornata selezionata.',
   },
   tennis: {
-    title: 'Tornei e mercati',
     emptyHint: 'Nessuna prediction tennis per questa giornata.',
   },
 };
@@ -62,7 +56,7 @@ export function SportScreen({
     date,
     market,
     competitionId,
-    limit: 50,
+    limit: 100,
   });
   const competitions = useSportCompetitions(sport, date);
   const providerHealth = health.data?.[sport];
@@ -109,6 +103,12 @@ export function SportScreen({
     setCompetitionId(undefined);
   };
 
+  const onDateChange = (next: string) => {
+    setDate(next);
+    // Competition chips are day-scoped; keep a stale league and past days look empty.
+    setCompetitionId(undefined);
+  };
+
   const openEvent = (item: FeedItem) => {
     const payload: PredictionListResponse = {
       items: item.predictions,
@@ -135,20 +135,9 @@ export function SportScreen({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <Text style={styles.brand}>{APP_NAME}</Text>
-            <Pressable
-              onPress={() => router.push('/saved')}
-              style={styles.savedBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Preferiti salvati"
-            >
-              <Text style={styles.savedBtnText}>Salvati</Text>
-            </Pressable>
-          </View>
-          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.brand}>{APP_NAME}</Text>
           {showSportDropdown ? (
             <SportDropdown
               value={sport}
@@ -159,13 +148,7 @@ export function SportScreen({
               }}
             />
           ) : null}
-          <DayScroller value={date} onChange={setDate} />
-          <FilterChips
-            options={marketOptions}
-            value={market}
-            onChange={setMarket}
-            accessibilityLabel="Filtro mercato"
-          />
+          <DayScroller value={date} onChange={onDateChange} />
           {competitionOptions.length > 1 ? (
             <FilterChips
               options={competitionOptions}
@@ -210,7 +193,9 @@ export function SportScreen({
                 }
                 title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
                 subtitle={
-                  filtersActive ? 'Prova a cambiare mercato, competizione o giorno.' : copy.emptyHint
+                  filtersActive
+                    ? 'Prova a cambiare mercato, competizione o giorno.'
+                    : copy.emptyHint
                 }
                 actionLabel={filtersActive ? 'Azzera filtri' : undefined}
                 onAction={filtersActive ? clearFilters : undefined}
@@ -226,6 +211,15 @@ export function SportScreen({
             )}
           />
         )}
+
+        <View style={styles.bottomFilters}>
+          <FilterChips
+            options={marketOptions}
+            value={market}
+            onChange={setMarket}
+            accessibilityLabel="Filtro mercato"
+          />
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -236,50 +230,29 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: 4,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: 6,
   },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 36,
+    fontSize: 34,
     color: colors.accent,
     letterSpacing: 0.5,
-    lineHeight: 38,
-    flexShrink: 1,
-  },
-  savedBtn: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  savedBtnText: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    fontSize: 13,
-  },
-  title: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 20,
-    color: colors.ink,
-    marginBottom: spacing.sm,
+    lineHeight: 36,
   },
   list: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.md,
     gap: spacing.md,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  bottomFilters: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.surface,
+  },
 });

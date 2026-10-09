@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -15,6 +17,7 @@ from app.providers.soccer import mapper
 logger = logging.getLogger(__name__)
 
 _PUBLIC_PATHS = {"/health", "/health/database"}
+_ROME = ZoneInfo("Europe/Rome")
 
 
 class SoccerProvider(SportProvider):
@@ -204,15 +207,107 @@ class SoccerProvider(SportProvider):
                     )
         return markets
 
+    @staticmethod
+    def _adjacent_dates(day: str) -> list[str]:
+        """UTC day ±1 around the requested calendar day.
+
+        Soccer `/dashboard/day` filters by UTC `date_match` prefix, while the
+        mobile day scroller uses Europe/Rome. Fetching neighbours recovers
+        kickoffs that fall on a different UTC date than the Rome calendar day.
+        """
+        try:
+            center = date.fromisoformat(day)
+        except ValueError:
+            return [day]
+        return [
+            (center + timedelta(days=offset)).isoformat()
+            for offset in (-1, 0, 1)
+        ]
+
+    @staticmethod
+    def _event_rome_day(event: Event) -> str | None:
+        if event.start_time is not None:
+            dt = event.start_time
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+            return dt.astimezone(_ROME).date().isoformat()
+        return event.calendar_date
+
+    def _filter_events_by_day(self, events: list[Event], day: str) -> list[Event]:
+        return [e for e in events if self._event_rome_day(e) == day]
+
+    def _filter_predictions_by_day(
+        self, predictions: list[UnifiedPrediction], day: str
+    ) -> list[UnifiedPrediction]:
+        return [p for p in predictions if self._event_rome_day(p.event) == day]
+
+    async def _day_payload(
+        self,
+        target_date: str | None,
+        *,
+        with_predictions: bool = True,
+        phase: str | None = None,
+    ) -> Any:
+        params: dict[str, Any] = {"with_predictions": with_predictions}
+        if target_date:
+            params["target_date"] = target_date
+        if phase:
+            params["phase"] = phase
+        return await self._get("/dashboard/day", params=params)
+
+    async def _day_payloads_for_calendar_day(
+        self,
+        day: str,
+        *,
+        with_predictions: bool = True,
+    ) -> list[Any]:
+        payloads: list[Any] = []
+        for target in self._adjacent_dates(day):
+            try:
+                payloads.append(
+                    await self._day_payload(
+                        target,
+                        with_predictions=with_predictions,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 — neighbour miss is non-fatal
+                logger.info("Soccer day neighbour %s failed: %s", target, exc)
+        # Past days: upstream may keep finished rows under phase=finished only
+        # on some deployments; if the window is empty, retry centre day once.
+        if not any(
+            isinstance(p, dict) and (p.get("rows") or p.get("total")) for p in payloads
+        ):
+            try:
+                payloads.append(
+                    await self._day_payload(
+                        day,
+                        with_predictions=with_predictions,
+                        phase="finished",
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.info("Soccer finished-phase fallback for %s failed: %s", day, exc)
+        return payloads
+
     async def get_events(self, **filters: Any) -> list[Event]:
-        params: dict[str, Any] = {}
-        # Upstream query param is target_date (not date)
-        if filters.get("date"):
-            params["target_date"] = filters["date"]
-        if filters.get("with_predictions") is not None:
-            params["with_predictions"] = filters["with_predictions"]
-        payload = await self._get("/dashboard/day", params=params or None)
-        events = mapper.map_events(payload)
+        day = filters.get("date")
+        with_predictions = filters.get("with_predictions")
+        wp = True if with_predictions is None else bool(with_predictions)
+
+        if day:
+            events: list[Event] = []
+            seen: set[str] = set()
+            for payload in await self._day_payloads_for_calendar_day(str(day), with_predictions=wp):
+                for event in mapper.map_events(payload):
+                    if event.id in seen:
+                        continue
+                    seen.add(event.id)
+                    events.append(event)
+            events = self._filter_events_by_day(events, str(day))
+        else:
+            payload = await self._day_payload(None, with_predictions=wp)
+            events = mapper.map_events(payload)
+
         competition_id = filters.get("competition_id")
         if competition_id:
             events = [
@@ -238,11 +333,24 @@ class SoccerProvider(SportProvider):
                     detail_preds = [p for p in detail_preds if p.prediction.type == market]
                 return detail_preds
 
-        params: dict[str, Any] = {"with_predictions": True}
-        if filters.get("date"):
-            params["target_date"] = filters["date"]
-        payload = await self._get("/dashboard/day", params=params or None)
-        predictions = mapper.map_day_payload(payload)
+        day = filters.get("date")
+        if day:
+            predictions: list[UnifiedPrediction] = []
+            seen: set[str] = set()
+            for payload in await self._day_payloads_for_calendar_day(
+                str(day), with_predictions=True
+            ):
+                for pred in mapper.map_day_payload(payload):
+                    if pred.id in seen:
+                        continue
+                    seen.add(pred.id)
+                    predictions.append(pred)
+            # Always filter locally — fixtures mode ignores target_date, and
+            # live upstream may return neighbour UTC days from the window.
+            predictions = self._filter_predictions_by_day(predictions, str(day))
+        else:
+            payload = await self._day_payload(None, with_predictions=True)
+            predictions = mapper.map_day_payload(payload)
 
         competition_id = filters.get("competition_id")
         market = filters.get("market")
