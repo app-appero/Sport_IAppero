@@ -62,3 +62,16 @@ uvicorn app.main:app --reload --port 8000
 
 - Upstream OpenAPI discovery docs: `../sport_IAppero-docs/provider-soccer-api.md` and `provider-tennis-api.md`.
 - Fixture mode remains available for offline/dev.
+
+## Deploy su Railway
+
+1. Railway → **New Project** → nome `sport_IAppero` → **Deploy from GitHub repo** → `app-appero/Sport_IAppero`.
+2. Nel servizio: **Settings → Root Directory** = `backend` (legge `railway.json` + `Dockerfile`).
+3. **Variables**:
+   - `USE_PROVIDER_FIXTURES=false`
+   - `SOCCER_ORACLE_BASE_URL`, `TENNIS_ORACLE_BASE_URL` (default in `.env.example`)
+   - `TENNIS_ORACLE_USERNAME`, `TENNIS_ORACLE_PASSWORD`
+   - `LOG_LEVEL=INFO`
+   (`PORT` è impostata da Railway; il container fa bind su `${PORT}`.)
+4. **Settings → Networking → Generate Domain**, poi verifica `https://<dominio>/api/v1/health`.
+5. Nel mobile imposta `EXPO_PUBLIC_API_URL=https://<dominio>`.
