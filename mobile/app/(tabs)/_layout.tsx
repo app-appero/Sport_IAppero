@@ -14,7 +14,7 @@ function TabIcon({ label, color }: { label: string; color: ColorValue }) {
 export default function TabLayout() {
   return (
     <Tabs
-      initialRouteName="football"
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.brand,
@@ -32,6 +32,13 @@ export default function TabLayout() {
         },
       }}
     >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color }) => <TabIcon label="HM" color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="football"
         options={{
@@ -53,7 +60,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabIcon label="SV" color={color} />,
         }}
       />
-      <Tabs.Screen name="index" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -4,11 +4,22 @@ import { Platform } from 'react-native';
 import type {
   CompetitionListResponse,
   EventListResponse,
+  FeedResponse,
   MarketListResponse,
   PredictionListResponse,
   SportInfo,
   UnifiedPrediction,
 } from '@/types/api';
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
 
 function resolveBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') || '';
@@ -40,7 +51,7 @@ async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`API ${response.status} ${path}: ${text.slice(0, 200)}`);
+    throw new ApiError(response.status, `API ${response.status} ${path}: ${text.slice(0, 200)}`);
   }
   return response.json() as Promise<T>;
 }
@@ -82,6 +93,125 @@ export function getPredictions(
   if (opts?.limit != null) params.set('limit', String(opts.limit));
   const q = params.toString() ? `?${params}` : '';
   return getJson<PredictionListResponse>(`/api/v1/sports/${sport}/predictions${q}`);
+}
+
+export function getFeed(opts?: {
+  date?: string;
+  sports?: string;
+  market?: string;
+  competition?: string;
+  sort?: string;
+  limit?: number;
+  cursor?: string;
+}) {
+  const params = new URLSearchParams();
+  if (opts?.date) params.set('date', opts.date);
+  if (opts?.sports) params.set('sports', opts.sports);
+  if (opts?.market) params.set('market', opts.market);
+  if (opts?.competition) params.set('competition', opts.competition);
+  if (opts?.sort) params.set('sort', opts.sort);
+  if (opts?.limit != null) params.set('limit', String(opts.limit));
+  if (opts?.cursor) params.set('cursor', opts.cursor);
+  const q = params.toString() ? `?${params}` : '';
+  return getJson<FeedResponse>(`/api/v1/feed${q}`);
+}
+
+/** When /feed is not deployed yet, synthesize a feed from per-sport endpoints. */
+export async function getFeedWithFallback(opts?: {
+  date?: string;
+  sports?: string;
+  limit?: number;
+}): Promise<FeedResponse & { source: 'feed' | 'fallback' }> {
+  try {
+    const feed = await getFeed(opts);
+    return { ...feed, source: 'feed' };
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) throw err;
+
+    const sportList = (opts?.sports || 'football,tennis')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const limit = opts?.limit ?? 30;
+    const results = await Promise.all(
+      sportList.map(async (sport) => {
+        try {
+          const res = await getPredictions(sport, { date: opts?.date, limit });
+          return { sport, res, ok: true as const };
+        } catch {
+          return {
+            sport,
+            res: {
+              items: [] as UnifiedPrediction[],
+              meta: {
+                count: 0,
+                sport,
+                provider: sport === 'tennis' ? 'tennis-oracle' : 'soccer-oracle',
+                provider_status: 'unavailable',
+              },
+            },
+            ok: false as const,
+          };
+        }
+      }),
+    );
+
+    const byEvent = new Map<
+      string,
+      { event: UnifiedPrediction['event']; predictions: UnifiedPrediction[]; sport: string }
+    >();
+    for (const { res } of results) {
+      for (const pred of res.items) {
+        const key = `${pred.sport}:${pred.event.id}`;
+        const existing = byEvent.get(key);
+        if (!existing) {
+          byEvent.set(key, {
+            event: pred.event,
+            predictions: [pred],
+            sport: String(pred.sport),
+          });
+        } else {
+          existing.predictions.push(pred);
+        }
+      }
+    }
+
+    const items = Array.from(byEvent.values()).slice(0, limit);
+    const anyOk = results.some((r) => r.ok);
+    const allOk = results.every((r) => r.ok);
+    const status = !anyOk ? 'unavailable' : allOk ? (items.length ? 'ok' : 'empty') : 'degraded';
+
+    return {
+      schema_version: '1',
+      snapshot_id: 'fallback-local',
+      generated_at: new Date().toISOString(),
+      query: {
+        date: opts?.date ?? null,
+        timezone: 'Europe/Rome',
+        sports: sportList,
+        market: null,
+        competition: null,
+        sort: 'start_time_asc',
+        limit,
+      },
+      items,
+      page: { limit, next_cursor: null },
+      meta: {
+        status,
+        is_complete: allOk,
+        providers: results.map((r) => ({
+          provider: r.res.meta.provider,
+          status: r.ok ? r.res.meta.provider_status : 'unavailable',
+          item_count: new Set(r.res.items.map((i) => i.event.id)).size,
+          truncated: false,
+        })),
+        warnings: allOk
+          ? ['Feed unificato non ancora deployato — vista da endpoint per sport']
+          : ['Feed unificato non disponibile; alcuni provider in errore'],
+      },
+      source: 'fallback',
+    };
+  }
 }
 
 export function getPrediction(id: string) {

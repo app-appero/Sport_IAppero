@@ -4,6 +4,7 @@ import {
   getCompetitions,
   getEventPredictions,
   getEvents,
+  getFeedWithFallback,
   getHealthProviders,
   getPrediction,
   getPredictions,
@@ -13,6 +14,25 @@ export function useProviderHealth() {
   return useQuery({
     queryKey: ['health', 'providers'],
     queryFn: getHealthProviders,
+    staleTime: 30_000,
+  });
+}
+
+export function useFeed(opts?: {
+  date?: string;
+  sports?: string;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: ['feed', opts?.date ?? null, opts?.sports ?? null, opts?.limit ?? null],
+    queryFn: () =>
+      getFeedWithFallback({
+        date: opts?.date,
+        sports: opts?.sports,
+        limit: opts?.limit ?? 40,
+      }),
+    enabled: opts?.enabled ?? true,
     staleTime: 30_000,
   });
 }
