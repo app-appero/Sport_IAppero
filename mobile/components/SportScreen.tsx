@@ -50,7 +50,9 @@ export function SportScreen({ sport, title, eyebrow, emptyHint, dateOptions }: P
           <Text style={styles.brand}>ORACLE SPORTS</Text>
           <Text style={styles.eyebrow}>{eyebrow}</Text>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.apiHint}>API {API_BASE_URL}</Text>
+          <Text style={styles.apiHint}>
+            API {API_BASE_URL || '(same origin /api → :8000)'}
+          </Text>
           {dateOptions && dateOptions.length > 0 ? (
             <View style={styles.chips}>
               {dateOptions.map((opt) => {

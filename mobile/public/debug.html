@@ -16,22 +16,22 @@
 <body>
   <h1>ORACLE SPORTS — DEBUG</h1>
   <p>Se vedi questa pagina, il port forward di <code>8081</code> funziona.</p>
-  <p><a href="/football">Apri app Football →</a></p>
-  <p id="api">Test API in corso…</p>
+  <p><a href="/hello.html">hello</a> · <a href="/football">Football →</a></p>
+  <p id="api">Test API (via proxy same-origin)…</p>
   <pre id="out">…</pre>
   <script>
-    const api = 'http://localhost:8000';
     const el = document.getElementById('api');
     const out = document.getElementById('out');
+    // Same origin → /api proxied by serve-web.mjs to :8000
     Promise.all([
-      fetch(api + '/api/v1/health').then(r => r.json()),
-      fetch(api + '/api/v1/sports/football/predictions?date=2026-09-20&limit=2').then(r => r.json()),
+      fetch('/api/v1/health').then(r => r.json()),
+      fetch('/api/v1/sports/football/predictions?date=2026-09-20&limit=2').then(r => r.json()),
     ]).then(([health, preds]) => {
       el.innerHTML = '<span class="ok">API OK</span> — health=' + health.status +
         ', football items=' + (preds.meta && preds.meta.count);
       out.textContent = JSON.stringify({ health, first: preds.items && preds.items[0] }, null, 2);
     }).catch((e) => {
-      el.innerHTML = '<span class="bad">API FAIL</span> — porta 8000 non raggiungibile dal browser';
+      el.innerHTML = '<span class="bad">API FAIL</span> — proxy /api o backend :8000';
       out.textContent = String(e);
     });
   </script>

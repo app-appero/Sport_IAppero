@@ -37,11 +37,18 @@ npm run web            # static preview on http://localhost:8081
 # or: npm start        # Expo Go / simulator (press w for web)
 ```
 
-Open `http://localhost:8081/football` (or `/debug.html` first).
+Open in this order (same port `8081`):
+
+1. http://localhost:8081/hello.html — must show bright green “VEDI QUESTO?”
+2. http://localhost:8081/debug.html — API via proxy
+3. http://localhost:8081/football — app
+
+In Cursor Cloud: use the **Ports** panel → forward `8081` → Open in Browser.
+If `hello.html` is blank, the port forward is not reaching this VM (not an app bug).
 
 ## Notes
 
+- `npm run web` serves `dist/` and **proxies** `/api/*` → `localhost:8000`, so the browser only needs port **8081**.
 - The app never calls Soccer/Tennis Oracle directly — only the Oracle Sports BFF.
-- With fixtures, Football defaults to a sample date that has matches (`2025-09-20` / chip in UI).
+- With fixtures, Football defaults to a sample date with matches (`2026-09-20`).
 - Live Railway: set `USE_PROVIDER_FIXTURES=false` and Tennis credentials in `backend/.env`.
-- Backend must be on port 8000; mobile `.env` defaults to `EXPO_PUBLIC_API_URL=http://localhost:8000`.

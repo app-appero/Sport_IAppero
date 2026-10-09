@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 import type {
   CompetitionListResponse,
@@ -10,8 +11,17 @@ import type {
 } from '@/types/api';
 
 function resolveBaseUrl(): string {
-  const fromEnv = process.env.EXPO_PUBLIC_API_URL;
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') || '';
+
+  // Web: same-origin so one port-forward (8081) is enough; serve-web proxies /api → :8000.
+  if (Platform.OS === 'web') {
+    if (fromEnv && !/localhost|127\.0\.0\.1/.test(fromEnv)) {
+      return fromEnv;
+    }
+    return '';
+  }
+
+  if (fromEnv) return fromEnv;
 
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
