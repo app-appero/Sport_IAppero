@@ -98,7 +98,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Oracle Sports static web on http://${host}:${port}`);
+  console.log(`Sport IApperò static web on http://${host}:${port}`);
   console.log(`API proxy: /api/* → http://${apiHost}:${apiPort}`);
   console.log(`Open /hello.html (litmus), then /debug.html, then /football`);
 });

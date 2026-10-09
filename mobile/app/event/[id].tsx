@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 
 import { EmptyState } from '@/components/EmptyState';
 import { MarketRow } from '@/components/EventCard';
+import { APP_NAME } from '@/constants/brand';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
 import { formatEventTime } from '@/utils/dates';
@@ -46,7 +47,7 @@ export default function EventDetailScreen() {
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.brand}>ORACLE SPORTS</Text>
+          <Text style={styles.brand}>{APP_NAME}</Text>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>
             {event?.competition?.name ?? 'Competizione'} · {timeLabel}

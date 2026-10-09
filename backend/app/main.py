@@ -17,9 +17,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Oracle Sports API",
+    title="Sport IApperò API",
     version="0.2.0",
-    description="BFF aggregating Football (Soccer Oracle) and Tennis Oracle predictions",
+    description="BFF Sport IApperò — aggregazione Football (Soccer Oracle) e Tennis Oracle",
     lifespan=lifespan,
 )
 
@@ -39,7 +39,7 @@ app.include_router(api_router)
 async def root() -> dict[str, str]:
     settings = get_settings()
     return {
-        "service": "Oracle Sports API",
+        "service": "Sport IApperò API",
         "version": "0.2.0",
         "docs": "/docs",
         "health": "/health",

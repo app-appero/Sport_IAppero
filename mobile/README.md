@@ -1,13 +1,13 @@
-# Oracle Sports — Mobile
+# Sport IApperò — Mobile
 
-Expo (React Native) app for Sport_IAppero.
+Expo (React Native) app for Sport IApperò.
 
 ## Tabs
 
-- **Home** → `/api/v1/feed` (fallback automatico agli endpoint per-sport se `/feed` 404)
-- **Football** → `/api/v1/sports/football/predictions`
+- **Sport** → hub: ogni sport ha la sua sezione (niente feed “Tutti”)
+- **Calcio** → `/api/v1/sports/football/predictions`
 - **Tennis** → `/api/v1/sports/tennis/predictions`
-- **Saved** → preferiti locali (AsyncStorage, nessun account)
+- **Salvati** → preferiti locali (AsyncStorage, nessun account)
 
 ## Setup
 
@@ -50,6 +50,6 @@ If `hello.html` is blank, the port forward is not reaching this VM (not an app b
 ## Notes
 
 - `npm run web` serves `dist/` and **proxies** `/api/*` → `localhost:8000`, so the browser only needs port **8081**.
-- The app never calls Soccer/Tennis Oracle directly — only the Oracle Sports BFF.
+- The app never calls Soccer/Tennis Oracle directly — only the Sport IApperò BFF.
 - With fixtures, Football defaults to a sample date with matches (`2026-09-20`).
 - Live Railway: set `USE_PROVIDER_FIXTURES=false` and Tennis credentials in `backend/.env`.

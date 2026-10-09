@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Oracle Sports",
-    "slug": "oracle-sports",
+    "name": "Sport IApperò",
+    "slug": "sport-iappero",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "oraclesports",
+    "scheme": "sportiappero",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.appero.oraclesports"
+      "bundleIdentifier": "com.appero.sportiappero"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.appero.oraclesports"
+      "package": "com.appero.sportiappero"
     },
     "web": {
       "bundler": "metro",

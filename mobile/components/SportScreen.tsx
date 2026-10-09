@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { FilterChips } from '@/components/FilterChips';
 import { ProviderWarning } from '@/components/ProviderWarning';
+import { APP_NAME } from '@/constants/brand';
 import { marketsForSport } from '@/constants/markets';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
@@ -97,7 +98,7 @@ export function SportScreen({ sport, title, eyebrow, emptyHint }: Props) {
       />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.brand}>ORACLE SPORTS</Text>
+          <Text style={styles.brand}>{APP_NAME}</Text>
           <Text style={styles.eyebrow}>{eyebrow}</Text>
           <Text style={styles.title}>{title}</Text>
           <DayScroller value={date} onChange={setDate} />
