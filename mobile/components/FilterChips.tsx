@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
-  chipTextActive: { color: colors.accent },
+  chipTextActive: { color: colors.onAccent },
 });

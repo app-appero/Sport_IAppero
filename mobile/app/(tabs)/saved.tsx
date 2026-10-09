@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/EmptyState';
 import { PredictionCard } from '@/components/PredictionCard';
 import { APP_NAME } from '@/constants/brand';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { colors, fonts, gradients, radii, spacing } from '@/constants/theme';
 import { useFavorites, useRemoveFavorite } from '@/hooks/favorites';
 import type { UnifiedPrediction } from '@/types/api';
 
@@ -25,14 +25,20 @@ export default function SavedTab() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={['#E7F2E4', colors.surface]}
-        style={StyleSheet.absoluteFill}
-      />
+      <LinearGradient colors={[...gradients.screen]} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.brand}>{APP_NAME}</Text>
-          <Text style={styles.eyebrow}>Saved · solo su questo dispositivo</Text>
+          <View style={styles.brandRow}>
+            <Text style={styles.brand}>{APP_NAME}</Text>
+            <Pressable
+              onPress={() => router.replace('/')}
+              style={styles.backBtn}
+              accessibilityRole="button"
+            >
+              <Text style={styles.backBtnText}>Partite</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.eyebrow}>Solo su questo dispositivo</Text>
           <Text style={styles.title}>Preferiti</Text>
           <Text style={styles.body}>
             Nessun account: i preferiti restano in locale (AsyncStorage).
@@ -41,7 +47,7 @@ export default function SavedTab() {
 
         {favorites.isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.brand} />
+            <ActivityIndicator color={colors.accent} />
           </View>
         ) : (
           <FlatList
@@ -52,6 +58,7 @@ export default function SavedTab() {
               <RefreshControl
                 refreshing={favorites.isRefetching}
                 onRefresh={() => favorites.refetch()}
+                tintColor={colors.accent}
               />
             }
             ListEmptyComponent={
@@ -100,12 +107,30 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: 4,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 42,
-    color: colors.brand,
-    letterSpacing: 1,
+    fontSize: 36,
+    color: colors.accent,
+    letterSpacing: 0.5,
+    flexShrink: 1,
   },
+  backBtn: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  backBtnText: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 13 },
   eyebrow: {
     fontFamily: fonts.bodyMedium,
     color: colors.inkMuted,

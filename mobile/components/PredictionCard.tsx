@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   badge: {
-    color: colors.accent,
+    color: colors.ink,
     overflow: 'hidden',
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   pick: {
     fontFamily: fonts.display,
     fontSize: 28,
-    color: colors.brand,
+    color: colors.accent,
     letterSpacing: 0.5,
     lineHeight: 30,
   },

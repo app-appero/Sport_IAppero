@@ -132,8 +132,8 @@ const styles = StyleSheet.create({
   brand: {
     fontFamily: fonts.display,
     fontSize: 34,
-    color: colors.brand,
-    letterSpacing: 1,
+    color: colors.accent,
+    letterSpacing: 0.5,
   },
   sport: {
     fontFamily: fonts.bodyBold,
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   pick: {
     fontFamily: fonts.display,
     fontSize: 36,
-    color: colors.brand,
+    color: colors.accent,
     lineHeight: 38,
   },
   probRow: {
@@ -186,28 +186,28 @@ const styles = StyleSheet.create({
   probLabel: { fontFamily: fonts.body, color: colors.ink, fontSize: 15 },
   probValue: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
   cta: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.accent,
     borderRadius: radii.md,
     paddingVertical: 14,
     alignItems: 'center',
     minHeight: 48,
   },
   ctaText: {
-    color: colors.accent,
+    color: colors.onAccent,
     fontFamily: fonts.bodyBold,
     fontSize: 15,
   },
   secondaryCta: {
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: colors.accent,
   },
   secondaryCtaText: {
-    color: colors.brand,
+    color: colors.accent,
     fontFamily: fonts.bodyBold,
     fontSize: 15,
   },
-  hit: { fontFamily: fonts.bodyBold, color: '#2F9E44', fontSize: 14 },
-  miss: { fontFamily: fonts.bodyBold, color: '#C92A2A', fontSize: 14 },
+  hit: { fontFamily: fonts.bodyBold, color: colors.hit, fontSize: 14 },
+  miss: { fontFamily: fonts.bodyBold, color: colors.miss, fontSize: 14 },
 });
 

@@ -2,10 +2,11 @@
 
 Expo (React Native) app for Sport IApperò.
 
-## Tabs
+## Navigazione
 
-- **Partite** → default Calcio, menù a tendina per Tennis (e futuri sport)
-- **Salvati** → preferiti locali (AsyncStorage, nessun account)
+- Nessuna tab bar in basso (tema scuro)
+- **Partite** → default Calcio, menù a tendina per Tennis; pulsante Salvati in header
+- **Salvati** → preferiti locali (AsyncStorage)
 
 ## Setup
 

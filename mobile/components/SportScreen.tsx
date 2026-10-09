@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -20,7 +21,7 @@ import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportDropdown, type SportId } from '@/components/SportDropdown';
 import { APP_NAME } from '@/constants/brand';
 import { marketsForSport } from '@/constants/markets';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, gradients, radii, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { todayKey } from '@/utils/dates';
@@ -129,14 +130,24 @@ export function SportScreen({
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={['#E7F2E4', colors.surface, '#F7F3E8']}
+        colors={[...gradients.screen]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.brand}>{APP_NAME}</Text>
+          <View style={styles.brandRow}>
+            <Text style={styles.brand}>{APP_NAME}</Text>
+            <Pressable
+              onPress={() => router.push('/saved')}
+              style={styles.savedBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Preferiti salvati"
+            >
+              <Text style={styles.savedBtnText}>Salvati</Text>
+            </Pressable>
+          </View>
           <Text style={styles.title}>{copy.title}</Text>
           {showSportDropdown ? (
             <SportDropdown
@@ -168,7 +179,7 @@ export function SportScreen({
 
         {query.isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.brand} />
+            <ActivityIndicator color={colors.accent} />
           </View>
         ) : query.isError ? (
           <View style={styles.emptyPad}>
@@ -186,7 +197,11 @@ export function SportScreen({
             keyExtractor={(item) => item.event.id}
             contentContainerStyle={styles.list}
             refreshControl={
-              <RefreshControl refreshing={query.isRefetching} onRefresh={() => query.refetch()} />
+              <RefreshControl
+                refreshing={query.isRefetching}
+                onRefresh={() => query.refetch()}
+                tintColor={colors.accent}
+              />
             }
             ListEmptyComponent={
               <EmptyState
@@ -225,12 +240,34 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: 4,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 38,
-    color: colors.brand,
+    fontSize: 36,
+    color: colors.accent,
     letterSpacing: 0.5,
-    lineHeight: 40,
+    lineHeight: 38,
+    flexShrink: 1,
+  },
+  savedBtn: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  savedBtnText: {
+    fontFamily: fonts.bodyBold,
+    color: colors.ink,
+    fontSize: 13,
   },
   title: {
     fontFamily: fonts.bodyBold,

@@ -70,15 +70,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   warn: {
-    backgroundColor: '#FFF4CE',
-    borderColor: '#E6C200',
+    backgroundColor: colors.warnBg,
+    borderColor: colors.warning,
   },
   error: {
-    backgroundColor: '#FFF5F5',
-    borderColor: '#F5C2C0',
+    backgroundColor: colors.errorBg,
+    borderColor: colors.miss,
   },
   info: {
-    backgroundColor: '#E7F2E4',
+    backgroundColor: colors.infoBg,
     borderColor: colors.line,
   },
   text: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
