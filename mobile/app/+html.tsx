@@ -3,12 +3,12 @@ import type { ReactNode } from 'react';
 
 export default function Root({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="it">
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <title>Oracle Sports</title>
+        <title>Sport IApperò</title>
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: baseCss }} />
       </head>
@@ -16,7 +16,7 @@ export default function Root({ children }: { children: ReactNode }) {
         {/* Visible even before React hydrates (avoids pure white/black blank). */}
         <div id="boot-fallback" style={fallbackStyle}>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#0B3D2E', letterSpacing: 1 }}>
-            ORACLE SPORTS
+            Sport IApperò
           </div>
           <div style={{ marginTop: 8, color: '#5A6B63' }}>Avvio app…</div>
           <div style={{ marginTop: 16, fontSize: 13, color: '#5A6B63' }}>
@@ -37,7 +37,7 @@ export default function Root({ children }: { children: ReactNode }) {
               };
               const obs = new MutationObserver(() => {
                 const root = document.getElementById('root');
-                if (root && root.innerText && root.innerText.includes('ORACLE SPORTS')) hide();
+                if (root && root.innerText && root.innerText.includes('Sport IApper')) hide();
               });
               document.addEventListener('DOMContentLoaded', () => {
                 const root = document.getElementById('root');

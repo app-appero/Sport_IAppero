@@ -35,15 +35,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <TabIcon label="HM" color={color} />,
+          title: 'Sport',
+          tabBarIcon: ({ color }) => <TabIcon label="SP" color={color} />,
         }}
       />
       <Tabs.Screen
         name="football"
         options={{
-          title: 'Football',
-          tabBarIcon: ({ color }) => <TabIcon label="FB" color={color} />,
+          title: 'Calcio',
+          tabBarIcon: ({ color }) => <TabIcon label="CA" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -56,7 +56,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="saved"
         options={{
-          title: 'Saved',
+          title: 'Salvati',
           tabBarIcon: ({ color }) => <TabIcon label="SV" color={color} />,
         }}
       />

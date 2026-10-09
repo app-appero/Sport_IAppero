@@ -1,6 +1,6 @@
-# Oracle Sports Backend
+# Sport IApperò — Backend
 
-FastAPI BFF for Sport_IAppero / Oracle Sports.
+FastAPI BFF for Sport IApperò.
 
 Aggregates:
 

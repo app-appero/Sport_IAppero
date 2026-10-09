@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "oracle-sports-backend"
 version = "0.2.0"
-description = "Oracle Sports BFF — aggregates Football (Soccer Oracle) and Tennis predictions"
+description = "Sport IApperò BFF — aggregates Football (Soccer Oracle) and Tennis predictions"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

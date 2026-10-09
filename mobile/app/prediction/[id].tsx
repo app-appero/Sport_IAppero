@@ -10,6 +10,7 @@ import {
 
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { EmptyState } from '@/components/EmptyState';
+import { APP_NAME } from '@/constants/brand';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/favorites';
 import { usePredictionDetail } from '@/hooks/queries';
@@ -42,7 +43,7 @@ export default function PredictionDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.brand}>ORACLE SPORTS</Text>
+      <Text style={styles.brand}>{APP_NAME}</Text>
       <Text style={styles.sport}>{String(item.sport).toUpperCase()}</Text>
       <Text style={styles.event}>{item.event.name}</Text>
       <Text style={styles.meta}>

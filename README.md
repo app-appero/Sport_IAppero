@@ -1,6 +1,6 @@
 # Sport_IAppero
 
-Oracle Sports — aggregazione di predizioni sportive (Football + Tennis).
+**Sport IApperò** — aggregazione di predizioni sportive (Calcio + Tennis).
 
 ```text
 Sport_IAppero/

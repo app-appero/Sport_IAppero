@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/EmptyState';
 import { PredictionCard } from '@/components/PredictionCard';
+import { APP_NAME } from '@/constants/brand';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import { useFavorites, useRemoveFavorite } from '@/hooks/favorites';
 import type { UnifiedPrediction } from '@/types/api';
@@ -30,7 +31,7 @@ export default function SavedTab() {
       />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.brand}>ORACLE SPORTS</Text>
+          <Text style={styles.brand}>{APP_NAME}</Text>
           <Text style={styles.eyebrow}>Saved · solo su questo dispositivo</Text>
           <Text style={styles.title}>Preferiti</Text>
           <Text style={styles.body}>
