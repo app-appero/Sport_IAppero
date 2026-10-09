@@ -40,6 +40,29 @@ Mobile: `EXPO_PUBLIC_API_URL=https://bff-sport-iappero-dev.up.railway.app`. Ness
 
 Dockerfile con contesto `backend/`, dipendenze FastAPI/httpx/Pydantic; nessun dataset o artifact pickle. Command: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`. Dev e production separati con base URL esplicite; non puntare automaticamente produzione verso i due motori dev.
 
+Config in repo: `backend/railway.json` (builder Dockerfile, healthcheck `/api/v1/health`).
+
+## Auto-deploy da GitHub (`main`)
+
+Impostazione **solo dalla dashboard Railway** (richiede account owner del progetto). Non è configurabile dal codice del repo senza token Railway.
+
+1. Apri il servizio BFF → **Settings** → **Source**
+2. **Connect GitHub Repo** → `app-appero/Sport_IAppero` (autorizza l’org se richiesto)
+3. **Branch**: `main`
+4. **Root Directory**: `backend`
+5. **Wait for CI** / checks: off (salvo CI obbligatori)
+6. Assicurati che **Deploy Triggers** / deploy on push sia attivo sul branch `main`
+7. Opzionale: **Watch Paths** → `backend/**` (evita redeploy per sole modifiche mobile/docs)
+
+Verifica: un commit su `main` che tocca `backend/` deve creare un deployment automatico; poi:
+
+```bash
+curl -sS https://bff-sport-iappero-dev.up.railway.app/health
+curl -sS 'https://bff-sport-iappero-dev.up.railway.app/api/v1/feed?limit=1'
+```
+
+Se Source è già collegato ma non redeploya: controlla branch watched = `main`, root = `backend`, e che il merge sia arrivato su GitHub.
+
 ## Verifica rilascio
 
 - [x] Dominio BFF dev pubblicato

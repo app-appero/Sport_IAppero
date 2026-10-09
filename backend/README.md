@@ -39,6 +39,10 @@ Open:
 
 Deployed dev BFF: https://bff-sport-iappero-dev.up.railway.app
 
+### Railway auto-deploy
+
+Collega il servizio a GitHub (`main`, root directory `backend`) dalla dashboard Railway — vedi `Sport_IAppero-documentazione-v2/docs/11_CONFIGURAZIONE_RAILWAY.md`. Ogni push/merge su `main` (con path `backend/`) deve triggerare un deploy.
+
 ## Tests
 
 ```bash
