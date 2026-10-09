@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -15,7 +15,6 @@ export default function EventDetailScreen() {
     sport?: string;
     date?: string;
   }>();
-  const router = useRouter();
   const query = useEventPredictions(String(id ?? ''), {
     sport: sport ? String(sport) : undefined,
     date: date ? String(date) : undefined,
@@ -73,17 +72,7 @@ export default function EventDetailScreen() {
           onAction={() => query.refetch()}
         />
       }
-      renderItem={({ item }) => (
-        <MarketRow
-          item={item}
-          onPress={() =>
-            router.push({
-              pathname: '/prediction/[id]',
-              params: { id: item.id },
-            })
-          }
-        />
-      )}
+      renderItem={({ item }) => <MarketRow item={item} />}
     />
   );
 }

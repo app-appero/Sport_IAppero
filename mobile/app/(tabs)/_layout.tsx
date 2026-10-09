@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 
-/** No bottom tab bar — sport dropdown + header "Salvati". */
+/** No bottom tab bar — sport dropdown drives navigation. */
 export default function TabLayout() {
   return (
     <Tabs
@@ -14,7 +14,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="football" options={{ href: null }} />
       <Tabs.Screen name="tennis" options={{ href: null }} />
-      <Tabs.Screen name="saved" />
+      <Tabs.Screen name="saved" options={{ href: null }} />
     </Tabs>
   );
 }
