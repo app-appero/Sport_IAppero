@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { UnifiedPrediction } from '@/types/api';
 
-const STORAGE_KEY = 'oracle_sports.favorites.v1';
+const STORAGE_KEY = 'sport_iappero.favorites.v1';
 
 export type FavoritePrediction = Pick<
   UnifiedPrediction,

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { providerLabel } from '@/constants/providers';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 
 const STATUS_COPY: Record<string, string> = {
@@ -22,7 +23,7 @@ export function ProviderWarning({
   return (
     <View style={styles.wrap} accessibilityRole="text">
       <Text style={styles.text}>
-        {provider ?? 'Provider'} {label}. I dati sotto possono essere incompleti.
+        {providerLabel(provider)} {label}. I dati sotto possono essere incompleti.
       </Text>
     </View>
   );
