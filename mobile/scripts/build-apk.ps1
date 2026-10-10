@@ -58,8 +58,10 @@ try {
   $apk = 'android\app\build\outputs\apk\release\app-release.apk'
   $out = Join-Path $src 'build-output'
   New-Item -ItemType Directory -Force $out | Out-Null
-  Copy-Item $apk (Join-Path $out 'sport-iappero.apk') -Force
-  Write-Host "==> Done: $out\sport-iappero.apk"
+  # 0xF2 = o grave. Built from the char code so the script stays ASCII-safe on PowerShell 5.1.
+  $name = "Sport IApper$([char]0xF2).apk"
+  Copy-Item $apk (Join-Path $out $name) -Force
+  Write-Host "==> Done: $out\$name"
 }
 finally {
   Pop-Location
