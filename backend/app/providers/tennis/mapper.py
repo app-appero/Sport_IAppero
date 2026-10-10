@@ -75,6 +75,152 @@ def _dig(data: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def _game_count_from_score_token(token: str) -> int:
+    """Games won in a set; tiebreak notation uses a dot (e.g. 7.7 → 7 games)."""
+    text = (token or "").strip()
+    if not text or text == "-":
+        return 0
+    head = text.split(".", 1)[0]
+    try:
+        return int(head)
+    except ValueError:
+        return 0
+
+
+def _games_in_set(set_row: dict[str, Any]) -> tuple[int, int, int]:
+    g1 = _game_count_from_score_token(str(set_row.get("score_first") or "0"))
+    g2 = _game_count_from_score_token(str(set_row.get("score_second") or "0"))
+    # Upstream tiebreak rows use dotted tokens (e.g. 6.1 / 7.7); game counts are the integer heads.
+    total = g1 + g2
+    return g1, g2, total
+
+
+def _set_winner_from_games(g1: int, g2: int) -> str | None:
+    if g1 > g2:
+        return "player_1"
+    if g2 > g1:
+        return "player_2"
+    return None
+
+
+def _parse_final_result_sets(text: str) -> tuple[int, int] | None:
+    cleaned = text.replace("–", "-").strip()
+    if not cleaned or cleaned == "-":
+        return None
+    parts = [p.strip() for p in cleaned.split("-") if p.strip()]
+    if len(parts) != 2:
+        return None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
+def _tennis_settlement_from_live(live: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(live, dict):
+        return None
+    sets_raw = live.get("event_games") or live.get("sets")
+    sets_list = [s for s in sets_raw if isinstance(s, dict)] if isinstance(sets_raw, list) else []
+
+    sets_won_p1 = 0
+    sets_won_p2 = 0
+    total_games = 0
+    first_set_winner: str | None = None
+
+    for idx, set_row in enumerate(sets_list):
+        g1, g2, set_total = _games_in_set(set_row)
+        if g1 == 0 and g2 == 0:
+            continue
+        total_games += set_total
+        winner = _set_winner_from_games(g1, g2)
+        if winner == "player_1":
+            sets_won_p1 += 1
+        elif winner == "player_2":
+            sets_won_p2 += 1
+        if idx == 0 and winner:
+            first_set_winner = winner
+
+    final = live.get("final_result")
+    if isinstance(final, str):
+        parsed = _parse_final_result_sets(final)
+        if parsed is not None:
+            sets_won_p1, sets_won_p2 = parsed
+
+    if sets_won_p1 == 0 and sets_won_p2 == 0 and total_games == 0 and not first_set_winner:
+        return None
+
+    return {
+        "sets_won_player_1": sets_won_p1,
+        "sets_won_player_2": sets_won_p2,
+        "total_games": total_games if total_games > 0 else None,
+        "first_set_winner": first_set_winner,
+    }
+
+
+def _parse_ou_line(selection_name: str) -> tuple[str | None, float | None]:
+    text = selection_name.strip().lower()
+    if text.startswith("over"):
+        rest = text[4:].strip()
+        try:
+            return "over", float(rest)
+        except ValueError:
+            return "over", None
+    if text.startswith("under"):
+        rest = text[5:].strip()
+        try:
+            return "under", float(rest)
+        except ValueError:
+            return "under", None
+    return None, None
+
+
+def _settle_tennis_market(
+    market: str,
+    selection: Selection,
+    settlement: dict[str, Any] | None,
+) -> bool | None:
+    if not settlement:
+        return None
+    sel_id = (selection.id or "").lower()
+    sel_name = selection.name or ""
+
+    if market in {"match_winner", "h2h"}:
+        s1 = settlement.get("sets_won_player_1")
+        s2 = settlement.get("sets_won_player_2")
+        if s1 is None or s2 is None:
+            return None
+        if sel_id in {"player_1", "home", "1"} or sel_name.lower() in {"first player", "player 1"}:
+            return int(s1) > int(s2)
+        if sel_id in {"player_2", "away", "2"} or sel_name.lower() in {"second player", "player 2"}:
+            return int(s2) > int(s1)
+        return None
+
+    if market == "first_set_winner":
+        actual = settlement.get("first_set_winner")
+        if not actual:
+            return None
+        if sel_id in {"player_1", "home", "1"} or sel_name.lower() in {"first player", "player 1"}:
+            return actual == "player_1"
+        if sel_id in {"player_2", "away", "2"} or sel_name.lower() in {"second player", "player 2"}:
+            return actual == "player_2"
+        return None
+
+    if market in {"over_under_games", "total_games"}:
+        total = settlement.get("total_games")
+        if total is None:
+            return None
+        direction, line = _parse_ou_line(sel_name)
+        if direction is None or line is None:
+            return None
+        if direction == "over":
+            return float(total) > line
+        if direction == "under":
+            return float(total) < line
+        return None
+
+    return None
+
+
 def map_competition(raw: dict[str, Any]) -> Competition:
     return Competition(
         id=str(
@@ -173,19 +319,36 @@ def map_event(raw: dict[str, Any]) -> Event:
         calendar_date = raw_date[:10]
 
     score_obj = None
+    actual_totals: dict[str, Any] | None = None
     live = _dig(raw, "live_score", "score")
+    settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
+    if settlement:
+        actual_totals = {k: v for k, v in settlement.items() if v is not None}
+
     if isinstance(live, dict):
         final = live.get("final_result")
+        display: str | None = None
+        home_sets: int | None = None
+        away_sets: int | None = None
         if isinstance(final, str) and final.strip() and final.strip() != "-":
-            score_obj = EventScore(display=final.strip())
-        else:
-            sets = live.get("event_games") or live.get("sets")
-            # Prefer explicit set scores when present
-            if isinstance(sets, list) and sets:
-                # leave display null; UI can still show status
-                pass
+            display = final.strip()
+            parsed = _parse_final_result_sets(display)
+            if parsed is not None:
+                home_sets, away_sets = parsed
+        elif settlement:
+            home_sets = settlement.get("sets_won_player_1")
+            away_sets = settlement.get("sets_won_player_2")
+            if home_sets is not None and away_sets is not None:
+                display = f"{home_sets} - {away_sets}"
+        if display or home_sets is not None or away_sets is not None:
+            score_obj = EventScore(home=home_sets, away=away_sets, display=display)
     elif isinstance(live, str) and live.strip() and live.strip() != "-":
-        score_obj = EventScore(display=live.strip())
+        display = live.strip()
+        parsed = _parse_final_result_sets(display)
+        if parsed is not None:
+            score_obj = EventScore(home=parsed[0], away=parsed[1], display=display)
+        else:
+            score_obj = EventScore(display=display)
 
     return Event(
         id=event_id or name or "unknown",
@@ -196,7 +359,7 @@ def map_event(raw: dict[str, Any]) -> Event:
         participants=participants,
         status=str(_dig(raw, "event_status", "status", "match_lifecycle_status") or "") or None,
         score=score_obj,
-        actual_totals=None,
+        actual_totals=actual_totals,
     )
 
 
@@ -235,7 +398,9 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
     elif correct_raw is False:
         correct = False
     else:
-        correct = None
+        live = _dig(raw, "live_score", "score")
+        settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
+        correct = _settle_tennis_market("match_winner", selection, settlement)
 
     return UnifiedPrediction(
         id=f"tennis_{event.id}_match_winner",
@@ -286,6 +451,12 @@ def map_extra_market(
         probabilities = [
             Probability(key=selection.id or "sel", label=selection.name, value=confidence)
         ]
+    live = _dig(raw_event, "live_score", "score")
+    settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
+    if settlement is None and event.actual_totals:
+        settlement = event.actual_totals
+    correct = _settle_tennis_market(market, selection, settlement)
+
     return UnifiedPrediction(
         id=f"tennis_{event.id}_{market}",
         sport=SPORT,
@@ -298,6 +469,7 @@ def map_extra_market(
         ),
         oracle_score=None,
         generated_at=_parse_dt(market_payload.get("published_at")),
+        correct=correct,
         raw=market_payload,
     )
 
