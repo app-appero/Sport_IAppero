@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 60
     cache_stale_max_seconds: int = 300
     feed_deadline_seconds: float = 10.0
-    provider_max_items: int = 1000
+    # Safety ceiling only (pagination / upstream day limit). Day feeds request the full day.
+    provider_max_items: int = 10000
     snapshot_ttl_seconds: int = 300
 
     # Deploy identity (D02). Railway injects RAILWAY_GIT_COMMIT_SHA when linked to GitHub.
