@@ -241,6 +241,7 @@ export function SportScreen({
 
         <View style={styles.bottomFilters}>
           <FilterChips
+            size="large"
             options={marketOptions}
             value={market}
             onChange={setMarket}
@@ -276,8 +277,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   bottomFilters: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
     backgroundColor: colors.surface,
