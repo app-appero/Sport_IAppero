@@ -164,11 +164,18 @@ class TennisProvider(SportProvider):
         return mapper.map_markets_from_predictions(preds)
 
     async def get_events(self, **filters: Any) -> list[Event]:
-        try:
-            payload = await self._get("/api/next-fixtures")
-        except Exception:
-            payload = await self._get("/api/next-fixtures/predictions")
-        events = mapper.map_events(payload)
+        # Prefer the day-scoped predictions feed so past/today/future match the UI.
+        # Bare `/api/next-fixtures` is an upcoming bag and invents tournaments for past days.
+        pred_filters = {k: v for k, v in filters.items() if k != "competition_id"}
+        pred_filters.setdefault("limit", 200)
+        predictions = await self.get_predictions(**pred_filters)
+        events: list[Event] = []
+        seen: set[str] = set()
+        for pred in predictions:
+            if pred.event.id in seen:
+                continue
+            seen.add(pred.event.id)
+            events.append(pred.event)
         competition_id = filters.get("competition_id")
         if competition_id:
             events = [
@@ -180,7 +187,8 @@ class TennisProvider(SportProvider):
         return events
 
     async def get_competitions(self, **filters: Any) -> list[Competition]:
-        events = await self.get_events(**filters)
+        # Only tournaments with at least one prediction on the requested day.
+        events = await self.get_events(**{k: v for k, v in filters.items() if k != "competition_id"})
         return mapper.map_competitions_from_events(events)
 
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
