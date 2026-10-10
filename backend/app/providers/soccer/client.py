@@ -12,6 +12,7 @@ from app.core.exceptions import ProviderResponseError, ProviderUnavailable
 from app.domain.models import Competition, Event, MarketInfo, UnifiedPrediction
 from app.providers.base import SportProvider
 from app.providers.http_utils import load_fixture, request_json
+from app.providers.prediction_utils import limit_predictions_keeping_events
 from app.providers.soccer import mapper
 
 logger = logging.getLogger(__name__)
@@ -390,7 +391,8 @@ class SoccerProvider(SportProvider):
         )
         limit = filters.get("limit")
         if limit is not None:
-            predictions = predictions[: int(limit)]
+            # Never split an event: card market counts need every market present.
+            predictions = limit_predictions_keeping_events(predictions, int(limit))
         return predictions
 
     async def _predictions_from_match(self, fixture_id: str) -> list[UnifiedPrediction]:

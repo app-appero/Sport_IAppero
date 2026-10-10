@@ -10,6 +10,7 @@ from app.core.exceptions import ProviderResponseError, ProviderUnavailable
 from app.domain.models import Competition, Event, MarketInfo, UnifiedPrediction
 from app.providers.base import SportProvider
 from app.providers.http_utils import load_fixture, request_json
+from app.providers.prediction_utils import limit_predictions_keeping_events
 from app.providers.tennis import mapper
 
 logger = logging.getLogger(__name__)
@@ -220,7 +221,7 @@ class TennisProvider(SportProvider):
         )
         limit = filters.get("limit")
         if limit is not None:
-            predictions = predictions[: int(limit)]
+            predictions = limit_predictions_keeping_events(predictions, int(limit))
         return predictions
 
     async def get_prediction(self, prediction_id: str) -> UnifiedPrediction | None:
