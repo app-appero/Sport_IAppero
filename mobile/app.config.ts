@@ -6,13 +6,13 @@ const APP_NAME = 'Sport IApperò';
 /**
  * Native app identity for Sport IApperò.
  * Old builds used name "Oracle Sports" + package com.appero.oraclesports —
- * uninstall that APK; this one is com.appero.sportiappero @ 1.1.0.
+ * uninstall that APK; this one is com.appero.sportiappero @ 1.1.1.
  */
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: APP_NAME,
   slug: 'sport-iappero',
-  version: '1.1.0',
+  version: '1.1.1',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'sportiappero',
@@ -28,14 +28,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.appero.sportiappero',
-    label: APP_NAME,
-    versionCode: 3,
+    versionCode: 4,
     adaptiveIcon: {
       backgroundColor: '#050A14',
       foregroundImage: './assets/images/android-icon-foreground.png',
       backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
+    // Launcher label — supported by Expo prebuild; not always in TS Android typings.
+    ...({ label: APP_NAME } as object),
   },
   web: {
     bundler: 'metro',

@@ -5,9 +5,13 @@ Expo (React Native) app for **Sport IApperò** (never “Oracle Sports”).
 Native identity is defined in `app.config.ts`:
 - Launcher name: `Sport IApperò`
 - Android package: `com.appero.sportiappero`
-- Version: `1.1.0` / `versionCode` 3
+- Version: `1.1.1` / `versionCode` 4
+- Launcher icon: square mark (`logo-mark.png` → `icon.png`)
+- In-app header: horizontal wordmark top-left (`logo-wordmark.png`)
 
-If an old APK still shows **Oracle Sports**, uninstall `com.appero.oraclesports` and rebuild from this `main` (`eas build -p android --profile preview`). Do not reuse an Expo project still named Oracle Sports — create/link one named Sport IApperò.
+Local APK (`npm run apk`) always runs `expo prebuild --clean` so icons/labels are not stuck in a stale `android/` folder. Output: `build-output/sport-iappero.apk`.
+
+If an old APK still shows **Oracle Sports** or the default Expo icon, uninstall it and rebuild from this `main`.
 
 ## Navigazione
 

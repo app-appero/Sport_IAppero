@@ -2,14 +2,14 @@ export type MarketOption = { label: string; value: string | undefined };
 
 /** Known market chips for football (soccer-oracle keys). */
 export const FOOTBALL_MARKETS: MarketOption[] = [
-  { label: 'Tutti i mercati', value: undefined },
+  { label: 'Tutti', value: undefined },
   { label: '1X2', value: 'h2h' },
-  { label: 'Over/Under 2.5', value: 'under_over_2_5' },
+  { label: 'O/U 2.5', value: 'under_over_2_5' },
   { label: 'Gol/No Gol', value: 'goal_no_goal' },
   { label: 'Doppia chance', value: 'dc' },
   { label: 'Cartellini', value: 'cards_line' },
-  { label: 'Over/Under 1.5', value: 'under_over_1_5' },
-  { label: 'Over/Under 3.5', value: 'under_over_3_5' },
+  { label: 'O/U 1.5', value: 'under_over_1_5' },
+  { label: 'O/U 3.5', value: 'under_over_3_5' },
 ];
 
 /** One chip for all cards lines (3.5 / 4.5 / 5.5 / 6.5). */
@@ -25,11 +25,11 @@ export function predictionMatchesMarket(
 
 /** Known market chips for tennis. */
 export const TENNIS_MARKETS: MarketOption[] = [
-  { label: 'Tutti i mercati', value: undefined },
+  { label: 'Tutti', value: undefined },
   { label: 'Match winner', value: 'match_winner' },
   { label: 'Primo set', value: 'first_set_winner' },
   { label: 'Totale game', value: 'total_games' },
-  { label: 'Over/Under game', value: 'over_under_games' },
+  { label: 'O/U game', value: 'over_under_games' },
 ];
 
 export function marketsForSport(sport: 'football' | 'tennis'): MarketOption[] {
@@ -37,12 +37,24 @@ export function marketsForSport(sport: 'football' | 'tennis'): MarketOption[] {
 }
 
 export function marketLabel(key: string): string {
-  const all = [...FOOTBALL_MARKETS, ...TENNIS_MARKETS];
-  const known = all.find((m) => m.value === key)?.label;
-  if (known) return known;
+  const display: Record<string, string> = {
+    h2h: '1X2',
+    under_over_2_5: 'Over/Under 2.5',
+    under_over_1_5: 'Over/Under 1.5',
+    under_over_3_5: 'Over/Under 3.5',
+    goal_no_goal: 'Gol/No Gol',
+    dc: 'Doppia chance',
+    cards_line: 'Cartellini',
+    match_winner: 'Match winner',
+    first_set_winner: 'Primo set',
+    total_games: 'Totale game',
+    over_under_games: 'Over/Under game',
+  };
+  if (display[key]) return display[key];
   if (key.startsWith('cards_line_')) {
     const line = key.replace('cards_line_', '').replace('_', '.');
     return `Cartellini ${line}`;
   }
-  return key.replace(/_/g, ' ');
+  const all = [...FOOTBALL_MARKETS, ...TENNIS_MARKETS];
+  return all.find((m) => m.value === key)?.label ?? key.replace(/_/g, ' ');
 }
