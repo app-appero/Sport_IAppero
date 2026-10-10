@@ -52,11 +52,12 @@ export function SportScreen({
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
 
   const health = useProviderHealth();
+  // Fetch all markets for the day so the card can show the real market count.
+  // Market chip filtering is applied client-side (which events + hero pick).
   const query = useSportPredictions(sport, {
     date,
-    market,
     competitionId,
-    limit: 100,
+    limit: 200,
   });
   const competitions = useSportCompetitions(sport, date);
   const providerHealth = health.data?.[sport];
@@ -92,8 +93,12 @@ export function SportScreen({
         existing.predictions.push(pred);
       }
     }
-    return Array.from(byEvent.values());
-  }, [query.data?.items]);
+    const grouped = Array.from(byEvent.values());
+    if (!market) return grouped;
+    return grouped.filter((item) =>
+      item.predictions.some((p) => p.prediction.type === market),
+    );
+  }, [query.data?.items, market]);
 
   const filtersActive = Boolean(market || competitionId || date !== todayKey());
 

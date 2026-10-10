@@ -28,7 +28,7 @@ export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) 
   const tone = outcomeTone(best);
   const scoreLine = scoreForMarket(item.event, best.prediction.type);
   const timeLabel = formatEventTime(item.event.start_time);
-  const marketsCount = item.predictions.length;
+  const marketsCount = new Set(item.predictions.map((p) => p.prediction.type)).size;
   const cardStyle = [
     styles.card,
     tone === 'hit' && styles.cardHit,
