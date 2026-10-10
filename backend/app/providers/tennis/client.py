@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -14,6 +16,26 @@ from app.providers.prediction_utils import limit_predictions_keeping_events
 from app.providers.tennis import mapper
 
 logger = logging.getLogger(__name__)
+
+_ROME = ZoneInfo("Europe/Rome")
+
+
+def tennis_status_for_day(day: str, *, today: date | None = None) -> str:
+    """Upstream status filter: upcoming | played | all.
+
+    `next-fixtures/predictions` defaults to upcoming-only, so past calendar
+    days return empty unless we ask for played/all.
+    """
+    today = today or datetime.now(_ROME).date()
+    try:
+        target = date.fromisoformat(day)
+    except ValueError:
+        return "all"
+    if target < today:
+        return "played"
+    if target == today:
+        return "all"
+    return "upcoming"
 
 
 class TennisProvider(SportProvider):
@@ -169,6 +191,8 @@ class TennisProvider(SportProvider):
             # without this, every selected day returned the full upcoming bag.
             params["from"] = day
             params["to"] = day
+            # Past days need status=played (or all); default upcoming → total=0.
+            params["status"] = tennis_status_for_day(str(day))
         payload = await self._get(
             "/api/next-fixtures/predictions",
             params=params or None,
