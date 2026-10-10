@@ -169,7 +169,6 @@ class TennisProvider(SportProvider):
         # Prefer the day-scoped predictions feed so past/today/future match the UI.
         # Bare `/api/next-fixtures` is an upcoming bag and invents tournaments for past days.
         pred_filters = {k: v for k, v in filters.items() if k != "competition_id"}
-        pred_filters.setdefault("limit", 200)
         predictions = await self.get_predictions(**pred_filters)
         events: list[Event] = []
         seen: set[str] = set()
@@ -288,9 +287,12 @@ class TennisProvider(SportProvider):
                 p.event.calendar_date or "",
             )
         )
-        limit = filters.get("limit")
-        if limit is not None:
-            predictions = limit_predictions_keeping_events(predictions, int(limit))
+        # Day-scoped feed: paginated upstream fetch already returns the full day.
+        # Optional `limit` only applies when no date filter is set.
+        if not day:
+            limit = filters.get("limit")
+            if limit is not None:
+                predictions = limit_predictions_keeping_events(predictions, int(limit))
         return predictions
 
     async def get_prediction(self, prediction_id: str) -> UnifiedPrediction | None:

@@ -72,7 +72,8 @@ export function useSportPredictions(
         date: opts?.date,
         market: opts?.market,
         competitionId: opts?.competitionId,
-        limit: opts?.limit ?? 40,
+        // No default limit — day screens need every match; omit unless caller sets it.
+        limit: opts?.limit,
       }),
     enabled: opts?.enabled ?? true,
   });

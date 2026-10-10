@@ -54,10 +54,9 @@ export function SportScreen({
   const health = useProviderHealth();
   // Day feed without market/competition filters — chips and hero picks filter client-side
   // so tournament/league chips only list competitions that have matches that day.
+  // No limit: BFF returns every predicted match for the selected calendar day.
   const query = useSportPredictions(sport, {
     date,
-    // Limit is unique events (BFF keeps every market per match).
-    limit: 500,
   });
   const providerHealth = health.data?.[sport];
   const copy = SPORT_COPY[sport];

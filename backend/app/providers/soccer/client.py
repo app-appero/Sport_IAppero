@@ -248,20 +248,35 @@ class SoccerProvider(SportProvider):
         *,
         with_predictions: bool = True,
         phase: str | None = None,
-        limit: int = 500,
+        limit: int | None = None,
     ) -> Any:
-        # Upstream has total/returned but no offset — ask for a high limit so
-        # mid-table leagues (e.g. La Liga) are not dropped from a small snapshot.
+        # Upstream has total/returned but no offset — request the full safety ceiling.
+        day_limit = limit if limit is not None else int(self._settings.provider_max_items)
         params: dict[str, Any] = {
             "with_predictions": with_predictions,
-            "limit": limit,
+            "limit": day_limit,
             "force_refresh": False,
         }
         if target_date:
             params["target_date"] = target_date
         if phase:
             params["phase"] = phase
-        return await self._get("/dashboard/day", params=params)
+        payload = await self._get("/dashboard/day", params=params)
+        if isinstance(payload, dict):
+            try:
+                total = int(payload["total"]) if payload.get("total") is not None else None
+                returned = int(payload["returned"]) if payload.get("returned") is not None else None
+            except (TypeError, ValueError):
+                total = returned = None
+            if total is not None and returned is not None and returned < total:
+                logger.warning(
+                    "Soccer /dashboard/day truncated: returned=%s total=%s target_date=%s limit=%s",
+                    returned,
+                    total,
+                    target_date,
+                    day_limit,
+                )
+        return payload
 
     async def _day_payloads_for_calendar_day(
         self,
@@ -330,7 +345,6 @@ class SoccerProvider(SportProvider):
         # Leagues with at least one prediction on the requested day (not the full
         # fixture bag), so filter chips match what the feed can show.
         pred_filters = {k: v for k, v in filters.items() if k != "competition_id"}
-        pred_filters.setdefault("limit", 200)
         predictions = await self.get_predictions(**pred_filters)
         events: list[Event] = []
         seen: set[str] = set()
@@ -407,10 +421,12 @@ class SoccerProvider(SportProvider):
                 p.event.start_time.isoformat() if p.event.start_time else "",
             )
         )
-        limit = filters.get("limit")
-        if limit is not None:
-            # Never split an event: card market counts need every market present.
-            predictions = limit_predictions_keeping_events(predictions, int(limit))
+        # Day-scoped feed: always return every match for that calendar day.
+        # Optional `limit` only applies when no date filter is set.
+        if not day:
+            limit = filters.get("limit")
+            if limit is not None:
+                predictions = limit_predictions_keeping_events(predictions, int(limit))
         return predictions
 
     async def _predictions_from_match(self, fixture_id: str) -> list[UnifiedPrediction]:
