@@ -19,30 +19,30 @@ def _pred(event_id: str, market: str, conf: float) -> UnifiedPrediction:
     )
 
 
-def test_limit_keeps_all_markets_for_included_events():
-    # Sorted by confidence: A markets first, then B.
+def test_limit_is_by_events_not_prediction_rows():
+    # 3 markets × 2 events — a row-based cap of 4 would drop B; event cap keeps both.
     items = [
         _pred("A", "m1", 0.9),
         _pred("A", "m2", 0.8),
         _pred("A", "m3", 0.7),
         _pred("B", "m1", 0.6),
         _pred("B", "m2", 0.5),
+        _pred("B", "m3", 0.4),
     ]
-    out = limit_predictions_keeping_events(items, limit=4)
-    # 3 from A fit under 4; adding B (2) would exceed → only A, complete.
-    assert [p.event.id for p in out] == ["A", "A", "A"]
-    assert {p.prediction.type for p in out} == {"m1", "m2", "m3"}
+    out = limit_predictions_keeping_events(items, limit=2)
+    assert {p.event.id for p in out} == {"A", "B"}
+    assert len(out) == 6
 
 
-def test_limit_includes_at_least_one_full_event():
+def test_limit_truncates_extra_events():
     items = [
         _pred("A", "m1", 0.9),
         _pred("A", "m2", 0.8),
-        _pred("A", "m3", 0.7),
+        _pred("B", "m1", 0.6),
+        _pred("C", "m1", 0.5),
     ]
-    out = limit_predictions_keeping_events(items, limit=1)
-    assert len(out) == 3
-    assert all(p.event.id == "A" for p in out)
+    out = limit_predictions_keeping_events(items, limit=2)
+    assert [p.event.id for p in out] == ["A", "A", "B"]
 
 
 def test_limit_none_returns_all():

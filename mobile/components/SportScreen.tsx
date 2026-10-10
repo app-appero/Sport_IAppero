@@ -56,7 +56,8 @@ export function SportScreen({
   // so tournament/league chips only list competitions that have matches that day.
   const query = useSportPredictions(sport, {
     date,
-    limit: 200,
+    // Limit is unique events (BFF keeps every market per match).
+    limit: 500,
   });
   const providerHealth = health.data?.[sport];
   const copy = SPORT_COPY[sport];
