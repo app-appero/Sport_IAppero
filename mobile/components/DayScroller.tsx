@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import { buildDayWindow, type DayOption } from '@/utils/dates';
 
-const CHIP_WIDTH = 92;
-const CHIP_GAP = 10;
+/** Explicit slot width — Android horizontal ScrollView ignores flexShrink/minWidth alone. */
+const CHIP_SLOT = 128;
+const CHIP_GAP = 12;
 
 type Props = {
   value: string;
@@ -20,7 +21,7 @@ export function DayScroller({ value, onChange }: Props) {
     const idx = days.findIndex((d) => d.value === value);
     if (idx >= 0) {
       ref.current?.scrollTo({
-        x: Math.max(0, (idx - 1) * (CHIP_WIDTH + CHIP_GAP)),
+        x: Math.max(0, (idx - 1) * (CHIP_SLOT + CHIP_GAP)),
         animated: false,
       });
     }
@@ -31,16 +32,18 @@ export function DayScroller({ value, onChange }: Props) {
       ref={ref}
       horizontal
       showsHorizontalScrollIndicator={false}
+      // Avoid contentContainerStyle gap — breaks child width on some Android builds.
       contentContainerStyle={styles.row}
       accessibilityLabel="Seleziona giorno"
     >
-      {days.map((d) => (
-        <DayChip
+      {days.map((d, i) => (
+        <View
           key={d.key}
-          day={d}
-          active={d.value === value}
-          onPress={() => onChange(d.value)}
-        />
+          collapsable={false}
+          style={[styles.slot, i === days.length - 1 && styles.slotLast]}
+        >
+          <DayChip day={d} active={d.value === value} onPress={() => onChange(d.value)} />
+        </View>
       ))}
     </ScrollView>
   );
@@ -64,16 +67,11 @@ function DayChip({
     >
       <Text
         style={[styles.weekday, active && styles.textActive]}
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.15}
+        allowFontScaling={false}
       >
         {day.weekday}
       </Text>
-      <Text
-        style={[styles.label, active && styles.textActive]}
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.15}
-      >
+      <Text style={[styles.label, active && styles.textActive]} allowFontScaling={false}>
         {day.label}
       </Text>
     </Pressable>
@@ -83,20 +81,26 @@ function DayChip({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: CHIP_GAP,
+    alignItems: 'stretch',
     marginBottom: spacing.sm,
     paddingRight: spacing.sm,
   },
+  slot: {
+    width: CHIP_SLOT,
+    marginRight: CHIP_GAP,
+  },
+  slotLast: {
+    marginRight: 0,
+  },
   chip: {
-    width: CHIP_WIDTH,
-    flexShrink: 0,
+    flex: 1,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 58,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    minHeight: 64,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -104,20 +108,18 @@ const styles = StyleSheet.create({
   chipPast: { backgroundColor: '#151C18' },
   weekday: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.inkMuted,
-    textTransform: 'capitalize',
     textAlign: 'center',
-    // Android custom fonts often clip the last glyph without a hair of padding.
-    paddingHorizontal: 2,
+    width: '100%',
   },
   label: {
     fontFamily: fonts.bodyBold,
-    fontSize: 14,
+    fontSize: 16,
     color: colors.ink,
     textAlign: 'center',
-    marginTop: 2,
-    paddingHorizontal: 2,
+    marginTop: 4,
+    width: '100%',
   },
   textActive: { color: colors.onAccent },
 });

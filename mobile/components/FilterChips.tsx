@@ -15,7 +15,7 @@ type Props<T extends string | undefined> = {
   value: T;
   onChange: (value: T) => void;
   accessibilityLabel?: string;
-  /** `large` for bottom market bar — more padding + bigger type for APK readability. */
+  /** `large` for bottom market bar — wider slots + bigger type for APK. */
   size?: ChipSize;
 };
 
@@ -35,28 +35,37 @@ export function FilterChips<T extends string | undefined>({
       contentContainerStyle={[styles.row, large && styles.rowLarge]}
       accessibilityLabel={accessibilityLabel}
     >
-      {options.map((opt) => {
+      {options.map((opt, i) => {
         const active = value === opt.value;
+        const last = i === options.length - 1;
         return (
-          <Pressable
+          <View
             key={opt.label + String(opt.value ?? 'all')}
-            onPress={() => onChange(opt.value)}
-            style={[styles.chip, large && styles.chipLarge, active && styles.chipActive]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
+            collapsable={false}
+            style={[
+              styles.slot,
+              large && styles.slotLarge,
+              last && styles.slotLast,
+            ]}
           >
-            <Text
-              style={[
-                styles.chipText,
-                large && styles.chipTextLarge,
-                active && styles.chipTextActive,
-              ]}
-              numberOfLines={1}
-              maxFontSizeMultiplier={1.15}
+            <Pressable
+              onPress={() => onChange(opt.value)}
+              style={[styles.chip, large && styles.chipLarge, active && styles.chipActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
             >
-              {opt.label}
-            </Text>
-          </Pressable>
+              <Text
+                style={[
+                  styles.chipText,
+                  large && styles.chipTextLarge,
+                  active && styles.chipTextActive,
+                ]}
+                allowFontScaling={false}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          </View>
         );
       })}
     </ScrollView>
@@ -70,19 +79,27 @@ export function FilterChipStack({ children }: { children: ReactNode }) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
-    gap: 8,
+    alignItems: 'stretch',
     marginBottom: spacing.sm,
     paddingRight: spacing.sm,
   },
   rowLarge: {
-    gap: 10,
     marginBottom: spacing.xs,
     paddingVertical: 4,
   },
-  chip: {
-    // Horizontal ScrollView on Android compresses children without flexShrink:0.
+  // margin instead of gap — gap in horizontal ScrollView compresses children on Android APK.
+  slot: {
+    marginRight: 8,
     flexShrink: 0,
+  },
+  slotLarge: {
+    marginRight: 12,
+    minWidth: 170,
+  },
+  slotLast: {
+    marginRight: 0,
+  },
+  chip: {
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
@@ -91,26 +108,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minHeight: 44,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   chipLarge: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    minHeight: 52,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
+    minHeight: 58,
     borderRadius: radii.md,
+    minWidth: 170,
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: {
-    flexShrink: 0,
     fontFamily: fonts.bodyMedium,
     color: colors.ink,
     fontSize: 13,
-    paddingHorizontal: 2,
-    includeFontPadding: false,
   },
   chipTextLarge: {
     fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    paddingHorizontal: 4,
+    fontSize: 16,
   },
   chipTextActive: { color: colors.onAccent },
 });
