@@ -9,6 +9,22 @@ export type DayOption = {
   isPast: boolean;
 };
 
+const WEEKDAYS_IT = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'] as const;
+const MONTHS_IT = [
+  'gen',
+  'feb',
+  'mar',
+  'apr',
+  'mag',
+  'giu',
+  'lug',
+  'ago',
+  'set',
+  'ott',
+  'nov',
+  'dic',
+] as const;
+
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -29,12 +45,20 @@ export function todayKey(now = new Date()): string {
   return toDateKey(now);
 }
 
+/** Compact IT labels — avoid Intl short forms that vary / overflow on native APK. */
+function formatWeekday(d: Date): string {
+  return WEEKDAYS_IT[d.getDay()];
+}
+
+function formatDayLabel(d: Date, isToday: boolean): string {
+  if (isToday) return 'Oggi';
+  return `${d.getDate()} ${MONTHS_IT[d.getMonth()]}`;
+}
+
 /** 7 days back … today … 7 days forward (15 chips). */
 export function buildDayWindow(now = new Date()): DayOption[] {
   const today = todayKey(now);
   const base = parseDateKey(today);
-  const weekdayFmt = new Intl.DateTimeFormat('it-IT', { weekday: 'short' });
-  const dayFmt = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short' });
   const out: DayOption[] = [];
   for (let offset = -7; offset <= 7; offset++) {
     const d = new Date(base);
@@ -44,8 +68,8 @@ export function buildDayWindow(now = new Date()): DayOption[] {
     out.push({
       key: value,
       value,
-      label: isToday ? 'Oggi' : dayFmt.format(d),
-      weekday: weekdayFmt.format(d),
+      label: formatDayLabel(d, isToday),
+      weekday: formatWeekday(d),
       isToday,
       isPast: value < today,
     });

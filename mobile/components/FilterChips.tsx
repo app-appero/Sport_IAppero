@@ -39,7 +39,11 @@ export function FilterChips<T extends string | undefined>({
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+            <Text
+              style={[styles.chipText, active && styles.chipTextActive]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.15}
+            >
               {opt.label}
             </Text>
           </Pressable>
@@ -62,16 +66,25 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   chip: {
+    // Horizontal ScrollView on Android compresses children without flexShrink:0.
+    flexShrink: 0,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     minHeight: 44,
     justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chipText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
+  chipText: {
+    flexShrink: 0,
+    fontFamily: fonts.bodyMedium,
+    color: colors.ink,
+    fontSize: 13,
+    paddingHorizontal: 2,
+    includeFontPadding: false,
+  },
   chipTextActive: { color: colors.onAccent },
 });
