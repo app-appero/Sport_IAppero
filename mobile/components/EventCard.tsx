@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ConfidenceBar } from '@/components/ConfidenceBar';
-import { marketLabel } from '@/constants/markets';
+import { marketLabel, predictionMatchesMarket } from '@/constants/markets';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
@@ -18,10 +18,13 @@ type Props = {
 
 export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) {
   const sportColor = item.sport === 'tennis' ? colors.tennis : colors.football;
+  const preferred =
+    preferredMarket
+      ? item.predictions.filter((p) => predictionMatchesMarket(p.prediction.type, preferredMarket))
+      : [];
   const best =
-    (preferredMarket
-      ? item.predictions.find((p) => p.prediction.type === preferredMarket)
-      : null) ?? pickBestPrediction(item.predictions);
+    (preferred.length ? pickBestPrediction(preferred) : null) ??
+    pickBestPrediction(item.predictions);
 
   if (!best) return null;
 
