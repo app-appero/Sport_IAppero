@@ -18,6 +18,8 @@ from app.providers.tennis import mapper
 logger = logging.getLogger(__name__)
 
 _ROME = ZoneInfo("Europe/Rome")
+# Upstream defaults to 50; paginate in chunks until `total` is exhausted.
+_TENNIS_PAGE_SIZE = 100
 
 
 def tennis_status_for_day(day: str, *, today: date | None = None) -> str:
@@ -191,6 +193,44 @@ class TennisProvider(SportProvider):
         events = await self.get_events(**{k: v for k, v in filters.items() if k != "competition_id"})
         return mapper.map_competitions_from_events(events)
 
+    async def _fetch_predictions_pages(self, params: dict[str, Any]) -> Any:
+        """Paginate next-fixtures/predictions (upstream default page size is 50)."""
+        page_size = _TENNIS_PAGE_SIZE
+        max_items = max(page_size, int(self._settings.provider_max_items))
+        offset = 0
+        items: list[Any] = []
+        total: int | None = None
+        last_payload: Any = {"items": []}
+
+        while offset < max_items:
+            page_params = {**params, "limit": page_size, "offset": offset}
+            payload = await self._get("/api/next-fixtures/predictions", params=page_params)
+            last_payload = payload
+            if not isinstance(payload, dict):
+                break
+            batch = payload.get("items")
+            if not isinstance(batch, list) or not batch:
+                break
+            items.extend(batch)
+            if total is None:
+                try:
+                    total = int(payload["total"]) if payload.get("total") is not None else None
+                except (TypeError, ValueError):
+                    total = None
+            offset += len(batch)
+            if total is not None and offset >= total:
+                break
+            if len(batch) < page_size:
+                break
+
+        if isinstance(last_payload, dict):
+            return {
+                **last_payload,
+                "items": items,
+                "total": total if total is not None else len(items),
+            }
+        return {"items": items, "total": len(items)}
+
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
         params: dict[str, Any] = {}
         day = filters.get("date")
@@ -201,10 +241,7 @@ class TennisProvider(SportProvider):
             params["to"] = day
             # Past days need status=played (or all); default upcoming → total=0.
             params["status"] = tennis_status_for_day(str(day))
-        payload = await self._get(
-            "/api/next-fixtures/predictions",
-            params=params or None,
-        )
+        payload = await self._fetch_predictions_pages(params)
         predictions = mapper.map_predictions_payload(payload)
 
         competition_id = filters.get("competition_id")

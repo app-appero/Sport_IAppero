@@ -2,6 +2,7 @@ import asyncio
 from datetime import date
 
 from app.core.config import Settings
+from app.providers.tennis import client as tennis_client
 from app.providers.tennis.client import TennisProvider, tennis_status_for_day
 
 
@@ -21,7 +22,10 @@ def test_tennis_filters_predictions_by_calendar_date(monkeypatch):
         assert params["from"] == "2026-10-08"
         assert params["to"] == "2026-10-08"
         assert params["status"] in {"played", "all", "upcoming"}
+        assert params["limit"] == tennis_client._TENNIS_PAGE_SIZE
+        assert params["offset"] == 0
         return {
+            "total": 2,
             "items": [
                 {
                     "event_key": 1,
@@ -48,7 +52,7 @@ def test_tennis_filters_predictions_by_calendar_date(monkeypatch):
                         "confidence": 0.7,
                     },
                 },
-            ]
+            ],
         }
 
     monkeypatch.setattr(provider, "_get", fake_get)
@@ -73,7 +77,7 @@ def test_tennis_past_day_requests_played_status(monkeypatch):
 
     async def fake_get(path: str, params=None):
         captured.update(params or {})
-        return {"items": []}
+        return {"items": [], "total": 0}
 
     monkeypatch.setattr(provider, "_get", fake_get)
     monkeypatch.setattr(
@@ -91,3 +95,71 @@ def test_tennis_past_day_requests_played_status(monkeypatch):
     assert captured["status"] == "played"
     assert captured["from"] == "2026-10-09"
     assert captured["to"] == "2026-10-09"
+    assert captured["offset"] == 0
+
+
+def test_tennis_paginates_beyond_default_page(monkeypatch):
+    monkeypatch.setattr(tennis_client, "_TENNIS_PAGE_SIZE", 2)
+    settings = Settings(use_provider_fixtures=True, provider_max_items=1000)
+    provider = TennisProvider(settings)
+    calls: list[int] = []
+
+    async def fake_get(path: str, params=None):
+        offset = int((params or {}).get("offset") or 0)
+        calls.append(offset)
+        if offset == 0:
+            return {
+                "total": 3,
+                "items": [
+                    {
+                        "event_key": 1,
+                        "event_date": "2026-10-10",
+                        "event_first_player": "A",
+                        "event_second_player": "B",
+                        "prediction": {
+                            "predicted_winner": "First Player",
+                            "prob_player_1_win": 0.6,
+                            "confidence": 0.6,
+                        },
+                    },
+                    {
+                        "event_key": 2,
+                        "event_date": "2026-10-10",
+                        "event_first_player": "C",
+                        "event_second_player": "D",
+                        "prediction": {
+                            "predicted_winner": "First Player",
+                            "prob_player_1_win": 0.55,
+                            "confidence": 0.55,
+                        },
+                    },
+                ],
+            }
+        return {
+            "total": 3,
+            "items": [
+                {
+                    "event_key": 3,
+                    "event_date": "2026-10-10",
+                    "event_first_player": "E",
+                    "event_second_player": "F",
+                    "prediction": {
+                        "predicted_winner": "Second Player",
+                        "prob_player_1_win": 0.4,
+                        "confidence": 0.6,
+                    },
+                }
+            ],
+        }
+
+    monkeypatch.setattr(provider, "_get", fake_get)
+
+    async def _run():
+        try:
+            return await provider.get_predictions(date="2026-10-10")
+        finally:
+            await provider.aclose()
+
+    preds = asyncio.run(_run())
+    assert calls == [0, 2]
+    assert len({p.event.id for p in preds}) == 3
