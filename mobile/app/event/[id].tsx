@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
+import { BrandHeader } from '@/components/BrandHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { MarketRow } from '@/components/EventCard';
-import { APP_NAME } from '@/constants/brand';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
 import { formatEventTime } from '@/utils/dates';
@@ -55,7 +55,7 @@ export default function EventDetailScreen() {
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.brand}>{APP_NAME}</Text>
+          <BrandHeader size="sm" />
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>
             {event?.competition?.name ?? 'Competizione'} · {timeLabel}
@@ -82,12 +82,6 @@ const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.surface },
   content: { padding: spacing.lg, gap: spacing.md },
   header: { gap: 4, marginBottom: spacing.sm },
-  brand: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    color: colors.accent,
-    letterSpacing: 0.5,
-  },
   title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },
   subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
   score: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink, marginTop: 4 },
