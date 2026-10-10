@@ -248,8 +248,15 @@ class SoccerProvider(SportProvider):
         *,
         with_predictions: bool = True,
         phase: str | None = None,
+        limit: int = 500,
     ) -> Any:
-        params: dict[str, Any] = {"with_predictions": with_predictions}
+        # Upstream has total/returned but no offset — ask for a high limit so
+        # mid-table leagues (e.g. La Liga) are not dropped from a small snapshot.
+        params: dict[str, Any] = {
+            "with_predictions": with_predictions,
+            "limit": limit,
+            "force_refresh": False,
+        }
         if target_date:
             params["target_date"] = target_date
         if phase:

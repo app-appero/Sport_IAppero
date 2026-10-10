@@ -58,7 +58,8 @@ async def predictions(
     event_id: str | None = Query(default=None),
     market: str | None = Query(default=None),
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
-    limit: int | None = Query(default=None, ge=1, le=200),
+    # Cap is on unique events (all markets kept per event), not prediction rows.
+    limit: int | None = Query(default=None, ge=1, le=500),
 ) -> PredictionListResponse:
     try:
         return await sport_service.list_predictions(
