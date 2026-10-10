@@ -4,6 +4,9 @@
 # crash with "out of memory" on machines with a small page file.
 #
 # Usage (from the mobile folder):  npm run apk
+#
+# Always re-runs `expo prebuild --clean` so launcher icon / app label from app.config.ts
+# are not stuck on a stale android/ folder (old Oracle Sports assets).
 param(
   [string]$BuildDir = 'C:\sp'
 )
@@ -19,11 +22,15 @@ if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
 
 Push-Location $BuildDir
 try {
-  if (-not (Test-Path 'android')) {
-    Write-Host '==> expo prebuild (android)'
-    npx expo prebuild --platform android --no-install
-    if ($LASTEXITCODE -ne 0) { throw 'expo prebuild failed' }
+  # Drop stale native project so icon/name/version always match app.config.ts.
+  if (Test-Path 'android') {
+    Write-Host '==> Remove stale android/ (forces fresh icon + label)'
+    Remove-Item -Recurse -Force 'android'
   }
+
+  Write-Host '==> expo prebuild --clean (android)'
+  npx expo prebuild --platform android --clean --no-install
+  if ($LASTEXITCODE -ne 0) { throw 'expo prebuild failed' }
 
   Write-Host '==> Apply low-memory Gradle settings'
   $props = 'android\gradle.properties'
@@ -51,8 +58,8 @@ try {
   $apk = 'android\app\build\outputs\apk\release\app-release.apk'
   $out = Join-Path $src 'build-output'
   New-Item -ItemType Directory -Force $out | Out-Null
-  Copy-Item $apk (Join-Path $out 'oracle-sports.apk') -Force
-  Write-Host "==> Done: $out\oracle-sports.apk"
+  Copy-Item $apk (Join-Path $out 'sport-iappero.apk') -Force
+  Write-Host "==> Done: $out\sport-iappero.apk"
 }
 finally {
   Pop-Location

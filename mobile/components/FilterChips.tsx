@@ -15,7 +15,7 @@ type Props<T extends string | undefined> = {
   value: T;
   onChange: (value: T) => void;
   accessibilityLabel?: string;
-  /** `large` for bottom market bar — wider slots + bigger type for APK. */
+  /** Bottom market bar: readable type without Android truncating long labels. */
   size?: ChipSize;
 };
 
@@ -42,11 +42,7 @@ export function FilterChips<T extends string | undefined>({
           <View
             key={opt.label + String(opt.value ?? 'all')}
             collapsable={false}
-            style={[
-              styles.slot,
-              large && styles.slotLarge,
-              last && styles.slotLast,
-            ]}
+            style={[styles.slot, last && styles.slotLast]}
           >
             <Pressable
               onPress={() => onChange(opt.value)}
@@ -79,43 +75,41 @@ export function FilterChipStack({ children }: { children: ReactNode }) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
     marginBottom: spacing.sm,
     paddingRight: spacing.sm,
   },
   rowLarge: {
     marginBottom: spacing.xs,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
-  // margin instead of gap — gap in horizontal ScrollView compresses children on Android APK.
   slot: {
     marginRight: 8,
+    flexGrow: 0,
     flexShrink: 0,
-  },
-  slotLarge: {
-    marginRight: 12,
-    minWidth: 170,
   },
   slotLast: {
     marginRight: 0,
   },
   chip: {
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minHeight: 44,
+    // Compact padding — large padding + bold 16 was clipping labels on Android APK.
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
     justifyContent: 'center',
-    alignItems: 'center',
   },
   chipLarge: {
-    paddingHorizontal: 22,
-    paddingVertical: 16,
-    minHeight: 58,
-    borderRadius: radii.md,
-    minWidth: 170,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+    borderRadius: radii.sm,
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: {
@@ -124,8 +118,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   chipTextLarge: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
   },
-  chipTextActive: { color: colors.onAccent },
+  chipTextActive: { color: colors.onAccent, fontFamily: fonts.bodyBold },
 });

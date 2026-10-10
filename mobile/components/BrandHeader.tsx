@@ -1,19 +1,22 @@
 import { Image, StyleSheet, View } from 'react-native';
 
-import { APP_NAME, BRAND_LOGO } from '@/constants/brand';
+import { APP_NAME, BRAND_WORDMARK } from '@/constants/brand';
 import { spacing } from '@/constants/theme';
 
 type Props = {
-  /** Compact header mark vs larger splash-style mark. */
   size?: 'sm' | 'md';
 };
 
-/** In-app logo (soccer + tennis art with Sport IApperò wordmark). */
+/** Horizontal wordmark, top-left (not the square splash mark). */
 export function BrandHeader({ size = 'md' }: Props) {
-  const height = size === 'sm' ? 52 : 72;
+  const height = size === 'sm' ? 28 : 34;
   return (
     <View style={styles.wrap} accessibilityRole="image" accessibilityLabel={APP_NAME}>
-      <Image source={BRAND_LOGO} style={[styles.logo, { height }]} resizeMode="contain" />
+      <Image
+        source={BRAND_WORDMARK}
+        style={[styles.logo, { height, width: height * 3.0 }]}
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -21,11 +24,10 @@ export function BrandHeader({ size = 'md' }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
   },
   logo: {
-    width: '100%',
-    maxWidth: 280,
+    // Wordmark asset is ~3:1 — keep left-aligned in the header.
   },
 });
