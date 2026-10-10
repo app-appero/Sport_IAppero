@@ -1,6 +1,6 @@
 export type MarketOption = { label: string; value: string | undefined };
 
-/** Known market chips for football (soccer-oracle keys). */
+/** Chip labels — keep short but complete (chips size to content). */
 export const FOOTBALL_MARKETS: MarketOption[] = [
   { label: 'Tutti', value: undefined },
   { label: '1X2', value: 'h2h' },
@@ -12,7 +12,6 @@ export const FOOTBALL_MARKETS: MarketOption[] = [
   { label: 'O/U 3.5', value: 'under_over_3_5' },
 ];
 
-/** One chip for all cards lines (3.5 / 4.5 / 5.5 / 6.5). */
 export function predictionMatchesMarket(
   predictionType: string,
   market: string | undefined,
@@ -23,7 +22,6 @@ export function predictionMatchesMarket(
   return false;
 }
 
-/** Known market chips for tennis. */
 export const TENNIS_MARKETS: MarketOption[] = [
   { label: 'Tutti', value: undefined },
   { label: 'Match winner', value: 'match_winner' },
