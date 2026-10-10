@@ -4,7 +4,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import { buildDayWindow, type DayOption } from '@/utils/dates';
 
-/** Explicit slot width — Android horizontal ScrollView ignores flexShrink/minWidth alone. */
 const CHIP_SLOT = 128;
 const CHIP_GAP = 12;
 
@@ -32,19 +31,17 @@ export function DayScroller({ value, onChange }: Props) {
       ref={ref}
       horizontal
       showsHorizontalScrollIndicator={false}
-      // Avoid contentContainerStyle gap — breaks child width on some Android builds.
-      contentContainerStyle={styles.row}
+      style={styles.scroller}
+      contentContainerStyle={styles.scrollContent}
       accessibilityLabel="Seleziona giorno"
     >
-      {days.map((d, i) => (
-        <View
-          key={d.key}
-          collapsable={false}
-          style={[styles.slot, i === days.length - 1 && styles.slotLast]}
-        >
-          <DayChip day={d} active={d.value === value} onPress={() => onChange(d.value)} />
-        </View>
-      ))}
+      <View style={styles.row} collapsable={false}>
+        {days.map((d) => (
+          <View key={d.key} collapsable={false} style={styles.slot}>
+            <DayChip day={d} active={d.value === value} onPress={() => onChange(d.value)} />
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -65,10 +62,7 @@ function DayChip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
     >
-      <Text
-        style={[styles.weekday, active && styles.textActive]}
-        allowFontScaling={false}
-      >
+      <Text style={[styles.weekday, active && styles.textActive]} allowFontScaling={false}>
         {day.weekday}
       </Text>
       <Text style={[styles.label, active && styles.textActive]} allowFontScaling={false}>
@@ -79,18 +73,16 @@ function DayChip({
 }
 
 const styles = StyleSheet.create({
+  scroller: { flexGrow: 0, marginBottom: spacing.sm },
+  scrollContent: { flexGrow: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginBottom: spacing.sm,
     paddingRight: spacing.sm,
   },
   slot: {
     width: CHIP_SLOT,
     marginRight: CHIP_GAP,
-  },
-  slotLast: {
-    marginRight: 0,
   },
   chip: {
     flex: 1,
