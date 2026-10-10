@@ -320,7 +320,18 @@ class SoccerProvider(SportProvider):
         return events
 
     async def get_competitions(self, **filters: Any) -> list[Competition]:
-        events = await self.get_events(**filters)
+        # Leagues with at least one prediction on the requested day (not the full
+        # fixture bag), so filter chips match what the feed can show.
+        pred_filters = {k: v for k, v in filters.items() if k != "competition_id"}
+        pred_filters.setdefault("limit", 200)
+        predictions = await self.get_predictions(**pred_filters)
+        events: list[Event] = []
+        seen: set[str] = set()
+        for pred in predictions:
+            if pred.event.id in seen:
+                continue
+            seen.add(pred.event.id)
+            events.append(pred.event)
         return mapper.map_competitions_from_events(events)
 
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:

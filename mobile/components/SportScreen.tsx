@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,7 +21,7 @@ import { SportDropdown, type SportId } from '@/components/SportDropdown';
 import { APP_NAME } from '@/constants/brand';
 import { marketsForSport } from '@/constants/markets';
 import { colors, fonts, gradients, spacing } from '@/constants/theme';
-import { useProviderHealth, useSportCompetitions, useSportPredictions } from '@/hooks/queries';
+import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { todayKey } from '@/utils/dates';
 
@@ -52,33 +52,18 @@ export function SportScreen({
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
 
   const health = useProviderHealth();
-  // Fetch all markets for the day so the card can show the real market count.
-  // Market chip filtering is applied client-side (which events + hero pick).
+  // Day feed without market/competition filters — chips and hero picks filter client-side
+  // so tournament/league chips only list competitions that have matches that day.
   const query = useSportPredictions(sport, {
     date,
-    competitionId,
     limit: 200,
   });
-  const competitions = useSportCompetitions(sport, date);
   const providerHealth = health.data?.[sport];
   const copy = SPORT_COPY[sport];
 
   const marketOptions = useMemo(() => marketsForSport(sport), [sport]);
-  const competitionOptions = useMemo(() => {
-    const opts: { label: string; value: string | undefined }[] = [
-      { label: sport === 'tennis' ? 'Tutti i tornei' : 'Tutti i campionati', value: undefined },
-    ];
-    const seen = new Set<string>();
-    for (const c of competitions.data?.items ?? []) {
-      const key = c.id || c.name;
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      opts.push({ label: c.name, value: key });
-    }
-    return opts;
-  }, [competitions.data?.items, sport]);
 
-  const events: FeedItem[] = useMemo(() => {
+  const dayEvents: FeedItem[] = useMemo(() => {
     const byEvent = new Map<string, FeedItem>();
     for (const pred of query.data?.items ?? []) {
       const key = pred.event.id;
@@ -93,12 +78,49 @@ export function SportScreen({
         existing.predictions.push(pred);
       }
     }
-    const grouped = Array.from(byEvent.values());
-    if (!market) return grouped;
-    return grouped.filter((item) =>
-      item.predictions.some((p) => p.prediction.type === market),
-    );
-  }, [query.data?.items, market]);
+    return Array.from(byEvent.values());
+  }, [query.data?.items]);
+
+  const competitionOptions = useMemo(() => {
+    const opts: { label: string; value: string | undefined }[] = [
+      { label: sport === 'tennis' ? 'Tutti i tornei' : 'Tutti i campionati', value: undefined },
+    ];
+    const seen = new Set<string>();
+    for (const item of dayEvents) {
+      const c = item.event.competition;
+      if (!c) continue;
+      const key = c.id || c.name;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      opts.push({ label: c.name, value: key });
+    }
+    return opts;
+  }, [dayEvents, sport]);
+
+  useEffect(() => {
+    if (!competitionId) return;
+    const stillThere = competitionOptions.some((o) => o.value === competitionId);
+    if (!stillThere) setCompetitionId(undefined);
+  }, [competitionId, competitionOptions]);
+
+  const events: FeedItem[] = useMemo(() => {
+    return dayEvents.filter((item) => {
+      if (
+        competitionId &&
+        !(
+          item.event.competition &&
+          (item.event.competition.id === competitionId ||
+            item.event.competition.name === competitionId)
+        )
+      ) {
+        return false;
+      }
+      if (market && !item.predictions.some((p) => p.prediction.type === market)) {
+        return false;
+      }
+      return true;
+    });
+  }, [dayEvents, competitionId, market]);
 
   const filtersActive = Boolean(market || competitionId || date !== todayKey());
 
