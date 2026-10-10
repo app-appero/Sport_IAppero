@@ -229,6 +229,14 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
             Probability(key="player_1", label=event.participants[0].name, value=p1),
             Probability(key="player_2", label=event.participants[1].name, value=1 - p1),
         ]
+    correct_raw = prediction.get("is_correct")
+    if correct_raw is True:
+        correct: bool | None = True
+    elif correct_raw is False:
+        correct = False
+    else:
+        correct = None
+
     return UnifiedPrediction(
         id=f"tennis_{event.id}_match_winner",
         sport=SPORT,
@@ -245,6 +253,7 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
         ),
         oracle_score=None,
         generated_at=_parse_dt(prediction.get("predicted_at")),
+        correct=correct,
         raw=prediction,
     )
 
