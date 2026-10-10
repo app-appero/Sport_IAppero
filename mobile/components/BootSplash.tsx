@@ -14,7 +14,7 @@ export function BootSplash() {
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
