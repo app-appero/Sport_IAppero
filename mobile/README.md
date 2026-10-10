@@ -1,6 +1,13 @@
 # Sport IApperò — Mobile
 
-Expo (React Native) app for Sport IApperò.
+Expo (React Native) app for **Sport IApperò** (never “Oracle Sports”).
+
+Native identity is defined in `app.config.ts`:
+- Launcher name: `Sport IApperò`
+- Android package: `com.appero.sportiappero`
+- Version: `1.1.0` / `versionCode` 3
+
+If an old APK still shows **Oracle Sports**, uninstall `com.appero.oraclesports` and rebuild from this `main` (`eas build -p android --profile preview`). Do not reuse an Expo project still named Oracle Sports — create/link one named Sport IApperò.
 
 ## Navigazione
 

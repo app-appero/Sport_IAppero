@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { providerLabel } from '@/constants/providers';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { FeedMeta } from '@/types/api';
 
@@ -22,11 +23,11 @@ export function FeedBanner({
   } else if (meta.status === 'degraded') {
     const down = (meta.providers ?? [])
       .filter((p) => p.status !== 'ok' && p.status !== 'empty')
-      .map((p) => p.provider);
+      .map((p) => providerLabel(p.provider));
     lines.push(
       down.length
         ? `Feed parziale: ${down.join(', ')} non disponibile.`
-        : 'Feed parziale: un provider non è disponibile.',
+        : 'Feed parziale: una sorgente non è disponibile.',
     );
   } else if (meta.status === 'empty') {
     lines.push('Nessun evento per i filtri selezionati.');
