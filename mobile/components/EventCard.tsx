@@ -43,8 +43,11 @@ export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) 
         </Text>
         <View style={styles.topRight}>
           {tone ? (
-            <View style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}>
-              <Text style={styles.outcomeText}>{tone === 'hit' ? 'Verde' : 'Rosso'}</Text>
+            <View
+              style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}
+              accessibilityLabel={tone === 'hit' ? 'Esito positivo' : 'Esito negativo'}
+            >
+              <Text style={styles.outcomeText}>{tone === 'hit' ? 'V' : 'X'}</Text>
             </View>
           ) : null}
           <Text style={styles.time}>{timeLabel}</Text>
@@ -110,8 +113,11 @@ export function MarketRow({ item }: { item: UnifiedPrediction }) {
       <View style={styles.marketTop}>
         <Text style={styles.marketName}>{marketLabel(item.prediction.type)}</Text>
         {tone ? (
-          <View style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}>
-            <Text style={styles.outcomeText}>{tone === 'hit' ? 'Verde' : 'Rosso'}</Text>
+          <View
+            style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}
+            accessibilityLabel={tone === 'hit' ? 'Esito positivo' : 'Esito negativo'}
+          >
+            <Text style={styles.outcomeText}>{tone === 'hit' ? 'V' : 'X'}</Text>
           </View>
         ) : null}
       </View>
@@ -155,15 +161,19 @@ const styles = StyleSheet.create({
   },
   outcomeDot: {
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    minWidth: 22,
+    minHeight: 22,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hit: { backgroundColor: colors.hit },
   miss: { backgroundColor: colors.miss },
   outcomeText: {
     color: '#fff',
     fontFamily: fonts.bodyBold,
-    fontSize: 11,
+    fontSize: 13,
+    lineHeight: 16,
   },
   event: {
     fontFamily: fonts.bodyBold,
