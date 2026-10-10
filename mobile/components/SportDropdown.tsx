@@ -27,8 +27,12 @@ export function SportDropdown({ value, onChange }: Props) {
         accessibilityRole="button"
         accessibilityLabel="Seleziona sport"
       >
-        <Text style={styles.triggerLabel}>{current.label}</Text>
-        <Text style={styles.chevron}>▾</Text>
+        <Text style={styles.triggerLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+          {current.label}
+        </Text>
+        <Text style={styles.chevron} maxFontSizeMultiplier={1.2}>
+          ▾
+        </Text>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -68,12 +72,29 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    minHeight: 44,
+    minHeight: 48,
+    gap: 12,
   },
-  triggerLabel: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
-  chevron: { fontFamily: fonts.bodyBold, color: colors.inkMuted, fontSize: 16 },
+  // flexShrink:0 — Android APK otherwise compresses Text in a row (shows "Calci").
+  triggerLabel: {
+    flexGrow: 1,
+    flexShrink: 0,
+    fontFamily: fonts.bodyBold,
+    color: colors.ink,
+    fontSize: 16,
+    // Custom fonts on Android often clip the last glyph without a little padding.
+    paddingRight: 4,
+    includeFontPadding: false,
+  },
+  chevron: {
+    flexShrink: 0,
+    fontFamily: fonts.bodyBold,
+    color: colors.inkMuted,
+    fontSize: 16,
+    paddingLeft: 4,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',
