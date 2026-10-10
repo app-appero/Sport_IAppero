@@ -13,7 +13,56 @@ function isFinished(status: string | null | undefined): boolean {
     s.includes('finish') ||
     s.includes('ended') ||
     s === 'complete' ||
-    s === 'completed'
+    s === 'completed' ||
+    s === 'played'
+  );
+}
+
+function parseTennisSetScore(display: string | null | undefined): { home: number; away: number } | null {
+  if (!display) return null;
+  const parts = display.replace('–', '-').split('-').map((p) => p.trim());
+  if (parts.length !== 2) return null;
+  const home = Number(parts[0]);
+  const away = Number(parts[1]);
+  if (Number.isNaN(home) || Number.isNaN(away)) return null;
+  return { home, away };
+}
+
+function tennisTotals(event: Event): Record<string, unknown> | null {
+  const t = event.actual_totals;
+  return t && typeof t === 'object' ? (t as Record<string, unknown>) : null;
+}
+
+function parseOuLine(name: string): { side: 'over' | 'under'; line: number } | null {
+  const lower = name.trim().toLowerCase();
+  if (lower.startsWith('over')) {
+    const line = Number(lower.slice(4).trim());
+    return Number.isNaN(line) ? null : { side: 'over', line };
+  }
+  if (lower.startsWith('under')) {
+    const line = Number(lower.slice(5).trim());
+    return Number.isNaN(line) ? null : { side: 'under', line };
+  }
+  return null;
+}
+
+function selectionIsPlayer1(sel: string, name: string): boolean {
+  return (
+    sel === 'player_1' ||
+    sel === 'home' ||
+    sel === '1' ||
+    name === 'first player' ||
+    name === 'player 1'
+  );
+}
+
+function selectionIsPlayer2(sel: string, name: string): boolean {
+  return (
+    sel === 'player_2' ||
+    sel === 'away' ||
+    sel === '2' ||
+    name === 'second player' ||
+    name === 'player 2'
   );
 }
 
@@ -48,12 +97,50 @@ function deriveCorrect(pred: UnifiedPrediction): boolean | null {
   const totals = event.actual_totals;
 
   if (market === 'h2h' || market === 'match_winner') {
-    if (score?.home == null || score?.away == null) return null;
-    const h = Number(score.home);
-    const a = Number(score.away);
-    if (sel === 'home' || sel === 'player_1') return h > a;
-    if (sel === 'away' || sel === 'player_2') return a > h;
+    let h = score?.home != null ? Number(score.home) : null;
+    let a = score?.away != null ? Number(score.away) : null;
+    if (h == null || a == null) {
+      const parsed = parseTennisSetScore(score?.display ?? null);
+      if (parsed) {
+        h = parsed.home;
+        a = parsed.away;
+      }
+    }
+    if (h == null || a == null) {
+      const totals = tennisTotals(event);
+      const s1 = totals?.sets_won_player_1;
+      const s2 = totals?.sets_won_player_2;
+      if (typeof s1 === 'number' && typeof s2 === 'number') {
+        h = s1;
+        a = s2;
+      }
+    }
+    if (h == null || a == null) return null;
+    const name = pred.prediction.selection.name.toLowerCase();
+    if (selectionIsPlayer1(sel, name)) return h > a;
+    if (selectionIsPlayer2(sel, name)) return a > h;
     if (sel === 'draw') return h === a;
+    return null;
+  }
+
+  if (market === 'first_set_winner') {
+    const totals = tennisTotals(event);
+    const actual = totals?.first_set_winner;
+    if (typeof actual !== 'string') return null;
+    const name = pred.prediction.selection.name.toLowerCase();
+    if (selectionIsPlayer1(sel, name)) return actual === 'player_1';
+    if (selectionIsPlayer2(sel, name)) return actual === 'player_2';
+    return null;
+  }
+
+  if (market === 'over_under_games' || market === 'total_games') {
+    const totals = tennisTotals(event);
+    const totalGames = totals?.total_games;
+    if (typeof totalGames !== 'number') return null;
+    const ou = parseOuLine(pred.prediction.selection.name);
+    if (!ou) return null;
+    if (ou.side === 'over') return totalGames > ou.line;
+    if (ou.side === 'under') return totalGames < ou.line;
     return null;
   }
 

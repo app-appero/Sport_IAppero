@@ -58,6 +58,24 @@ def test_naive_event_date_time_does_not_become_start_time():
     assert events[0].calendar_date == "2026-10-08"
 
 
+def test_played_match_settles_extra_markets():
+    payload = load_fixture("tennis", "predictions_played_settlement.json")
+    predictions = mapper.map_predictions_payload(payload)
+    by_type = {p.prediction.type: p for p in predictions}
+
+    assert by_type["match_winner"].correct is True
+    assert by_type["first_set_winner"].correct is False
+    assert by_type["over_under_games"].correct is True
+
+    event = by_type["match_winner"].event
+    assert event.score is not None
+    assert event.score.home == 0
+    assert event.score.away == 2
+    assert event.actual_totals is not None
+    assert event.actual_totals.get("total_games") == 23
+    assert event.actual_totals.get("first_set_winner") == "player_2"
+
+
 def test_aware_start_time_preserved():
     events = mapper.map_events(
         [
