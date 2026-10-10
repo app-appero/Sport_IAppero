@@ -19,7 +19,7 @@ import { FilterChips } from '@/components/FilterChips';
 import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportDropdown, type SportId } from '@/components/SportDropdown';
 import { APP_NAME } from '@/constants/brand';
-import { marketsForSport } from '@/constants/markets';
+import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
 import { colors, fonts, gradients, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
@@ -115,7 +115,7 @@ export function SportScreen({
       ) {
         return false;
       }
-      if (market && !item.predictions.some((p) => p.prediction.type === market)) {
+      if (market && !item.predictions.some((p) => predictionMatchesMarket(p.prediction.type, market))) {
         return false;
       }
       return true;
