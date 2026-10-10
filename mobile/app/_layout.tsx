@@ -10,10 +10,12 @@ import {
 } from '@expo-google-fonts/dm-sans';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
+import { BootSplash } from '@/components/BootSplash';
 import { colors } from '@/constants/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -22,14 +24,37 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* already hidden */
+});
+
 export default function RootLayout() {
-  // Load brand fonts in the background; never block first paint.
-  useBebas({ BebasNeue_400Regular });
-  useDmSans({
+  const [bebasLoaded] = useBebas({ BebasNeue_400Regular });
+  const [dmLoaded] = useDmSans({
     DMSans_400Regular,
     DMSans_500Medium,
     DMSans_700Bold,
   });
+  const fontsReady = bebasLoaded && dmLoaded;
+  const [bootDone, setBootDone] = useState(false);
+
+  useEffect(() => {
+    if (!fontsReady) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch {
+        /* ignore */
+      }
+      // Keep branded frame briefly so cold start always shows the splash art.
+      await new Promise((r) => setTimeout(r, 700));
+      if (!cancelled) setBootDone(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fontsReady]);
 
   const [queryClient] = useState(
     () =>
@@ -64,6 +89,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      {!bootDone ? <BootSplash /> : null}
     </QueryClientProvider>
   );
 }

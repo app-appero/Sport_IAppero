@@ -12,15 +12,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandHeader } from '@/components/BrandHeader';
 import { DayScroller } from '@/components/DayScroller';
 import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { FilterChips } from '@/components/FilterChips';
 import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportDropdown, type SportId } from '@/components/SportDropdown';
-import { APP_NAME } from '@/constants/brand';
 import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
-import { colors, fonts, gradients, spacing } from '@/constants/theme';
+import { colors, gradients, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { todayKey } from '@/utils/dates';
@@ -164,7 +164,7 @@ export function SportScreen({
       />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <Text style={styles.brand}>{APP_NAME}</Text>
+          <BrandHeader />
           {showSportDropdown ? (
             <SportDropdown
               value={sport}
@@ -261,13 +261,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
     gap: 6,
-  },
-  brand: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    color: colors.accent,
-    letterSpacing: 0.5,
-    lineHeight: 36,
   },
   list: {
     paddingHorizontal: spacing.lg,

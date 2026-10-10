@@ -1,33 +1,38 @@
 import { Platform } from 'react-native';
 
-/** Dark theme — charcoal / forest with lime accent (Sport IApperò). */
+/**
+ * Brand theme aligned with Sport IApperò splash/logo art:
+ * deep navy void + electric cyan (IA) + lime tennis accent.
+ */
 export const colors = {
-  brand: '#C8F135',
-  brandSoft: '#9BC41A',
-  accent: '#C8F135',
-  accentDeep: '#A8D000',
-  ink: '#F2F5F0',
-  inkMuted: '#9AA89F',
-  surface: '#0E1411',
-  surfaceElevated: '#1A221D',
-  line: '#2C3831',
+  brand: '#00E5FF',
+  brandSoft: '#33EBFF',
+  accent: '#00E5FF',
+  accentDeep: '#00B8D4',
+  /** Secondary accent from tennis ball in logo art */
+  lime: '#C8F135',
+  ink: '#F4F8FF',
+  inkMuted: '#8FA3B8',
+  surface: '#050A14',
+  surfaceElevated: '#0C1524',
+  line: '#1A2A3D',
   danger: '#F87171',
-  football: '#3D7A5C',
-  tennis: '#3B7EA6',
+  football: '#1B6B8A',
+  tennis: '#A8D000',
   warning: '#E6B84D',
   hit: '#2F9E44',
   miss: '#C92A2A',
-  hitBg: '#14261A',
+  hitBg: '#0F2418',
   missBg: '#2A1515',
   warnBg: '#2A2414',
   errorBg: '#2A1515',
-  infoBg: '#15241C',
-  /** Text on lime / brand fills */
-  onAccent: '#0E1411',
+  infoBg: '#0A1C2A',
+  /** Text on cyan / brand fills */
+  onAccent: '#050A14',
 };
 
 export const gradients = {
-  screen: ['#0E1411', '#121A16', '#0B1A14'] as const,
+  screen: ['#050A14', '#0A1422', '#061820'] as const,
 };
 
 export const spacing = {
