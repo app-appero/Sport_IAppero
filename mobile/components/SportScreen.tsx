@@ -26,6 +26,7 @@ import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
+import { formatApiError } from '@/utils/formatApiError';
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
   football: {
@@ -202,7 +203,7 @@ export function SportScreen({
             <EmptyState
               tone="error"
               title="Impossibile caricare le predizioni"
-              subtitle={query.error instanceof Error ? query.error.message : 'Errore sconosciuto'}
+              subtitle={formatApiError(query.error)}
               actionLabel="Riprova"
               onAction={() => query.refetch()}
             />

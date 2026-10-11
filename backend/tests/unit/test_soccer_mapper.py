@@ -1,3 +1,4 @@
+from app.domain.models import Event, EventScore, Selection
 from app.providers.http_utils import load_fixture
 from app.providers.soccer import mapper
 
@@ -44,3 +45,60 @@ def test_map_markets():
     assert "h2h" in keys
     assert "under_over_2_5" in keys
     assert all(m.sport == "football" for m in markets)
+
+
+def test_settle_overrides_wrong_provider_correct_flags():
+    """X2 must hit on 2-2; DRAW must miss on 1-2 — ignore bad upstream flags."""
+    draw_event = Event(
+        id="e1",
+        name="A vs B",
+        score=EventScore(home=2, away=2, display="2-2"),
+        status="FT",
+    )
+    away_event = Event(
+        id="e2",
+        name="C vs D",
+        score=EventScore(home=1, away=2, display="1-2"),
+        status="FT",
+    )
+
+    x2 = mapper.map_market_prediction(
+        "dc",
+        {"prediction": 0, "probability": 0.4, "correct": False},
+        draw_event,
+    )
+    assert x2.prediction.selection.name == "X2"
+    assert x2.correct is True
+
+    draw_miss = mapper.map_market_prediction(
+        "h2h",
+        {"prediction": 0, "probability": 0.2, "correct": True},
+        away_event,
+    )
+    assert draw_miss.prediction.selection.id == "draw"
+    assert draw_miss.prediction.selection.name == "Pareggio"
+    assert draw_miss.correct is False
+
+    draw_hit = mapper.map_market_prediction(
+        "h2h",
+        {"prediction": "X", "probability": 0.2, "correct": False},
+        draw_event,
+    )
+    assert draw_hit.prediction.selection.name == "Pareggio"
+    assert draw_hit.correct is True
+
+
+def test_settle_soccer_market_helpers():
+    event = Event(id="e", name="A vs B", score=EventScore(home=2, away=2, display="2-2"))
+    assert (
+        mapper._settle_soccer_market("dc", Selection(id="X2", name="X2"), event) is True
+    )
+    assert (
+        mapper._settle_soccer_market("h2h", Selection(id="draw", name="Pareggio"), event)
+        is True
+    )
+    miss = Event(id="e", name="A vs B", score=EventScore(home=1, away=2, display="1-2"))
+    assert (
+        mapper._settle_soccer_market("h2h", Selection(id="draw", name="Draw"), miss)
+        is False
+    )

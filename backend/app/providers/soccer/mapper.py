@@ -24,12 +24,12 @@ PROVIDER = "soccer-oracle"
 H2H_LABELS = {
     1: ("home", "Home"),
     2: ("away", "Away"),
-    0: ("draw", "Draw"),
+    0: ("draw", "Pareggio"),
     "1": ("home", "Home"),
     "2": ("away", "Away"),
-    "0": ("draw", "Draw"),
-    "X": ("draw", "Draw"),
-    "x": ("draw", "Draw"),
+    "0": ("draw", "Pareggio"),
+    "X": ("draw", "Pareggio"),
+    "x": ("draw", "Pareggio"),
 }
 
 
@@ -225,7 +225,7 @@ def _selection_for_market(
     if market == "h2h":
         fallback = (str(prediction_code), str(prediction_code))
         key, default_label = H2H_LABELS.get(prediction_code, fallback)
-        label = {"home": home, "away": away, "draw": "Draw"}.get(key, default_label)
+        label = {"home": home, "away": away, "draw": "Pareggio"}.get(key, default_label)
         return Selection(id=key, name=label)
 
     if market.startswith("under_over_"):
@@ -252,7 +252,8 @@ def _selection_for_market(
     if market == "dc":
         mapping = {1: "1X", 2: "12", 0: "X2", "1": "1X", "2": "12", "0": "X2"}
         label = mapping.get(prediction_code, str(prediction_code))
-        return Selection(id=str(prediction_code), name=label)
+        # Keep id aligned with the human label so settlement stays stable.
+        return Selection(id=label, name=label)
 
     return Selection(id=str(prediction_code), name=str(prediction_code))
 
@@ -270,6 +271,88 @@ def _probabilities_for_market(
     return [Probability(key=selection.id or "sel", label=selection.name, value=confidence)]
 
 
+def _line_from_market(market: str, prefix: str) -> float | None:
+    try:
+        return float(market.removeprefix(prefix).replace("_", "."))
+    except ValueError:
+        return None
+
+
+def _settle_soccer_market(market: str, selection: Selection, event: Event) -> bool | None:
+    """Settle from FT score / totals. Prefer this over upstream `correct` flags."""
+    score = event.score
+    totals = event.actual_totals or {}
+    sel = (selection.id or "").lower()
+    name = (selection.name or "").strip().upper()
+
+    if market == "h2h":
+        if score is None or score.home is None or score.away is None:
+            return None
+        h, a = int(score.home), int(score.away)
+        if sel == "home":
+            return h > a
+        if sel == "away":
+            return a > h
+        if sel in {"draw", "x"} or name in {"DRAW", "PAREGGIO", "X"}:
+            return h == a
+        return None
+
+    if market == "dc":
+        if score is None or score.home is None or score.away is None:
+            return None
+        h, a = int(score.home), int(score.away)
+        label = name or sel.upper()
+        if label == "1X":
+            return h >= a
+        if label == "X2":
+            return a >= h
+        if label == "12":
+            return h != a
+        return None
+
+    if market.startswith("under_over_"):
+        if score is None or score.home is None or score.away is None:
+            return None
+        line = _line_from_market(market, "under_over_")
+        if line is None:
+            return None
+        goals = int(score.home) + int(score.away)
+        if sel == "over" or name.startswith("OVER"):
+            return goals > line
+        if sel == "under" or name.startswith("UNDER"):
+            return goals < line
+        return None
+
+    if market == "goal_no_goal":
+        if score is None or score.home is None or score.away is None:
+            return None
+        both = int(score.home) > 0 and int(score.away) > 0
+        if sel == "goal":
+            return both
+        if sel in {"no_goal", "nogoal"}:
+            return not both
+        return None
+
+    if market.startswith("cards_line_"):
+        cards = totals.get("cards")
+        if cards is None:
+            return None
+        line = _line_from_market(market, "cards_line_")
+        if line is None:
+            return None
+        try:
+            cards_n = float(cards)
+        except (TypeError, ValueError):
+            return None
+        if sel == "over" or name.startswith("OVER"):
+            return cards_n > line
+        if sel == "under" or name.startswith("UNDER"):
+            return cards_n < line
+        return None
+
+    return None
+
+
 def map_market_prediction(
     market: str,
     market_payload: dict[str, Any],
@@ -285,14 +368,20 @@ def map_market_prediction(
         market_payload,
     )
     probabilities = _probabilities_for_market(market, confidence, selection, event)
-    correct_raw = market_payload.get("correct")
-    correct: bool | None
-    if correct_raw is True:
-        correct = True
-    elif correct_raw is False:
-        correct = False
+
+    # Soccer Oracle `correct` is often wrong (e.g. X2 miss on 2-2, DRAW hit on 1-2).
+    # Always prefer settlement from the final score / totals when available.
+    settled = _settle_soccer_market(market, selection, event)
+    if settled is not None:
+        correct: bool | None = settled
     else:
-        correct = None
+        correct_raw = market_payload.get("correct")
+        if correct_raw is True:
+            correct = True
+        elif correct_raw is False:
+            correct = False
+        else:
+            correct = None
 
     return UnifiedPrediction(
         id=f"soccer_{event.id}_{market}",

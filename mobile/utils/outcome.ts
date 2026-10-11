@@ -119,7 +119,15 @@ function deriveCorrect(pred: UnifiedPrediction): boolean | null {
     const name = pred.prediction.selection.name.toLowerCase();
     if (selectionIsPlayer1(sel, name)) return h > a;
     if (selectionIsPlayer2(sel, name)) return a > h;
-    if (sel === 'draw') return h === a;
+    if (
+      sel === 'draw' ||
+      sel === 'x' ||
+      name === 'draw' ||
+      name === 'pareggio' ||
+      name === 'x'
+    ) {
+      return h === a;
+    }
     return null;
   }
 
@@ -148,10 +156,10 @@ function deriveCorrect(pred: UnifiedPrediction): boolean | null {
     if (score?.home == null || score?.away == null) return null;
     const h = Number(score.home);
     const a = Number(score.away);
-    const name = pred.prediction.selection.name;
-    if (name === '1X') return h >= a;
-    if (name === 'X2') return a >= h;
-    if (name === '12') return h !== a;
+    const label = (pred.prediction.selection.name || sel || '').trim().toUpperCase();
+    if (label === '1X') return h >= a;
+    if (label === 'X2') return a >= h;
+    if (label === '12') return h !== a;
     return null;
   }
 
@@ -187,11 +195,13 @@ function deriveCorrect(pred: UnifiedPrediction): boolean | null {
 }
 
 export function outcomeTone(pred: UnifiedPrediction): OutcomeTone {
-  if (pred.correct === true) return 'hit';
-  if (pred.correct === false) return 'miss';
+  // Prefer score-based settlement: upstream `correct` flags from Soccer Oracle
+  // are frequently wrong (X2 miss on 2-2, DRAW hit on 1-2, etc.).
   const derived = deriveCorrect(pred);
   if (derived === true) return 'hit';
   if (derived === false) return 'miss';
+  if (pred.correct === true) return 'hit';
+  if (pred.correct === false) return 'miss';
   return null;
 }
 

@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { marketLabel } from '@/constants/markets';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { DayStats, EventDayStat, MarketTypeStat } from '@/utils/dayStats';
+import { selectionLabel } from '@/utils/selectionLabel';
 
 type Props = {
   stats: DayStats;
@@ -135,7 +136,7 @@ function EventAccordion({
                 {marketLabel(prediction.prediction.type)}
               </Text>
               <Text style={styles.marketPick} numberOfLines={1}>
-                {prediction.prediction.selection.name}
+                {selectionLabel(prediction.prediction.selection.name)}
               </Text>
               <View
                 style={[

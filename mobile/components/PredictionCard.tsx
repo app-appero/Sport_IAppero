@@ -5,6 +5,7 @@ import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { marketLabel } from '@/constants/markets';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
+import { selectionLabel } from '@/utils/selectionLabel';
 
 type Props = {
   item: UnifiedPrediction;
@@ -29,7 +30,7 @@ export function PredictionCard({ item, index = 0, onPress }: Props) {
         </View>
         <Text style={styles.event}>{item.event.name}</Text>
         <Text style={styles.pickLabel}>Prediction</Text>
-        <Text style={styles.pick}>{item.prediction.selection.name}</Text>
+        <Text style={styles.pick}>{selectionLabel(item.prediction.selection.name)}</Text>
         <ConfidenceBar value={item.prediction.confidence} />
       </Pressable>
     </Animated.View>
