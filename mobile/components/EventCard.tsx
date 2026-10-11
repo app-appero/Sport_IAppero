@@ -6,6 +6,7 @@ import { marketLabel, predictionMatchesMarket } from '@/constants/markets';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
+import { eventStatusLabel } from '@/utils/eventStatus';
 import { outcomeTone, pickBestPrediction, scoreForMarket } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -15,9 +16,17 @@ type Props = {
   onPress?: () => void;
   /** When filtering by a single market, prefer that prediction as hero. */
   preferredMarket?: string;
+  /** Selected calendar day (YYYY-MM-DD) for past-day status heuristics. */
+  selectedDate?: string | null;
 };
 
-export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) {
+export function EventCard({
+  item,
+  index = 0,
+  onPress,
+  preferredMarket,
+  selectedDate,
+}: Props) {
   const sportColor = item.sport === 'tennis' ? colors.tennis : colors.football;
   const preferred =
     preferredMarket
@@ -64,9 +73,11 @@ export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) 
         <Text style={styles.score}>Risultato · {scoreLine}</Text>
       ) : (
         <Text style={styles.scoreMuted}>
-          {item.event.status && item.event.status !== 'NS'
-            ? `Stato · ${item.event.status}`
-            : 'Pre-match'}
+          {(() => {
+            const label = eventStatusLabel(item.event, { selectedDate });
+            if (!label || label === 'Pre-match') return 'Pre-match';
+            return `Stato · ${label}`;
+          })()}
         </Text>
       )}
 

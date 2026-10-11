@@ -7,6 +7,7 @@ import { MarketRow } from '@/components/EventCard';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
 import { formatEventTime } from '@/utils/dates';
+import { eventStatusLabel } from '@/utils/eventStatus';
 import { formatApiError } from '@/utils/formatApiError';
 import { scoreForMarket } from '@/utils/outcome';
 
@@ -16,9 +17,10 @@ export default function EventDetailScreen() {
     sport?: string;
     date?: string;
   }>();
+  const selectedDate = date ? String(date) : undefined;
   const query = useEventPredictions(String(id ?? ''), {
     sport: sport ? String(sport) : undefined,
-    date: date ? String(date) : undefined,
+    date: selectedDate,
   });
 
   if (query.isLoading) {
@@ -47,6 +49,9 @@ export default function EventDetailScreen() {
   const scoreSample = event
     ? scoreForMarket(event, items[0]?.prediction.type || 'h2h')
     : null;
+  const statusLabel = event
+    ? eventStatusLabel(event, { selectedDate })
+    : null;
 
   return (
     <FlatList
@@ -61,7 +66,11 @@ export default function EventDetailScreen() {
           <Text style={styles.subtitle}>
             {event?.competition?.name ?? 'Competizione'} · {timeLabel}
           </Text>
-          {scoreSample ? <Text style={styles.score}>Risultato · {scoreSample}</Text> : null}
+          {scoreSample ? (
+            <Text style={styles.score}>Risultato · {scoreSample}</Text>
+          ) : statusLabel ? (
+            <Text style={styles.score}>Stato · {statusLabel}</Text>
+          ) : null}
           <Text style={styles.subtitle}>{items.length} mercati predetti</Text>
         </View>
       }
