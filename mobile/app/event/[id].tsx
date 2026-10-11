@@ -7,6 +7,7 @@ import { MarketRow } from '@/components/EventCard';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
 import { formatEventTime } from '@/utils/dates';
+import { formatApiError } from '@/utils/formatApiError';
 import { scoreForMarket } from '@/utils/outcome';
 
 export default function EventDetailScreen() {
@@ -32,7 +33,7 @@ export default function EventDetailScreen() {
     return (
       <EmptyState
         title="Impossibile caricare i mercati"
-        subtitle={query.error instanceof Error ? query.error.message : undefined}
+        subtitle={formatApiError(query.error)}
         actionLabel="Riprova"
         onAction={() => query.refetch()}
       />

@@ -7,6 +7,7 @@ import { colors, fonts, radii, spacing } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { outcomeTone, pickBestPrediction, scoreForMarket } from '@/utils/outcome';
+import { selectionLabel } from '@/utils/selectionLabel';
 
 type Props = {
   item: FeedItem;
@@ -73,7 +74,7 @@ export function EventCard({ item, index = 0, onPress, preferredMarket }: Props) 
         <Text style={styles.pickLabel}>
           Miglior mercato · {marketLabel(best.prediction.type)}
         </Text>
-        <Text style={styles.pick}>{best.prediction.selection.name}</Text>
+        <Text style={styles.pick}>{selectionLabel(best.prediction.selection.name)}</Text>
         <ConfidenceBar value={best.prediction.confidence} />
       </View>
 
@@ -124,8 +125,8 @@ export function MarketRow({ item }: { item: UnifiedPrediction }) {
           </View>
         ) : null}
       </View>
-      <Text style={styles.marketPick}>{item.prediction.selection.name}</Text>
-      {scoreLine ? <Text style={styles.score}>Score · {scoreLine}</Text> : null}
+      <Text style={styles.marketPick}>{selectionLabel(item.prediction.selection.name)}</Text>
+      {scoreLine ? <Text style={styles.score}>Risultato · {scoreLine}</Text> : null}
       <ConfidenceBar value={item.prediction.confidence} />
     </View>
   );
