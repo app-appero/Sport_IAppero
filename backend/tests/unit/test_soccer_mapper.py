@@ -1,3 +1,5 @@
+import pytest
+
 from app.domain.models import Event, EventScore, Selection
 from app.providers.http_utils import load_fixture
 from app.providers.soccer import mapper
@@ -86,6 +88,48 @@ def test_settle_overrides_wrong_provider_correct_flags():
     )
     assert draw_hit.prediction.selection.name == "Pareggio"
     assert draw_hit.correct is True
+
+
+def test_binary_confidence_uses_one_minus_p_for_class_zero():
+    """cards/OU/GNG: probability is P(class 1); Under/NoGoal must show 1-p."""
+    event = Event(id="e", name="A vs B")
+
+    under_cards = mapper.map_market_prediction(
+        "cards_line_4_5",
+        {
+            "prediction": 0,
+            "probability": 0.05,
+            "line_market_signal": {"signal": True, "direction": "under"},
+        },
+        event,
+    )
+    assert under_cards.prediction.selection.id == "under"
+    assert under_cards.prediction.confidence == pytest.approx(0.95)
+
+    under_ou = mapper.map_market_prediction(
+        "under_over_3_5",
+        {"prediction": 0, "probability": 0.40685653642494063},
+        event,
+    )
+    assert under_ou.prediction.selection.id == "under"
+    assert under_ou.prediction.confidence == pytest.approx(1.0 - 0.40685653642494063)
+
+    over = mapper.map_market_prediction(
+        "under_over_2_5",
+        {"prediction": 1, "probability": 0.74},
+        event,
+    )
+    assert over.prediction.selection.id == "over"
+    assert over.prediction.confidence == pytest.approx(0.74)
+
+    # h2h is multi-way: draw at 11% stays 11% (do not flip).
+    draw = mapper.map_market_prediction(
+        "h2h",
+        {"prediction": 0, "probability": 0.11},
+        event,
+    )
+    assert draw.prediction.selection.id == "draw"
+    assert draw.prediction.confidence == pytest.approx(0.11)
 
 
 def test_settle_soccer_market_helpers():
