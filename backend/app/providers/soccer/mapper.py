@@ -353,14 +353,42 @@ def _settle_soccer_market(market: str, selection: Selection, event: Event) -> bo
     return None
 
 
+def _is_binary_soccer_market(market: str) -> bool:
+    return (
+        market.startswith("under_over_")
+        or market.startswith("cards_line_")
+        or market == "goal_no_goal"
+    )
+
+
+def _confidence_for_selection(market: str, market_payload: dict[str, Any]) -> float | None:
+    """Map upstream probability to P(selected outcome).
+
+    For binary soccer markets, `probability` is P(class 1) (over / goal), not
+    always P(chosen side). When prediction is class 0 (under / no_goal), use 1-p.
+    h2h / dc are multi-way: keep p as-is (already outcome probability).
+    """
+    p = _clamp_confidence(_dig(market_payload, "probability", "confidence", "p_model"))
+    if p is None:
+        return None
+    if not _is_binary_soccer_market(market):
+        return p
+
+    code = market_payload.get("prediction")
+    # Class 1 → show p; class 0 → show 1-p (docs: predicted_probability).
+    if code in (1, "1", True, "over", "goal", "yes"):
+        return p
+    if code in (0, "0", False, "under", "no_goal", "nogoal", "no"):
+        return max(0.0, min(1.0, 1.0 - p))
+    return p
+
+
 def map_market_prediction(
     market: str,
     market_payload: dict[str, Any],
     event: Event,
 ) -> UnifiedPrediction:
-    confidence = _clamp_confidence(
-        _dig(market_payload, "probability", "confidence", "p_model")
-    )
+    confidence = _confidence_for_selection(market, market_payload)
     selection = _selection_for_market(
         market,
         market_payload.get("prediction"),
