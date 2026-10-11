@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandHeader } from '@/components/BrandHeader';
 import { DayScroller } from '@/components/DayScroller';
+import { DayStatsPanel } from '@/components/DayStatsPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { FilterChips } from '@/components/FilterChips';
@@ -23,6 +24,7 @@ import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
 import { colors, gradients, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
+import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
@@ -96,6 +98,9 @@ export function SportScreen({
     }
     return opts;
   }, [dayEvents, sport]);
+
+  // Full-day stats (not narrowed by market/competition chips).
+  const dayStats = useMemo(() => buildDayStats(dayEvents), [dayEvents]);
 
   useEffect(() => {
     if (!competitionId) return;
@@ -176,6 +181,7 @@ export function SportScreen({
             />
           ) : null}
           <DayScroller value={date} onChange={onDateChange} />
+          {!query.isLoading && !query.isError ? <DayStatsPanel stats={dayStats} /> : null}
           {competitionOptions.length > 1 ? (
             <FilterChips
               options={competitionOptions}
