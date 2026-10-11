@@ -3,27 +3,29 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { marketLabel } from '@/constants/markets';
 import { colors, fonts, radii, spacing } from '@/constants/theme';
-import type { DayStats, EventDayStat } from '@/utils/dayStats';
+import type { DayStats, EventDayStat, MarketTypeStat } from '@/utils/dayStats';
 
 type Props = {
   stats: DayStats;
 };
 
-/** Daily hit summary — tap to expand per-event / per-market breakdown. */
+/** Daily hit summary — tap to expand market aggregates + per-event accordions. */
 export function DayStatsPanel({ stats }: Props) {
   const [open, setOpen] = useState(false);
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
 
   if (stats.events === 0) return null;
 
-  const ratio =
-    stats.settled > 0 ? `${stats.hits}/${stats.settled}` : `0/0`;
-  const pct =
-    stats.hitRate != null ? `${Math.round(stats.hitRate * 100)}%` : '—';
+  const ratio = stats.settled > 0 ? `${stats.hits}/${stats.settled}` : `0/0`;
+  const pct = stats.hitRate != null ? `${Math.round(stats.hitRate * 100)}%` : '—';
 
   return (
     <View style={styles.wrap}>
       <Pressable
-        onPress={() => setOpen((v) => !v)}
+        onPress={() => {
+          setOpen((v) => !v);
+          if (open) setOpenEventId(null);
+        }}
         style={styles.summary}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -51,8 +53,23 @@ export function DayStatsPanel({ stats }: Props) {
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
         >
+          <Text style={styles.sectionTitle}>Per mercato</Text>
+          {stats.byMarket.length === 0 ? (
+            <Text style={styles.emptyLine}>Nessun mercato</Text>
+          ) : (
+            stats.byMarket.map((m) => <MarketTypeRow key={m.marketType} market={m} />)
+          )}
+
+          <Text style={[styles.sectionTitle, styles.sectionSpaced]}>Per evento</Text>
           {stats.byEvent.map((ev) => (
-            <EventStatBlock key={ev.eventId} event={ev} />
+            <EventAccordion
+              key={ev.eventId}
+              event={ev}
+              expanded={openEventId === ev.eventId}
+              onToggle={() =>
+                setOpenEventId((cur) => (cur === ev.eventId ? null : ev.eventId))
+              }
+            />
           ))}
         </ScrollView>
       ) : null}
@@ -60,12 +77,40 @@ export function DayStatsPanel({ stats }: Props) {
   );
 }
 
-function EventStatBlock({ event }: { event: EventDayStat }) {
-  const ratio =
-    event.settled > 0 ? `${event.hits}/${event.settled}` : '—';
+function MarketTypeRow({ market }: { market: MarketTypeStat }) {
+  const ratio = market.settled > 0 ? `${market.hits}/${market.settled}` : '0/0';
+  const pct =
+    market.hitRate != null ? `${Math.round(market.hitRate * 100)}%` : '—';
+  return (
+    <View style={styles.marketTypeRow}>
+      <Text style={styles.marketTypeName} numberOfLines={1}>
+        {marketLabel(market.marketType)}
+      </Text>
+      <Text style={styles.marketTypeRatio}>{ratio}</Text>
+      <Text style={styles.marketTypePct}>{pct}</Text>
+    </View>
+  );
+}
+
+function EventAccordion({
+  event,
+  expanded,
+  onToggle,
+}: {
+  event: EventDayStat;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const ratio = event.settled > 0 ? `${event.hits}/${event.settled}` : '—';
   return (
     <View style={styles.eventBlock}>
-      <View style={styles.eventHead}>
+      <Pressable
+        onPress={onToggle}
+        style={styles.eventHead}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${event.eventName}, presi ${ratio}`}
+      >
         <View style={styles.eventTitles}>
           {event.competition ? (
             <Text style={styles.eventComp} numberOfLines={1}>
@@ -76,38 +121,44 @@ function EventStatBlock({ event }: { event: EventDayStat }) {
             {event.eventName}
           </Text>
         </View>
-        <Text style={styles.eventRatio}>{ratio}</Text>
-      </View>
-      <View style={styles.marketList}>
-        {event.markets.map(({ prediction, tone }) => (
-          <View key={prediction.id} style={styles.marketRow}>
-            <Text style={styles.marketName} numberOfLines={1}>
-              {marketLabel(prediction.prediction.type)}
-            </Text>
-            <Text style={styles.marketPick} numberOfLines={1}>
-              {prediction.prediction.selection.name}
-            </Text>
-            <View
-              style={[
-                styles.badge,
-                tone === 'hit' && styles.badgeHit,
-                tone === 'miss' && styles.badgeMiss,
-                !tone && styles.badgePending,
-              ]}
-            >
-              <Text
+        <View style={styles.eventHeadRight}>
+          <Text style={styles.eventRatio}>{ratio}</Text>
+          <Text style={styles.chevron}>{expanded ? '▴' : '▾'}</Text>
+        </View>
+      </Pressable>
+
+      {expanded ? (
+        <View style={styles.marketList}>
+          {event.markets.map(({ prediction, tone }) => (
+            <View key={prediction.id} style={styles.marketRow}>
+              <Text style={styles.marketName} numberOfLines={1}>
+                {marketLabel(prediction.prediction.type)}
+              </Text>
+              <Text style={styles.marketPick} numberOfLines={1}>
+                {prediction.prediction.selection.name}
+              </Text>
+              <View
                 style={[
-                  styles.badgeText,
-                  tone === 'hit' && styles.badgeTextHit,
-                  tone === 'miss' && styles.badgeTextMiss,
+                  styles.badge,
+                  tone === 'hit' && styles.badgeHit,
+                  tone === 'miss' && styles.badgeMiss,
+                  !tone && styles.badgePending,
                 ]}
               >
-                {tone === 'hit' ? 'V' : tone === 'miss' ? 'X' : '·'}
-              </Text>
+                <Text
+                  style={[
+                    styles.badgeText,
+                    tone === 'hit' && styles.badgeTextHit,
+                    tone === 'miss' && styles.badgeTextMiss,
+                  ]}
+                >
+                  {tone === 'hit' ? 'V' : tone === 'miss' ? 'X' : '·'}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -164,20 +215,64 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
     paddingVertical: spacing.sm,
-    maxHeight: 360,
+    maxHeight: 420,
   },
-  eventBlock: {
+  sectionTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.inkMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    marginBottom: 8,
+  },
+  sectionSpaced: { marginTop: spacing.md },
+  emptyLine: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.inkMuted,
+    paddingHorizontal: spacing.md,
+  },
+  marketTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
-    gap: 8,
+  },
+  marketTypeName: {
+    flex: 1,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  marketTypeRatio: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.accent,
+    minWidth: 52,
+    textAlign: 'right',
+  },
+  marketTypePct: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.inkMuted,
+    minWidth: 36,
+    textAlign: 'right',
+  },
+  eventBlock: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
   eventHead: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
   },
   eventTitles: { flex: 1, gap: 2 },
   eventComp: {
@@ -191,12 +286,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
   },
+  eventHeadRight: { alignItems: 'flex-end', gap: 2 },
   eventRatio: {
     fontFamily: fonts.bodyBold,
     fontSize: 14,
     color: colors.accent,
   },
-  marketList: { gap: 6 },
+  marketList: {
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingBottom: 12,
+  },
   marketRow: {
     flexDirection: 'row',
     alignItems: 'center',
