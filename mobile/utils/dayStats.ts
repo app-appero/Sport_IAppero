@@ -1,4 +1,5 @@
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
+import { eventStatusLabel, isClosedWithoutResult } from '@/utils/eventStatus';
 import { outcomeTone, type OutcomeTone } from '@/utils/outcome';
 
 export type MarketStat = {
@@ -14,6 +15,8 @@ export type EventDayStat = {
   misses: number;
   pending: number;
   settled: number;
+  /** Italian status when there is no settleable result (rinviata, senza risultato, …). */
+  statusLabel: string | null;
   markets: MarketStat[];
 };
 
@@ -44,7 +47,10 @@ function marketGroupKey(type: string): string {
   return type;
 }
 
-export function buildDayStats(dayEvents: FeedItem[]): DayStats {
+export function buildDayStats(
+  dayEvents: FeedItem[],
+  opts?: { date?: string | null },
+): DayStats {
   const byEvent: EventDayStat[] = [];
   const marketMap = new Map<string, MarketTypeStat>();
   let hits = 0;
@@ -52,6 +58,7 @@ export function buildDayStats(dayEvents: FeedItem[]): DayStats {
   let pending = 0;
 
   for (const item of dayEvents) {
+    const closedNoResult = isClosedWithoutResult(item.event, opts?.date);
     const markets: MarketStat[] = item.predictions.map((prediction) => ({
       prediction,
       tone: outcomeTone(prediction),
@@ -62,7 +69,7 @@ export function buildDayStats(dayEvents: FeedItem[]): DayStats {
     for (const m of markets) {
       if (m.tone === 'hit') eh += 1;
       else if (m.tone === 'miss') em += 1;
-      else ep += 1;
+      else if (!closedNoResult) ep += 1;
 
       const key = marketGroupKey(m.prediction.prediction.type);
       let bucket = marketMap.get(key);
@@ -79,7 +86,7 @@ export function buildDayStats(dayEvents: FeedItem[]): DayStats {
       }
       if (m.tone === 'hit') bucket.hits += 1;
       else if (m.tone === 'miss') bucket.misses += 1;
-      else bucket.pending += 1;
+      else if (!closedNoResult) bucket.pending += 1;
     }
     hits += eh;
     misses += em;
@@ -92,6 +99,9 @@ export function buildDayStats(dayEvents: FeedItem[]): DayStats {
       misses: em,
       pending: ep,
       settled: eh + em,
+      statusLabel: closedNoResult
+        ? eventStatusLabel(item.event, { selectedDate: opts?.date })
+        : null,
       markets,
     });
   }

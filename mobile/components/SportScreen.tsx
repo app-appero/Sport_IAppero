@@ -101,7 +101,10 @@ export function SportScreen({
   }, [dayEvents, sport]);
 
   // Full-day stats (not narrowed by market/competition chips).
-  const dayStats = useMemo(() => buildDayStats(dayEvents), [dayEvents]);
+  const dayStats = useMemo(
+    () => buildDayStats(dayEvents, { date }),
+    [dayEvents, date],
+  );
 
   useEffect(() => {
     if (!competitionId) return;
@@ -240,6 +243,7 @@ export function SportScreen({
                 item={item}
                 index={index}
                 preferredMarket={market}
+                selectedDate={date}
                 onPress={() => openEvent(item)}
               />
             )}

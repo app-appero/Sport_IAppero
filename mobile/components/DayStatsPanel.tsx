@@ -102,7 +102,12 @@ function EventAccordion({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const ratio = event.settled > 0 ? `${event.hits}/${event.settled}` : '—';
+  const ratio =
+    event.settled > 0
+      ? `${event.hits}/${event.settled}`
+      : event.statusLabel
+        ? event.statusLabel
+        : '—';
   return (
     <View style={styles.eventBlock}>
       <Pressable
@@ -110,7 +115,7 @@ function EventAccordion({
         style={styles.eventHead}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${event.eventName}, presi ${ratio}`}
+        accessibilityLabel={`${event.eventName}, ${ratio}`}
       >
         <View style={styles.eventTitles}>
           {event.competition ? (
@@ -123,7 +128,15 @@ function EventAccordion({
           </Text>
         </View>
         <View style={styles.eventHeadRight}>
-          <Text style={styles.eventRatio}>{ratio}</Text>
+          <Text
+            style={[
+              styles.eventRatio,
+              event.settled === 0 && event.statusLabel ? styles.eventStatus : null,
+            ]}
+            numberOfLines={2}
+          >
+            {ratio}
+          </Text>
           <Text style={styles.chevron}>{expanded ? '▴' : '▾'}</Text>
         </View>
       </Pressable>
@@ -292,6 +305,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 14,
     color: colors.accent,
+  },
+  eventStatus: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.inkMuted,
+    maxWidth: 110,
+    textAlign: 'right',
   },
   marketList: {
     gap: 6,
