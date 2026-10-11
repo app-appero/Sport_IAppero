@@ -52,7 +52,12 @@ try {
   Write-Host '==> Gradle assembleRelease (first run can take 10-20 min)'
   Push-Location android
   .\gradlew.bat assembleRelease --no-daemon --console=plain
-  if ($LASTEXITCODE -ne 0) { throw 'gradle build failed' }
+  if ($LASTEXITCODE -ne 0) {
+    # Out-of-memory failures are often transient; the retry reuses the Gradle cache.
+    Write-Host '==> Gradle failed, retrying once (close Chrome/heavy apps if it fails again)'
+    .\gradlew.bat assembleRelease --no-daemon --console=plain
+    if ($LASTEXITCODE -ne 0) { throw 'gradle build failed' }
+  }
   Pop-Location
 
   $apk = 'android\app\build\outputs\apk\release\app-release.apk'
