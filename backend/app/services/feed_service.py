@@ -433,7 +433,9 @@ async def get_prediction_from_snapshots(prediction_id: str) -> UnifiedPrediction
     return None
 
 
-async def require_prediction(prediction_id: str) -> UnifiedPrediction:
+async def require_prediction(
+    prediction_id: str, *, date: str | None = None
+) -> UnifiedPrediction:
     found = await get_prediction_from_snapshots(prediction_id)
     if found:
         return found
@@ -441,6 +443,6 @@ async def require_prediction(prediction_id: str) -> UnifiedPrediction:
     from app.services import sport_service
 
     try:
-        return await sport_service.get_prediction(prediction_id)
+        return await sport_service.get_prediction(prediction_id, date=date)
     except PredictionNotFound:
         raise

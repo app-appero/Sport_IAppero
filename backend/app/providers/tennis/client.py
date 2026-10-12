@@ -295,17 +295,25 @@ class TennisProvider(SportProvider):
                 predictions = limit_predictions_keeping_events(predictions, int(limit))
         return predictions
 
-    async def get_prediction(self, prediction_id: str) -> UnifiedPrediction | None:
+    async def get_prediction(
+        self, prediction_id: str, **filters: Any
+    ) -> UnifiedPrediction | None:
         parsed = mapper.parse_prediction_id(prediction_id)
         if not parsed:
             return None
         event_id, market = parsed
-        predictions = await self.get_predictions(event_id=event_id, market=market)
+        lookup: dict[str, Any] = {"event_id": event_id, "market": market}
+        if filters.get("date"):
+            lookup["date"] = filters["date"]
+        predictions = await self.get_predictions(**lookup)
         for pred in predictions:
             if pred.id == prediction_id or (
                 pred.event.id == event_id and pred.prediction.type == market
             ):
                 return pred
+        if lookup.get("date"):
+            # Already scoped; avoid scanning an unbounded live feed.
+            return None
         predictions = await self.get_predictions()
         for pred in predictions:
             if pred.id == prediction_id:

@@ -38,10 +38,11 @@ export default function PredictionDetailScreen() {
 }
 
 function PredictionDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, date } = useLocalSearchParams<{ id: string; date?: string }>();
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
-  const query = usePredictionDetail(String(id ?? ''));
+  const selectedDate = date ? String(date) : undefined;
+  const query = usePredictionDetail(String(id ?? ''), { date: selectedDate });
 
   const header = (
     <Stack.Screen
@@ -56,7 +57,7 @@ function PredictionDetail() {
     />
   );
 
-  if (query.isLoading) {
+  if (query.isLoading && !query.data) {
     return (
       <View style={styles.center}>
         {header}
@@ -65,7 +66,7 @@ function PredictionDetail() {
     );
   }
 
-  if (query.isError || !query.data) {
+  if ((query.isError && !query.data) || !query.data) {
     return (
       <View style={styles.errorWrap}>
         {header}
@@ -74,6 +75,7 @@ function PredictionDetail() {
           subtitle={formatApiError(query.error)}
           actionLabel="Riprova"
           onAction={() => query.refetch()}
+          tone="error"
         />
       </View>
     );
@@ -210,7 +212,12 @@ const makeStyles = (colors: Palette) =>
       justifyContent: 'center',
       backgroundColor: colors.surface,
     },
-    errorWrap: { flex: 1, backgroundColor: colors.surface },
+    errorWrap: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      padding: spacing.lg,
+    },
     list: { flex: 1, backgroundColor: colors.surface },
     content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
     kicker: {

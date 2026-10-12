@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getCompetitions,
@@ -9,6 +9,7 @@ import {
   getPrediction,
   getPredictions,
 } from '@/services/api';
+import type { FeedResponse, PredictionListResponse, UnifiedPrediction } from '@/types/api';
 
 export function useProviderHealth() {
   return useQuery({
@@ -93,11 +94,40 @@ export function useSportEvents(sport: string, date?: string) {
   });
 }
 
-export function usePredictionDetail(id: string) {
+function predictionFromCaches(
+  qc: ReturnType<typeof useQueryClient>,
+  id: string,
+): UnifiedPrediction | undefined {
+  const eventCaches = qc.getQueriesData<PredictionListResponse>({
+    queryKey: ['event-predictions'],
+  });
+  for (const [, data] of eventCaches) {
+    const hit = data?.items?.find((item) => item.id === id);
+    if (hit) return hit;
+  }
+
+  const feedCaches = qc.getQueriesData<FeedResponse>({ queryKey: ['feed'] });
+  for (const [, data] of feedCaches) {
+    for (const event of data?.items ?? []) {
+      const hit = event.predictions?.find((item) => item.id === id);
+      if (hit) return hit;
+    }
+  }
+  return undefined;
+}
+
+export function usePredictionDetail(id: string, opts?: { date?: string }) {
+  const qc = useQueryClient();
+  const cached = id ? predictionFromCaches(qc, id) : undefined;
   return useQuery({
-    queryKey: ['prediction', id],
-    queryFn: () => getPrediction(id),
+    queryKey: ['prediction', id, opts?.date ?? null],
+    queryFn: () => getPrediction(id, { date: opts?.date }),
     enabled: Boolean(id),
+    // Reuse the board already loaded on the event page so past-day taps
+    // open instantly; background refetch can enrich EV when available.
+    ...(cached
+      ? { initialData: cached, staleTime: 30_000 }
+      : {}),
   });
 }
 

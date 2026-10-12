@@ -14,10 +14,12 @@ import type {
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
     this.name = 'ApiError';
   }
 }
@@ -47,12 +49,30 @@ function resolveBaseUrl(): string {
 
 export const API_BASE_URL = resolveBaseUrl();
 
+function extractErrorCode(body: string): string | undefined {
+  try {
+    const parsed = JSON.parse(body) as {
+      detail?: { code?: string; error?: { code?: string } } | string;
+    };
+    if (!parsed || typeof parsed !== 'object') return undefined;
+    const detail = parsed.detail;
+    if (typeof detail === 'string') return undefined;
+    return detail?.error?.code || detail?.code;
+  } catch {
+    return undefined;
+  }
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   const response = await fetch(url);
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(response.status, `API ${response.status} ${path}: ${text.slice(0, 200)}`);
+    throw new ApiError(
+      response.status,
+      `API ${response.status} ${path}: ${text.slice(0, 200)}`,
+      extractErrorCode(text),
+    );
   }
   return response.json() as Promise<T>;
 }
@@ -222,8 +242,13 @@ export async function getFeedWithFallback(opts?: {
   }
 }
 
-export function getPrediction(id: string) {
-  return getJson<UnifiedPrediction>(`/api/v1/predictions/${encodeURIComponent(id)}`);
+export function getPrediction(id: string, opts?: { date?: string }) {
+  const params = new URLSearchParams();
+  if (opts?.date) params.set('date', opts.date);
+  const q = params.toString() ? `?${params}` : '';
+  return getJson<UnifiedPrediction>(
+    `/api/v1/predictions/${encodeURIComponent(id)}${q}`,
+  );
 }
 
 export async function getEventPredictions(

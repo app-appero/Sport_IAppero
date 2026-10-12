@@ -95,6 +95,7 @@ function EventDetail() {
           subtitle={formatApiError(query.error)}
           actionLabel="Riprova"
           onAction={() => query.refetch()}
+          tone="error"
         />
       </View>
     );
@@ -158,7 +159,12 @@ const makeStyles = (colors: Palette) =>
       justifyContent: 'center',
       backgroundColor: colors.surface,
     },
-    errorWrap: { flex: 1, backgroundColor: colors.surface },
+    errorWrap: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      padding: spacing.lg,
+    },
     list: { flex: 1, backgroundColor: colors.surface },
     content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
     header: { gap: 4, marginBottom: spacing.sm },
