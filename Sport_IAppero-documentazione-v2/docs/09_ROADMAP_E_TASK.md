@@ -44,7 +44,7 @@ Persistenza revisioni e ledger read-only, settlement osservato, storico per merc
 | P03 | Registrazione append-only delle predizioni viste nel feed | **Implementato** (`feed_observed`, mai ufficiali) |
 | P04 | Ledger ufficiale Soccer in sola lettura + settlement | **Implementato** (sync ogni 15 min, mappa enum in `providers/soccer/ledger.py`) |
 | P05 | `GET /api/v1/history/stats` e `/history/predictions` con denominatori | **Implementato**; conta solo pubblicazioni con `captured_at` < kickoff |
-| P06 | Ledger Tennis published | Da fare: serve token D03 e verifica `require_admin` lato Tennis |
+| P06 | Ledger Tennis published | **Implementato** con fixture (`/api/published-predictions` + esiti da `/api/live-beta-dashboard`); usa il login admin già configurato, nessuna modifica a Tennis Oracle. Collaudo live ancora aperto |
 | P07 | Schermata storico mobile | Da fare |
 
 ## Test significativi

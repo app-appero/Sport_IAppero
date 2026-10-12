@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Event, PredictionRevision, PredictionSettlement
 from app.db.session import get_sessionmaker
 from app.domain.models import UnifiedPrediction
-from app.providers.soccer.ledger import RULE_VERSION, SOURCE as LEDGER_SOURCE, LedgerRecord
+from app.providers.soccer.ledger import LedgerRecord
 
 logger = logging.getLogger(__name__)
 
@@ -206,29 +206,29 @@ async def record_ledger(records: list[LedgerRecord]) -> dict[str, int]:
         for rec in records:
             event_id = await _upsert_event(
                 session,
-                sport="football",
-                provider="soccer-oracle",
+                sport=rec.sport,
+                provider=rec.provider,
                 source_event_id=rec.fixture_id,
-                name=None,
+                name=rec.event_name,
                 competition_id=rec.competition_id,
-                competition_name=None,
+                competition_name=rec.competition_name,
                 participants=None,
                 start_time=rec.kickoff_at,
                 now=now,
             )
             revision = await session.scalar(
                 select(PredictionRevision).where(
-                    PredictionRevision.source == LEDGER_SOURCE,
+                    PredictionRevision.source == rec.source,
                     PredictionRevision.source_ref == rec.source_ref,
                 )
             )
             if revision is None:
                 revision = PredictionRevision(
-                    logical_id=f"soccer_{rec.fixture_id}_{rec.market}",
+                    logical_id=rec.logical_id or f"soccer_{rec.fixture_id}_{rec.market}",
                     content_hash=rec.source_ref.replace("-", "")[:32],
                     event_id=event_id,
-                    sport="football",
-                    source=LEDGER_SOURCE,
+                    sport=rec.sport,
+                    source=rec.source,
                     source_ref=rec.source_ref,
                     is_official=True,
                     market=rec.market,
@@ -261,7 +261,7 @@ async def record_ledger(records: list[LedgerRecord]) -> dict[str, int]:
                         settled_at=_aware(rec.settled_at),
                         actual_outcome=rec.actual_outcome,
                         pnl=rec.pnl,
-                        rule_version=RULE_VERSION,
+                        rule_version=rec.rule_version,
                         updated_at=now,
                     )
                 )
@@ -275,7 +275,7 @@ async def record_ledger(records: list[LedgerRecord]) -> dict[str, int]:
                 settlement.settled_at = _aware(rec.settled_at)
                 settlement.actual_outcome = rec.actual_outcome
                 settlement.pnl = rec.pnl
-                settlement.rule_version = RULE_VERSION
+                settlement.rule_version = rec.rule_version
                 settlement.updated_at = now
                 counts["settlements_updated"] += 1
         await session.commit()

@@ -51,6 +51,15 @@ class LedgerRecord:
     actual_outcome: str | None
     pnl: float | None
     payload: dict[str, Any]
+    # Identity of the source; defaults describe the Soccer ledger, other sports override.
+    sport: str = SPORT
+    provider: str = PROVIDER
+    source: str = SOURCE
+    rule_version: str = RULE_VERSION
+    logical_id: str | None = None
+    event_name: str | None = None
+    event_id: str | None = None  # namespaced; defaults to "<sport>:<fixture_id>"
+    competition_name: str | None = None
 
 
 def _dt(value: Any) -> datetime | None:

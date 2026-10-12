@@ -13,7 +13,8 @@ from app.domain.models import Competition, Event, MarketInfo, UnifiedPrediction
 from app.providers.base import SportProvider
 from app.providers.http_utils import load_fixture, request_json
 from app.providers.prediction_utils import limit_predictions_keeping_events
-from app.providers.tennis import mapper
+from app.providers.soccer.ledger import LedgerRecord
+from app.providers.tennis import ledger, mapper
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +132,85 @@ class TennisProvider(SportProvider):
             return {"status": "ok"}
         if path == "/api/ops/checks":
             return {"status": "ok", "checks": []}
+        if path == "/api/published-predictions":
+            return load_fixture("tennis", "published_predictions.json")
+        if path == "/api/live-beta-dashboard":
+            return load_fixture("tennis", "live_beta_dashboard.json")
         if path.startswith("/api/next-fixtures/predictions"):
             return load_fixture("tennis", "predictions.json")
         if path.startswith("/api/next-fixtures"):
             return load_fixture("tennis", "fixtures.json")
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path}")
+
+    async def get_official_plays(self, *, page_size: int = 200) -> list[LedgerRecord]:
+        """Published official plays (latest versions) with the provider's own settlement.
+
+        Read-only. Rows come from `/published-predictions` (paginated); outcomes from
+        `/live-beta-dashboard`, asked day by day for days that still have open or
+        unsettled rows, so the 100-row dashboard cap is never hit silently.
+        """
+        records: list[LedgerRecord] = []
+        offset = 0
+        while True:
+            payload = await self._get(
+                "/api/published-predictions",
+                params={
+                    "official_only": True,
+                    "latest_only": True,
+                    "include_archived": True,
+                    "initial_status": "published",
+                    "limit": page_size,
+                    "offset": offset,
+                },
+            )
+            page = ledger.map_published_payload(payload)
+            records.extend(page)
+            total = payload.get("total") if isinstance(payload, dict) else None
+            raw_count = len(payload.get("items", [])) if isinstance(payload, dict) else 0
+            offset += raw_count
+            if raw_count == 0 or not isinstance(total, int) or offset >= total:
+                break
+        return await self._attach_outcomes(records)
+
+    async def _attach_outcomes(self, records: list[LedgerRecord]) -> list[LedgerRecord]:
+        today = datetime.now(_ROME).date()
+        days: dict[str, set[str]] = {}
+        for rec in records:
+            day = rec.payload.get("event_date")
+            if isinstance(day, str) and day <= today.isoformat():
+                days.setdefault(day, set()).add(rec.market)
+        outcomes: dict[str, dict[str, Any]] = {}
+        for day, markets in sorted(days.items()):
+            for market in sorted(markets):
+                try:
+                    payload = await self._get(
+                        "/api/live-beta-dashboard",
+                        params={
+                            "from": day,
+                            "to": day,
+                            "market": market,
+                            "official_only": True,
+                            "latest_only": True,
+                            "include_archived": True,
+                            "tip_limit": 100,
+                        },
+                    )
+                except Exception as exc:  # noqa: BLE001 — leave those rows pending
+                    logger.info("Tennis settlement %s/%s unavailable: %s", day, market, exc)
+                    continue
+                found = ledger.settled_outcomes(payload)
+                if len(found) >= 100:
+                    logger.warning("Tennis settlement day %s/%s may be truncated", day, market)
+                outcomes.update(found)
+        merged: list[LedgerRecord] = []
+        for rec in records:
+            settled = outcomes.get(rec.source_ref)
+            if settled is not None:
+                refreshed = ledger.map_published_row({**rec.payload, **settled})
+                merged.append(refreshed or rec)
+            else:
+                merged.append(rec)
+        return merged
 
     async def healthcheck(self) -> dict[str, Any]:
         try:

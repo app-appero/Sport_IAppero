@@ -74,6 +74,17 @@ def _base_query(
     return q
 
 
+def _latest_versions_only(rows: list) -> list:
+    """Tennis corrections share a logical_id: only the newest version counts."""
+    newest: dict[str, int] = {}
+    for rev, _s, _e in rows:
+        if rev.source == "tennis_published":
+            newest[rev.logical_id] = max(newest.get(rev.logical_id, 0), rev.id)
+    return [
+        r for r in rows if r[0].source != "tennis_published" or newest[r[0].logical_id] == r[0].id
+    ]
+
+
 async def compute_stats(
     session: AsyncSession,
     *,
@@ -93,6 +104,7 @@ async def compute_stats(
     groups: dict[tuple, Counts] = {}
     total = Counts()
     excluded_timing = 0
+    rows = _latest_versions_only(rows)
     for rev, sett, _ev in rows:
         # Only publications verifiably made before kickoff enter the performance.
         if rev.pre_match is not True:
@@ -147,6 +159,7 @@ async def list_ledger(
         q = q.where(PredictionSettlement.status == status)
     q = q.order_by(PredictionRevision.kickoff_at.desc(), PredictionRevision.id.desc())
     rows = (await session.execute(q.limit(limit).offset(offset))).all()
+    rows = _latest_versions_only(rows)
     items = [
         {
             "revision_id": rev.id,

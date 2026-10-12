@@ -30,7 +30,7 @@ def _wait_for_ledger(client: TestClient) -> dict:
     # The ledger sync runs once at startup in the background.
     for _ in range(50):
         data = client.get("/api/v1/history/predictions", params={"limit": 200}).json()
-        if data.get("count", 0) >= 4:
+        if data.get("count", 0) >= 9:  # 4 football + 5 tennis rows
             return data
         time.sleep(0.1)
     raise AssertionError("ledger not synced")
@@ -42,7 +42,7 @@ def test_ready_reports_persistence(db_client):
 
 def test_stats_use_declared_denominators_and_exclude_unverified_timing(db_client):
     _wait_for_ledger(db_client)
-    stats = db_client.get("/api/v1/history/stats").json()
+    stats = db_client.get("/api/v1/history/stats", params={"sport": "football"}).json()
     # Fixture: loss, win, void, pending, plus a loss captured AFTER kickoff.
     assert stats["excluded_not_pre_match"] == 1
     t = stats["totals"]
@@ -53,11 +53,31 @@ def test_stats_use_declared_denominators_and_exclude_unverified_timing(db_client
     assert by_market["btts"]["win_rate"] is None and by_market["btts"]["void"] == 1
 
 
+def test_tennis_ledger_uses_provider_outcomes_and_rome_kickoff(db_client):
+    _wait_for_ledger(db_client)
+    stats = db_client.get("/api/v1/history/stats", params={"sport": "tennis"}).json()
+    t = stats["totals"]
+    # Fixture: won, void, lost, pending (future) + one lost published AFTER kickoff.
+    assert (t["won"], t["lost"], t["void"], t["pending"]) == (1, 1, 1, 1)
+    assert t["decided"] == 2 and t["win_rate"] == 0.5
+    assert stats["excluded_not_pre_match"] == 1
+    items = db_client.get(
+        "/api/v1/history/predictions", params={"sport": "tennis", "limit": 50}
+    ).json()["items"]
+    names = {i["event_name"] for i in items}
+    assert "C. Norrie vs D. Shapovalov" in names
+    assert all(i["kickoff_at"] for i in items)
+
+
 def test_stats_filters_and_ledger_list(db_client):
     _wait_for_ledger(db_client)
-    only_h2h = db_client.get("/api/v1/history/stats", params={"market": "h2h"}).json()
+    only_h2h = db_client.get(
+        "/api/v1/history/stats", params={"sport": "football", "market": "h2h"}
+    ).json()
     assert only_h2h["totals"]["won"] == 1 and only_h2h["totals"]["lost"] == 0
-    lost = db_client.get("/api/v1/history/predictions", params={"status": "lost"}).json()
+    lost = db_client.get(
+        "/api/v1/history/predictions", params={"status": "lost", "sport": "football"}
+    ).json()
     assert {i["market"] for i in lost["items"]} == {"under_over_3_5", "h2h"}
     assert all(i["event_name"] is None or isinstance(i["event_name"], str) for i in lost["items"])
     assert db_client.get("/api/v1/history/predictions", params={"status": "bogus"}).status_code == 422
@@ -105,14 +125,17 @@ async def test_resync_is_idempotent_and_updates_settlement(tmp_path, monkeypatch
 
 
 def test_feed_observations_are_recorded_append_only(db_client):
+    _wait_for_ledger(db_client)
+    before = db_client.get("/api/v1/history/stats", params={"sport": "football"}).json()["totals"]
     db_client.get("/api/v1/sports/football/predictions", params={"date": "2026-09-20"})
     time.sleep(0.5)
     db_client.get("/api/v1/sports/football/predictions", params={"date": "2026-09-20"})
     time.sleep(0.5)
     # Feed observations are not official: they never enter the performance stats.
-    stats = db_client.get("/api/v1/history/stats").json()
-    assert stats["scope"] == "official_ledger"
-    assert all(g["sport"] == "football" for g in stats["groups"])
+    after = db_client.get("/api/v1/history/stats", params={"sport": "football"}).json()["totals"]
+    assert after == before
+    items = db_client.get("/api/v1/history/predictions", params={"limit": 200}).json()["items"]
+    assert all(i["settlement"]["status"] for i in items)
 
 
 def test_history_requires_database(monkeypatch):
