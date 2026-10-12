@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { marketLabel } from '@/constants/markets';
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { DayStats, EventDayStat, MarketTypeStat } from '@/utils/dayStats';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -196,37 +196,37 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: spacing.sm,
   },
   summaryLeft: { flex: 1, gap: 2 },
   summaryRight: { alignItems: 'flex-end', gap: 2 },
   kicker: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 11,
+    fontSize: fs(11),
     color: colors.inkMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   ratio: {
     fontFamily: fonts.bodyBold,
-    fontSize: 18,
+    fontSize: fs(18),
     color: colors.ink,
   },
   ratioAccent: { color: colors.accentText },
   pct: {
     fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    fontSize: fs(16),
     color: colors.accentText,
   },
   meta: {
     fontFamily: fonts.body,
-    fontSize: 11,
+    fontSize: fs(11),
     color: colors.inkMuted,
   },
   chevron: {
     fontFamily: fonts.bodyBold,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.inkMuted,
     marginTop: 2,
   },
@@ -238,7 +238,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: fonts.bodyBold,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.inkMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -248,7 +248,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   sectionSpaced: { marginTop: spacing.md },
   emptyLine: {
     fontFamily: fonts.body,
-    fontSize: 13,
+    fontSize: fs(13),
     color: colors.inkMuted,
     paddingHorizontal: spacing.md,
   },
@@ -264,19 +264,19 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   marketTypeName: {
     flex: 1,
     fontFamily: fonts.bodyMedium,
-    fontSize: 13,
+    fontSize: fs(13),
     color: colors.ink,
   },
   marketTypeRatio: {
     fontFamily: fonts.bodyBold,
-    fontSize: 14,
+    fontSize: fs(14),
     color: colors.accentText,
     minWidth: 52,
     textAlign: 'right',
   },
   marketTypePct: {
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.inkMuted,
     minWidth: 36,
     textAlign: 'right',
@@ -291,29 +291,29 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   eventTitles: { flex: 1, gap: 2 },
   eventComp: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 10,
+    fontSize: fs(10),
     color: colors.inkMuted,
     textTransform: 'uppercase',
   },
   eventName: {
     fontFamily: fonts.bodyBold,
-    fontSize: 14,
+    fontSize: fs(14),
     color: colors.ink,
   },
   eventHeadRight: { alignItems: 'flex-end', gap: 2 },
   eventRatio: {
     fontFamily: fonts.bodyBold,
-    fontSize: 14,
+    fontSize: fs(14),
     color: colors.accentText,
   },
   eventStatus: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.inkMuted,
     maxWidth: 110,
     textAlign: 'right',
@@ -331,19 +331,19 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   marketName: {
     flex: 1.1,
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.inkMuted,
   },
   marketPick: {
     flex: 1.2,
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.ink,
     textAlign: 'right',
   },
   badge: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
@@ -353,7 +353,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   badgePending: { backgroundColor: colors.line },
   badgeText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 11,
+    fontSize: fs(11),
     color: colors.inkMuted,
   },
   badgeTextHit: { color: '#fff' },

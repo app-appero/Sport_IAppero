@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 
 export type ChipOption<T extends string | undefined = string | undefined> = {
   label: string;
@@ -47,6 +47,7 @@ export function FilterChips<T extends string | undefined>({
             <Pressable
               key={opt.label + String(opt.value ?? 'all')}
               onPress={() => onChange(opt.value)}
+              hitSlop={5}
               style={[styles.chip, active && styles.chipActive]}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
@@ -89,16 +90,16 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 38,
     justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   chipText: {
     fontFamily: fonts.bodyMedium,
     color: colors.ink,
-    fontSize: 13,
+    fontSize: fs(13),
   },
   chipTextActive: { color: colors.accentText, fontFamily: fonts.bodyBold },
 });

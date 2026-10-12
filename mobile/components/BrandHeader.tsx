@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
 import { APP_NAME } from '@/constants/brand';
-import { fonts, spacing, type Palette } from '@/constants/theme';
+import { fonts, fs, spacing, type Palette } from '@/constants/theme';
 
 type Props = {
   size?: 'sm' | 'md';
@@ -15,10 +15,10 @@ type Props = {
  */
 export function BrandHeader({ size = 'md' }: Props) {
   const styles = useThemedStyles(makeStyles);
-  const fontSize = size === 'sm' ? 22 : 28;
+  const fontSize = fs(size === 'sm' ? 22 : 28);
   return (
     <View style={styles.wrap} accessibilityRole="image" accessibilityLabel={APP_NAME}>
-      <Text style={[styles.word, { fontSize, lineHeight: fontSize + 6 }]} maxFontSizeMultiplier={1.2}>
+      <Text style={[styles.word, { fontSize, lineHeight: fontSize + 4 }]} maxFontSizeMultiplier={1.2}>
         Sport<Text style={styles.ia}>IA</Text>pperò
       </Text>
     </View>

@@ -6,8 +6,9 @@ Native identity is defined in `app.config.ts`:
 - Launcher name: `Sport IApperò`
 - Android package: `com.appero.sportiappero`
 - Version: `1.1.1` / `versionCode` 4
-- Launcher icon: square mark (`logo-mark.png` → `icon.png`)
-- In-app header: horizontal wordmark top-left (`logo-wordmark.png`)
+- Launcher icon: light tile with football + tennis ball + AI orbit (`icon.png`, adaptive icon in `android-icon-*.png`)
+- In-app header: text wordmark top-left (`BrandHeader`); `logo-wordmark.png` is the same wordmark for stores/share cards
+- Splash: light background + `splash-icon.png`; `BootSplash` repeats it so the hand-off is seamless
 
 Local APK (`npm run apk`) always runs `expo prebuild --clean` so icons/labels are not stuck in a stale `android/` folder. Output: `build-output/sport-iappero.apk`.
 
@@ -20,6 +21,10 @@ in cui ti trovi (Calcio verde, Tennis giallo, Basket arancio pronto). Le palette
 stanno in `constants/theme.ts` (`sportPalettes`); i componenti le leggono da
 `components/SportTheme.tsx` (`useThemedStyles`). Per aggiungere uno sport: una
 palette in `sportPalettes` e una voce in `SPORTS` (`components/SportRail.tsx`).
+
+Dimensioni: tutto il testo passa da `fs()` in `constants/theme.ts`; cambia
+`TEXT_SCALE` (ora 0.88) per rimpicciolire o ingrandire i testi di tutta l'app.
+Spaziature e raggi sono in `spacing` / `radii`.
 
 ## Navigazione
 

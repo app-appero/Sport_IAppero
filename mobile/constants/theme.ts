@@ -129,21 +129,28 @@ export function paletteFor(sport?: string | null): Palette {
   return (sport && sportPalettes[sport]) || defaultPalette;
 }
 
-/** Dark navy of the native splash art (BootSplash must match it). */
-export const splashBackground = '#050A14';
+/** Native splash background; BootSplash must match it so the hand-off is seamless. */
+export const splashBackground = '#F3FBF6';
+
+/**
+ * One knob for the whole app's type size: every fontSize/lineHeight goes through
+ * `fs()`. 1 = the original sizes; lower it to shrink all text, raise it to grow it.
+ */
+export const TEXT_SCALE = 0.88;
+export const fs = (size: number) => Math.round(size * TEXT_SCALE);
 
 export const spacing = {
-  xs: 6,
-  sm: 10,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  xs: 5,
+  sm: 8,
+  md: 14,
+  lg: 20,
+  xl: 28,
 };
 
 export const radii = {
-  sm: 10,
-  md: 16,
-  lg: 24,
+  sm: 8,
+  md: 14,
+  lg: 20,
   pill: 999,
 };
 

@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, paletteFor, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, paletteFor, radii, spacing, type Palette, fs } from '@/constants/theme';
 
 export type SportId = 'football' | 'tennis';
 
@@ -40,6 +40,7 @@ export function SportRail({ value, onChange }: Props) {
             <Pressable
               key={sport.value}
               onPress={() => onChange(sport.value)}
+              hitSlop={5}
               style={[
                 styles.pill,
                 active && { backgroundColor: palette.accent, borderColor: palette.accent },
@@ -79,20 +80,20 @@ const makeStyles = (colors: Palette) =>
       alignItems: 'center',
       gap: 8,
       marginRight: 8,
-      minHeight: 44,
-      paddingHorizontal: 16,
+      minHeight: 38,
+      paddingHorizontal: 14,
       borderRadius: radii.pill,
       borderWidth: 1,
       borderColor: colors.line,
       backgroundColor: colors.surfaceElevated,
     },
-    dot: { width: 10, height: 10, borderRadius: 5 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
     // flexShrink:0 + padding — Android otherwise clips the last glyph ("Calci").
     label: {
       flexShrink: 0,
       fontFamily: fonts.bodyMedium,
       color: colors.ink,
-      fontSize: 15,
+      fontSize: fs(15),
       paddingRight: 2,
       includeFontPadding: false,
     },

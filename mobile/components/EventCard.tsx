@@ -4,7 +4,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { marketLabel, predictionMatchesMarket } from '@/constants/markets';
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
@@ -170,19 +170,19 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     fontFamily: fonts.bodyBold,
-    fontSize: 11,
+    fontSize: fs(11),
     letterSpacing: 0.4,
     maxWidth: '60%',
   },
   time: {
     fontFamily: fonts.bodyBold,
-    fontSize: 13,
+    fontSize: fs(13),
     color: colors.ink,
   },
   outcomeDot: {
     borderRadius: 6,
-    minWidth: 22,
-    minHeight: 22,
+    minWidth: 20,
+    minHeight: 20,
     paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
@@ -192,40 +192,40 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   outcomeText: {
     color: '#fff',
     fontFamily: fonts.bodyBold,
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: fs(13),
+    lineHeight: fs(16),
   },
   event: {
     fontFamily: fonts.bodyBold,
-    fontSize: 17,
+    fontSize: fs(17),
     color: colors.ink,
   },
   score: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 14,
+    fontSize: fs(14),
     color: colors.ink,
   },
   scoreMuted: {
     fontFamily: fonts.body,
-    fontSize: 13,
+    fontSize: fs(13),
     color: colors.inkMuted,
   },
   bestBlock: { gap: 4, marginTop: 2 },
   pickLabel: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
-    fontSize: 12,
+    fontSize: fs(12),
   },
   pick: {
     fontFamily: fonts.display,
-    fontSize: 28,
+    fontSize: fs(28),
     color: colors.accentText,
     letterSpacing: 0.5,
-    lineHeight: 30,
+    lineHeight: fs(30),
   },
   more: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: fs(12),
     color: colors.inkMuted,
     marginTop: 2,
   },
@@ -244,13 +244,13 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   },
   marketName: {
     fontFamily: fonts.bodyBold,
-    fontSize: 14,
+    fontSize: fs(14),
     color: colors.ink,
   },
   marketPick: {
     fontFamily: fonts.display,
-    fontSize: 24,
+    fontSize: fs(24),
     color: colors.accentText,
-    lineHeight: 26,
+    lineHeight: fs(26),
   },
 });

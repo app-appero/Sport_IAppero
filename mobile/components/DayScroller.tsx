@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import { buildDayWindow, type DayOption } from '@/utils/dates';
 
-const CHIP_SLOT = 128;
-const CHIP_GAP = 12;
+const CHIP_SLOT = 108;
+const CHIP_GAP = 10;
 
 type Props = {
   value: string;
@@ -94,8 +94,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.md,
     paddingHorizontal: 10,
-    paddingVertical: 12,
-    minHeight: 64,
+    paddingVertical: 8,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -103,14 +103,14 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   chipPast: { backgroundColor: colors.track },
   weekday: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 13,
+    fontSize: fs(13),
     color: colors.inkMuted,
     textAlign: 'center',
     width: '100%',
   },
   label: {
     fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    fontSize: fs(16),
     color: colors.ink,
     textAlign: 'center',
     marginTop: 4,

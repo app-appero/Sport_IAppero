@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { providerLabel } from '@/constants/providers';
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { FeedMeta } from '@/types/api';
 
 export function FeedBanner({
@@ -84,5 +84,5 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     backgroundColor: colors.infoBg,
     borderColor: colors.line,
   },
-  text: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
+  text: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: fs(13) },
 });

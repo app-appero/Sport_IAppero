@@ -17,11 +17,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: 'portrait' as const,
     icon: './assets/images/icon.png',
     scheme: 'sportiappero',
-    userInterfaceStyle: 'dark' as const,
+    userInterfaceStyle: 'light' as const,
     splash: {
-      image: './assets/images/splash.png',
+      image: './assets/images/splash-icon.png',
       resizeMode: 'contain' as const,
-      backgroundColor: '#050A14',
+      backgroundColor: '#F3FBF6',
     },
     ios: {
       supportsTablet: true,
@@ -33,7 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // Launcher label (prebuild reads this even if typings omit it).
       label: APP_NAME,
       adaptiveIcon: {
-        backgroundColor: '#050A14',
+        backgroundColor: '#DDF3E8',
         foregroundImage: './assets/images/android-icon-foreground.png',
         backgroundImage: './assets/images/android-icon-background.png',
         monochromeImage: './assets/images/android-icon-monochrome.png',
@@ -50,10 +50,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         'expo-splash-screen',
         {
-          image: './assets/images/splash.png',
-          imageWidth: 320,
+          image: './assets/images/splash-icon.png',
+          imageWidth: 280,
           resizeMode: 'contain',
-          backgroundColor: '#050A14',
+          backgroundColor: '#F3FBF6',
         },
       ],
     ],

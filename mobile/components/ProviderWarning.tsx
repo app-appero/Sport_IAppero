@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { providerLabel } from '@/constants/providers';
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 
 const STATUS_COPY: Record<string, string> = {
   degraded: 'parzialmente disponibile',
@@ -40,5 +40,5 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     padding: spacing.sm,
     marginBottom: spacing.sm,
   },
-  text: { fontFamily: fonts.bodyMedium, color: colors.warning, fontSize: 13 },
+  text: { fontFamily: fonts.bodyMedium, color: colors.warning, fontSize: fs(13) },
 });
