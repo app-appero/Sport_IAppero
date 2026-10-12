@@ -42,7 +42,7 @@ Spaziature e raggi sono in `spacing` / `radii`.
 
 ## Storico
 
-`/storico` (pulsante "Storico" nell'header e link nel pannello "Statistica giornata"): percentuale = prese / (prese + perse), con il denominatore sempre scritto; annullate, in attesa e non piazzate sono a parte. Legge `GET /api/v1/history/stats` e `/history/predictions` del BFF (solo giocate consigliate, cioè decisione PLAY, ufficiali e registrate prima del calcio d'inizio; il BFF accetta `decision=all` ma l'app non lo usa). Senza database sul BFF mostra "Storico non disponibile". Non è la stessa cosa della "Statistica giornata", che conta tutte le predizioni del giorno.
+`/storico` si apre sullo sport che stai guardando (Calcio o Tennis) e ha la barra sport per cambiarlo (pulsante "Storico" nell'header e link nel pannello "Statistica giornata"): percentuale = prese / (prese + perse), con il denominatore sempre scritto; annullate, in attesa e non piazzate sono a parte. Legge `GET /api/v1/history/stats` e `/history/predictions` del BFF (solo giocate consigliate, cioè decisione PLAY, ufficiali e registrate prima del calcio d'inizio; il BFF accetta `decision=all` ma l'app non lo usa). Senza database sul BFF mostra "Storico non disponibile". Non è la stessa cosa della "Statistica giornata", che conta tutte le predizioni del giorno.
 
 ## Setup
 

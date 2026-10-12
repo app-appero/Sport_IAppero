@@ -60,7 +60,7 @@ Persistenza revisioni e ledger read-only, settlement osservato, storico per merc
 | P04 | Ledger ufficiale Soccer in sola lettura + settlement | **Implementato e collaudato dal vivo** (sync ogni 15 min, mappa enum in `providers/soccer/ledger.py`: win/loss/void_*/not_placed) |
 | P05 | `GET /api/v1/history/stats` e `/history/predictions` con denominatori | **Implementato e collaudato dal vivo**; win rate = won/(won+lost), void/pending/non piazzate a parte, solo pubblicazioni con `captured_at` < kickoff, nessuna media di percentuali |
 | P06 | Ledger Tennis published | **Implementato e collaudato dal vivo** (`/api/published-predictions` + esiti da `/api/live-beta-dashboard`, che sono decisi da Tennis Oracle); usa il login admin già configurato, nessuna modifica a Tennis Oracle. Ultime versioni delle correzioni sostituiscono le precedenti |
-| P07 | Schermata Storico mobile (`/storico`, pulsante in header, link nel pannello giornata) | **Implementato**; prova su dispositivo da fare con il nuovo APK |
+| P07 | Schermata Storico mobile (`/storico`, pulsante in header, link nel pannello giornata; si apre sullo sport corrente, barra sport per Calcio/Tennis) | **Implementato**; prova su dispositivo da fare con il nuovo APK |
 | P08 | Storico limitato alle giocate consigliate (`decision=PLAY` di default, `decision=all` per il resto) | **Implementato**: nel registro Soccer NO BET e BORDERLINE gonfiavano la percentuale (62,4% contro 59,7%) |
 | P09 | Nomi delle partite di calcio nello storico | **Implementato**: recuperati dal provider giorno per giorno, mai inventati |
 
