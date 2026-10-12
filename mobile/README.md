@@ -31,7 +31,6 @@ Spaziature e raggi sono in `spacing` / `radii`.
 
 - Nessuna tab bar in basso (tema scuro)
 - **Partite** → default Calcio, barra sport scorrevole in alto (Calcio, Tennis, ...)
-- **Salvati** → al momento reindirizza alla home (preferiti locali disattivati)
 
 ## Caricamento, cache e offline
 
