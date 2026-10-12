@@ -103,13 +103,6 @@ export function MarketBoard({ item, date }: Props) {
         })}
       </View>
 
-      {outcomes.length < 2 &&
-      (item.prediction.type === 'h2h' || item.prediction.type === 'dc') ? (
-        <Text style={styles.hintMuted}>
-          Board completa non ancora disponibile dal provider (manca 1x2 a 3 esiti).
-        </Text>
-      ) : null}
-
       <Text style={styles.hint}>Tocca per quote, EV e dettaglio</Text>
     </Pressable>
   );
