@@ -29,13 +29,14 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 export default function RootLayout() {
-  const [bebasLoaded] = useBebas({ BebasNeue_400Regular });
-  const [dmLoaded] = useDmSans({
+  const [bebasLoaded, bebasError] = useBebas({ BebasNeue_400Regular });
+  const [dmLoaded, dmError] = useDmSans({
     DMSans_400Regular,
     DMSans_500Medium,
     DMSans_700Bold,
   });
-  const fontsReady = bebasLoaded && dmLoaded;
+  // A failed font load must not leave the app blank: fall back to system fonts.
+  const fontsReady = (bebasLoaded || !!bebasError) && (dmLoaded || !!dmError);
   const [bootDone, setBootDone] = useState(false);
 
   useEffect(() => {
@@ -71,6 +72,13 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="light" />
+      {/*
+        Mount the app only once the fonts are registered. On Android, Text laid out
+        with the fallback font keeps that (narrower) width after the custom font
+        arrives, so labels came out clipped ("Cal…", "Tut", "SportIAppe") until a
+        re-render. The native splash stays up until then, so nothing flashes.
+      */}
+      {fontsReady ? (
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.surface },
@@ -89,7 +97,8 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-      {!bootDone ? <BootSplash /> : null}
+      ) : null}
+      {fontsReady && !bootDone ? <BootSplash /> : null}
     </QueryClientProvider>
   );
 }
