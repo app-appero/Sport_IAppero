@@ -62,22 +62,21 @@ async def event_detail(
     sport: str | None = Query(default=None),
     date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ) -> FeedItem:
-    """Event detail from feed snapshot, else rebuild from provider predictions."""
-    try:
-        return await feed_service.get_event_from_snapshots(event_id)
-    except EventNotFound:
-        pass
-
+    """Event detail from live provider match data (rich boards + EV)."""
     from app.services import sport_service
 
     preds = await sport_service.list_event_predictions(event_id, sport=sport, date=date)
-    if not preds:
+    if preds:
+        return FeedItem(
+            event=preds[0].event,
+            predictions=preds,
+            sport=preds[0].sport,
+        )
+
+    try:
+        return await feed_service.get_event_from_snapshots(event_id)
+    except EventNotFound as exc:
         raise HTTPException(
             status_code=404,
             detail={"code": "EVENT_NOT_FOUND", "message": f"Event not found: {event_id}"},
-        )
-    return FeedItem(
-        event=preds[0].event,
-        predictions=preds,
-        sport=preds[0].sport,
-    )
+        ) from exc

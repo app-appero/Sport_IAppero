@@ -125,6 +125,15 @@
       "model_name": "random_forest",
       "run_id": "under_over_3_5_20260914T192150036858Z",
       "correct": false
+    },
+    "1x2": {
+      "probabilities": {
+        "HOME": 0.62,
+        "DRAW": 0.11,
+        "AWAY": 0.27
+      },
+      "model_name": "market_1x2",
+      "run_id": "1x2_test_fixture"
     }
   },
   "markets_unavailable": [],

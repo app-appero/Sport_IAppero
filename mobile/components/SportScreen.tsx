@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,7 +23,7 @@ import { SportThemeProvider } from '@/components/SportTheme';
 import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
 import { paletteFor, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
-import type { FeedItem, PredictionListResponse } from '@/types/api';
+import type { FeedItem } from '@/types/api';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
 import { formatApiError } from '@/utils/formatApiError';
@@ -49,7 +48,6 @@ export function SportScreen({
   showSportDropdown = true,
 }: Props) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [sport, setSport] = useState<SportId>(initialSport);
   const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
@@ -148,17 +146,8 @@ export function SportScreen({
   };
 
   const openEvent = (item: FeedItem) => {
-    const payload: PredictionListResponse = {
-      items: item.predictions,
-      meta: {
-        count: item.predictions.length,
-        sport: item.sport,
-        provider: item.predictions[0]?.provider?.name ?? 'unknown',
-        provider_status: 'ok',
-      },
-    };
-    // Seed cache so detail is instant even if snapshot/provider lookup lags.
-    queryClient.setQueryData(['event-predictions', item.event.id, sport, date], payload);
+    // Do not seed day-shaped predictions: event detail must fetch match
+    // boards (1x2 / both OU sides) + EV from the provider.
     router.push({
       pathname: '/event/[id]',
       params: { id: item.event.id, sport, date },

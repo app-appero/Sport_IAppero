@@ -121,16 +121,8 @@ async def list_event_predictions(
     sport: str | None = None,
     date: str | None = None,
 ) -> list[UnifiedPrediction]:
-    # Prefer recent feed snapshot (same markets the list card showed).
-    try:
-        from app.services import feed_service
-
-        snap = await feed_service.get_event_from_snapshots(event_id)
-        if snap.predictions:
-            return snap.predictions
-    except Exception:  # noqa: BLE001
-        pass
-
+    # Prefer live provider match detail (multi-outcome boards + EV). Feed
+    # snapshots stay on the lean day shape and must not shadow the detail page.
     filters: dict = {"event_id": event_id}
     if date:
         filters["date"] = date
@@ -151,6 +143,16 @@ async def list_event_predictions(
                 return found
         except ProviderError:
             continue
+
+    # Last resort: recent feed snapshot (day-shaped, may lack 1x2/EV).
+    try:
+        from app.services import feed_service
+
+        snap = await feed_service.get_event_from_snapshots(event_id)
+        if snap.predictions:
+            return snap.predictions
+    except Exception:  # noqa: BLE001
+        pass
     return items
 
 

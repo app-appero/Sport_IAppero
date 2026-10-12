@@ -5,11 +5,13 @@ from typing import Any
 
 from app.domain.models import (
     Competition,
+    DecisionInfo,
     Event,
     EventScore,
     MarketInfo,
     Participant,
     PredictionValue,
+    PricingInfo,
     Probability,
     ProviderMetadata,
     Selection,
@@ -258,19 +260,6 @@ def _selection_for_market(
     return Selection(id=str(prediction_code), name=str(prediction_code))
 
 
-def _probabilities_for_market(
-    market: str,
-    confidence: float | None,
-    selection: Selection,
-    event: Event,
-) -> list[Probability]:
-    del market, event  # full distribution often unavailable upstream
-    if confidence is None:
-        return []
-    # Only the selected-outcome probability is typically present upstream.
-    return [Probability(key=selection.id or "sel", label=selection.name, value=confidence)]
-
-
 def _line_from_market(market: str, prefix: str) -> float | None:
     try:
         return float(market.removeprefix(prefix).replace("_", "."))
@@ -383,33 +372,255 @@ def _confidence_for_selection(market: str, market_payload: dict[str, Any]) -> fl
     return p
 
 
+def _class1_probability(market_payload: dict[str, Any]) -> float | None:
+    """Raw P(class 1) for binary markets (over / goal)."""
+    return _clamp_confidence(
+        _dig(
+            market_payload,
+            "class_1_probability",
+            "probability",
+            "confidence",
+            "p_model",
+        )
+    )
+
+
+def _parse_1x2_probabilities(
+    payload: dict[str, Any] | None,
+) -> dict[str, float] | None:
+    """Parse match-detail `predictions['1x2'].probabilities` → home/draw/away."""
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("probabilities")
+    if not isinstance(raw, dict):
+        return None
+    mapped: dict[str, float] = {}
+    for key, value in raw.items():
+        k = str(key).strip().lower()
+        p = _clamp_confidence(value)
+        if p is None:
+            continue
+        if k in {"home", "1", "h"}:
+            mapped["home"] = p
+        elif k in {"draw", "x", "d", "pareggio"}:
+            mapped["draw"] = p
+        elif k in {"away", "2", "a"}:
+            mapped["away"] = p
+    if {"home", "draw", "away"} <= mapped.keys():
+        return mapped
+    return None
+
+
+def _binary_side_probabilities(
+    market: str,
+    market_payload: dict[str, Any],
+    selection: Selection,
+) -> list[Probability]:
+    """Emit both sides for OU / cards / GNG using P(class 1)."""
+    p1 = _class1_probability(market_payload)
+    if p1 is None:
+        conf = _confidence_for_selection(market, market_payload)
+        if conf is None:
+            return []
+        return [Probability(key=selection.id or "sel", label=selection.name, value=conf)]
+
+    p0 = max(0.0, min(1.0, 1.0 - p1))
+    if market.startswith("under_over_") or market.startswith("cards_line_"):
+        prefix = "under_over_" if market.startswith("under_over_") else "cards_line_"
+        line = market.removeprefix(prefix).replace("_", ".")
+        over_label = f"Over {line}"
+        under_label = f"Under {line}"
+        return [
+            Probability(key="over", label=over_label, value=p1),
+            Probability(key="under", label=under_label, value=p0),
+        ]
+    if market == "goal_no_goal":
+        return [
+            Probability(key="goal", label="Goal", value=p1),
+            Probability(key="no_goal", label="No Goal", value=p0),
+        ]
+    return []
+
+
+def _h2h_probabilities_from_1x2(
+    three_way: dict[str, float],
+    event: Event,
+) -> list[Probability]:
+    home = next((p.name for p in event.participants if p.role == "home"), "Home")
+    away = next((p.name for p in event.participants if p.role == "away"), "Away")
+    return [
+        Probability(key="home", label=home, value=three_way["home"]),
+        Probability(key="draw", label="Pareggio", value=three_way["draw"]),
+        Probability(key="away", label=away, value=three_way["away"]),
+    ]
+
+
+def _dc_probabilities_from_1x2(three_way: dict[str, float]) -> list[Probability]:
+    return [
+        Probability(
+            key="1X",
+            label="1X",
+            value=max(0.0, min(1.0, three_way["home"] + three_way["draw"])),
+        ),
+        Probability(
+            key="X2",
+            label="X2",
+            value=max(0.0, min(1.0, three_way["draw"] + three_way["away"])),
+        ),
+        Probability(
+            key="12",
+            label="12",
+            value=max(0.0, min(1.0, three_way["home"] + three_way["away"])),
+        ),
+    ]
+
+
+def _pricing_from_card(card: dict[str, Any] | None) -> PricingInfo | None:
+    if not isinstance(card, dict):
+        return None
+
+    def _num(key: str) -> float | None:
+        try:
+            val = card.get(key)
+            if val is None:
+                return None
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    pricing = PricingInfo(
+        odds_decimal=_num("odd") if card.get("odd") is not None else _num("market_odd"),
+        expected_value=_num("ev"),
+        probability_edge=_num("prob_edge")
+        if card.get("prob_edge") is not None
+        else _num("edge"),
+        fair_odds=_num("fair_odd")
+        if card.get("fair_odd") is not None
+        else _num("market_fair_odd"),
+        bookmakers_count=int(card["bookmakers_count"])
+        if isinstance(card.get("bookmakers_count"), (int, float))
+        else None,
+    )
+    if (
+        pricing.odds_decimal is None
+        and pricing.expected_value is None
+        and pricing.probability_edge is None
+        and pricing.fair_odds is None
+    ):
+        return None
+    return pricing
+
+
+def _decision_from_card(card: dict[str, Any] | None) -> DecisionInfo | None:
+    if not isinstance(card, dict):
+        return None
+    code = card.get("value_label") or card.get("decision")
+    reason = card.get("value_reason")
+    policy = card.get("policy_version")
+    if code is None and reason is None:
+        return None
+    return DecisionInfo(
+        code=str(code) if code is not None else None,
+        reason=str(reason) if reason is not None else None,
+        policy_version=str(policy) if policy is not None else None,
+    )
+
+
+def _index_decision_cards(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    cards = raw.get("decision_cards")
+    if not isinstance(cards, list):
+        return out
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        market = card.get("market")
+        if not market:
+            continue
+        key = str(market)
+        # Prefer is_market_best when multiple cards share a market.
+        prev = out.get(key)
+        if prev is None or card.get("is_market_best") is True:
+            out[key] = card
+    best = raw.get("best_decision")
+    if isinstance(best, dict) and best.get("market"):
+        key = str(best["market"])
+        out.setdefault(key, best)
+    return out
+
+
+def _resolve_correct(
+    market: str,
+    selection: Selection,
+    event: Event,
+    market_payload: dict[str, Any],
+) -> bool | None:
+    settled = _settle_soccer_market(market, selection, event)
+    if settled is not None:
+        return settled
+    correct_raw = market_payload.get("correct")
+    if correct_raw is True:
+        return True
+    if correct_raw is False:
+        return False
+    return None
+
+
 def map_market_prediction(
     market: str,
     market_payload: dict[str, Any],
     event: Event,
+    *,
+    three_way: dict[str, float] | None = None,
+    decision_card: dict[str, Any] | None = None,
 ) -> UnifiedPrediction:
-    confidence = _confidence_for_selection(market, market_payload)
     selection = _selection_for_market(
         market,
         market_payload.get("prediction"),
         event,
         market_payload,
     )
-    probabilities = _probabilities_for_market(market, confidence, selection, event)
 
-    # Soccer Oracle `correct` is often wrong (e.g. X2 miss on 2-2, DRAW hit on 1-2).
-    # Always prefer settlement from the final score / totals when available.
-    settled = _settle_soccer_market(market, selection, event)
-    if settled is not None:
-        correct: bool | None = settled
+    probabilities: list[Probability] = []
+    confidence: float | None
+
+    if market == "h2h" and three_way is not None:
+        probabilities = _h2h_probabilities_from_1x2(three_way, event)
+        # Recommended pick stays the legacy h2h prediction; confidence from board.
+        matched = next((p for p in probabilities if p.key == selection.id), None)
+        confidence = matched.value if matched else three_way.get(selection.id or "", None)
+    elif market == "dc" and three_way is not None:
+        probabilities = _dc_probabilities_from_1x2(three_way)
+        matched = next((p for p in probabilities if p.key == selection.id), None)
+        confidence = matched.value if matched else _confidence_for_selection(market, market_payload)
+    elif _is_binary_soccer_market(market):
+        probabilities = _binary_side_probabilities(market, market_payload, selection)
+        matched = next((p for p in probabilities if p.key == (selection.id or "")), None)
+        confidence = (
+            matched.value
+            if matched
+            else _confidence_for_selection(market, market_payload)
+        )
     else:
-        correct_raw = market_payload.get("correct")
-        if correct_raw is True:
-            correct = True
-        elif correct_raw is False:
-            correct = False
-        else:
-            correct = None
+        confidence = _confidence_for_selection(market, market_payload)
+        if confidence is not None:
+            probabilities = [
+                Probability(
+                    key=selection.id or "sel",
+                    label=selection.name,
+                    value=confidence,
+                )
+            ]
+
+    # When we already have a full outcome board (1x2 / both binary sides), keep
+    # those probabilities intact. Decision-card p only fills confidence if the
+    # board did not yield a value for the recommended pick.
+    if confidence is None and isinstance(decision_card, dict):
+        confidence = _clamp_confidence(
+            _dig(decision_card, "predicted_probability", "p_model")
+        )
+
+    correct = _resolve_correct(market, selection, event, market_payload)
 
     return UnifiedPrediction(
         id=f"soccer_{event.id}_{market}",
@@ -421,8 +632,122 @@ def map_market_prediction(
         oracle_score=None,
         generated_at=None,
         correct=correct,
+        pricing=_pricing_from_card(decision_card),
+        decision=_decision_from_card(decision_card),
         raw=market_payload,
     )
+
+
+def _normalize_match_row(raw: dict[str, Any]) -> dict[str, Any]:
+    """Flatten dashboard match / oracle-detail envelopes into a day-row shape."""
+    if "fixture_id" in raw or "home" in raw:
+        return raw
+    fixture = raw.get("fixture")
+    if isinstance(fixture, dict):
+        merged = {**fixture}
+        for key in (
+            "predictions",
+            "decision_cards",
+            "best_decision",
+            "actual_totals",
+            "score",
+            "status",
+            "phase",
+        ):
+            if key in raw and key not in merged:
+                merged[key] = raw[key]
+        return merged
+    return raw
+
+
+def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
+    row = _normalize_match_row(raw)
+    event = map_event(row)
+    nested = row.get("predictions")
+    cards = _index_decision_cards(row)
+
+    if isinstance(nested, dict):
+        three_way = _parse_1x2_probabilities(
+            nested.get("1x2") if isinstance(nested.get("1x2"), dict) else None
+        )
+        # Also accept probabilities nested directly under a match_result alias.
+        if three_way is None and isinstance(nested.get("match_result"), dict):
+            three_way = _parse_1x2_probabilities(nested.get("match_result"))
+
+        out: list[UnifiedPrediction] = []
+        for market, market_payload in nested.items():
+            mkey = str(market)
+            # Fold 1x2 board into h2h/dc — do not emit a separate market row.
+            if mkey in {"1x2", "match_result"}:
+                continue
+            if not isinstance(market_payload, dict):
+                continue
+            out.append(
+                map_market_prediction(
+                    mkey,
+                    market_payload,
+                    event,
+                    three_way=three_way if mkey in {"h2h", "dc"} else None,
+                    decision_card=cards.get(mkey),
+                )
+            )
+
+        # Detail payload with 1x2 but missing legacy h2h: synthesize recommended from argmax.
+        if three_way is not None and not any(p.prediction.type == "h2h" for p in out):
+            argmax = max(three_way.items(), key=lambda kv: kv[1])[0]
+            code = {"home": 1, "away": 2, "draw": 0}[argmax]
+            out.insert(
+                0,
+                map_market_prediction(
+                    "h2h",
+                    {"prediction": code, "probability": three_way[argmax]},
+                    event,
+                    three_way=three_way,
+                    decision_card=cards.get("h2h") or cards.get("1x2"),
+                ),
+            )
+        if three_way is not None and not any(p.prediction.type == "dc" for p in out):
+            dc_board = {
+                "1X": three_way["home"] + three_way["draw"],
+                "X2": three_way["draw"] + three_way["away"],
+                "12": three_way["home"] + three_way["away"],
+            }
+            best_dc = max(dc_board.items(), key=lambda kv: kv[1])[0]
+            code = {"1X": 1, "12": 2, "X2": 0}[best_dc]
+            out.append(
+                map_market_prediction(
+                    "dc",
+                    {"prediction": code, "probability": dc_board[best_dc]},
+                    event,
+                    three_way=three_way,
+                    decision_card=cards.get("dc"),
+                )
+            )
+        return out
+
+    if isinstance(nested, list):
+        return [
+            map_market_prediction(
+                str(item.get("market") or item.get("type") or "unknown"),
+                item,
+                event,
+                decision_card=cards.get(str(item.get("market") or "")),
+            )
+            for item in nested
+            if isinstance(item, dict)
+        ]
+
+    if "market" in row or "probability" in row:
+        market = str(row.get("market") or "match_winner")
+        return [
+            map_market_prediction(
+                market,
+                row,
+                event,
+                decision_card=cards.get(market),
+            )
+        ]
+    return []
 
 
 def map_day_payload(payload: Any) -> list[UnifiedPrediction]:
@@ -430,23 +755,7 @@ def map_day_payload(payload: Any) -> list[UnifiedPrediction]:
     for raw in _as_list(payload):
         if not isinstance(raw, dict):
             continue
-        event = map_event(raw)
-        nested = raw.get("predictions")
-        if isinstance(nested, dict):
-            for market, market_payload in nested.items():
-                if isinstance(market_payload, dict):
-                    predictions.append(map_market_prediction(str(market), market_payload, event))
-            continue
-        if isinstance(nested, list):
-            for item in nested:
-                if isinstance(item, dict):
-                    market = str(item.get("market") or item.get("type") or "unknown")
-                    predictions.append(map_market_prediction(market, item, event))
-            continue
-        # flat single-market row
-        if "market" in raw or "probability" in raw:
-            market = str(raw.get("market") or "match_winner")
-            predictions.append(map_market_prediction(market, raw, event))
+        predictions.extend(map_row_predictions(raw))
     return predictions
 
 

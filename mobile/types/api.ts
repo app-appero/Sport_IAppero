@@ -46,6 +46,20 @@ export interface Probability {
   value: number;
 }
 
+export interface PricingInfo {
+  odds_decimal?: number | null;
+  expected_value?: number | null;
+  probability_edge?: number | null;
+  fair_odds?: number | null;
+  bookmakers_count?: number | null;
+}
+
+export interface DecisionInfo {
+  code?: string | null;
+  reason?: string | null;
+  policy_version?: string | null;
+}
+
 export interface ProviderMetadata {
   name: string;
   version: string | null;
@@ -61,6 +75,8 @@ export interface UnifiedPrediction {
   oracle_score: number | null;
   generated_at: string | null;
   correct?: boolean | null;
+  pricing?: PricingInfo | null;
+  decision?: DecisionInfo | null;
 }
 
 export interface ListMeta {

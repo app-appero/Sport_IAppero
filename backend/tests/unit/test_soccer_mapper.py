@@ -90,6 +90,43 @@ def test_settle_overrides_wrong_provider_correct_flags():
     assert draw_hit.correct is True
 
 
+def test_match_detail_1x2_board_enriches_h2h_and_dc():
+    payload = load_fixture("soccer", "oracle_detail.json")
+    preds = mapper.map_day_payload({"rows": [payload]})
+    by_type = {p.prediction.type: p for p in preds}
+
+    assert "1x2" not in by_type  # folded into h2h/dc
+    h2h = by_type["h2h"]
+    assert {p.key for p in h2h.probabilities} == {"home", "draw", "away"}
+    assert abs(sum(p.value for p in h2h.probabilities) - 1.0) < 1e-6
+    draw = next(p for p in h2h.probabilities if p.key == "draw")
+    assert draw.label == "Pareggio"
+    assert draw.value == pytest.approx(0.11)
+
+    dc = by_type["dc"]
+    assert {p.key for p in dc.probabilities} == {"1X", "X2", "12"}
+    one_x = next(p for p in dc.probabilities if p.key == "1X")
+    assert one_x.value == pytest.approx(0.62 + 0.11)
+
+    # Binary markets expose both sides.
+    ou = by_type["under_over_3_5"]
+    assert {p.key for p in ou.probabilities} == {"over", "under"}
+    assert ou.prediction.selection.id == "under"
+    assert ou.pricing is not None
+    assert ou.pricing.expected_value == pytest.approx(0.12400686347473755)
+    assert ou.decision is not None
+    assert ou.decision.code == "BORDERLINE"
+
+
+def test_day_feed_without_1x2_keeps_legacy_h2h_dc():
+    """Day list still binary — no invented 3-way board."""
+    payload = load_fixture("soccer", "day.json")
+    preds = mapper.map_day_payload(payload)
+    h2h = next(p for p in preds if p.event.id == "1552176" and p.prediction.type == "h2h")
+    assert len(h2h.probabilities) == 1
+    assert h2h.probabilities[0].key == "home"
+
+
 def test_binary_confidence_uses_one_minus_p_for_class_zero():
     """cards/OU/GNG: probability is P(class 1); Under/NoGoal must show 1-p."""
     event = Event(id="e", name="A vs B")
