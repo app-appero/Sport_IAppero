@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
 import { BootSplash } from '@/components/BootSplash';
+import { AuthProvider } from '@/hooks/auth';
 import { defaultPalette as colors } from '@/constants/theme';
 import { CACHE_MAX_AGE_MS, createQueryClient, queryPersister } from '@/services/queryClient';
 
@@ -78,6 +79,7 @@ export default function RootLayout() {
         re-render. The native splash stays up until then, so nothing flashes.
       */}
       {fontsReady ? (
+      <AuthProvider>
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.surface },
@@ -88,6 +90,13 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="prediction/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="profilo"
+          options={{
+            title: 'Profilo',
+            headerBackTitle: 'Indietro',
+          }}
+        />
         <Stack.Screen
           name="storico"
           options={{
@@ -103,6 +112,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      </AuthProvider>
       ) : null}
       {fontsReady && !bootDone ? <BootSplash /> : null}
     </PersistQueryClientProvider>

@@ -44,7 +44,20 @@ class Settings(BaseSettings):
     ledger_sync_enabled: bool = True
     ledger_sync_interval_seconds: int = 900
 
+    # Optional sign-in (Sprint 4). Needs persistence plus both values below.
+    # Comma-separated OAuth client IDs accepted as the audience of Google ID tokens
+    # (the Web client ID used by the app, plus any other client you issue tokens for).
+    google_client_ids: str | None = None
+    # HS256 secret for the BFF's own session tokens. Use a long random value; rotating it
+    # signs everybody out.
+    session_secret: str | None = None
+    session_ttl_days: int = 30
+
     log_level: str = "INFO"
+
+    @property
+    def google_audiences(self) -> list[str]:
+        return [x.strip() for x in (self.google_client_ids or "").split(",") if x.strip()]
 
     @property
     def deploy_sha(self) -> str:

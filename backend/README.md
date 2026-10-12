@@ -96,3 +96,10 @@ uvicorn app.main:app --reload --port 8000
 ### Ledger Tennis
 
 Il BFF legge `/api/published-predictions` (solo `official_only`, ultima versione) e gli esiti da `/api/live-beta-dashboard`, giorno per giorno e mercato per mercato: l'esito lo decide Tennis Oracle, il BFF non lo calcola. Il router published è protetto da `require_admin`, quindi servono `TENNIS_ORACLE_USERNAME` e `TENNIS_ORACLE_PASSWORD` (già usati per il feed). Il provider rifiuta di pubblicare o correggere dopo l'inizio della partita; l'orario d'inizio è data/ora locale Europe/Rome, e senza `event_time` la riga resta fuori dalle statistiche (dichiarata come esclusa).
+
+
+## Accesso con Google (facoltativo)
+
+- `POST /api/v1/auth/google` (body `{"id_token": "..."}`): verifica il token con le chiavi pubbliche di Google (audience = `GOOGLE_CLIENT_IDS`), crea o ritrova l'utente e risponde con una sessione del BFF (`SESSION_SECRET`, `SESSION_TTL_DAYS`). `GET /api/v1/me` e `DELETE /api/v1/me` richiedono `Authorization: Bearer <sessione>`.
+- Serve la persistenza. Senza `GOOGLE_CLIENT_IDS` o `SESSION_SECRET` rispondono `503 auth_disabled` e il resto dell'API non cambia.
+- Salviamo nome, email (solo se verificata da Google) e foto. Cancellando l'account si eliminano utente e identità e il token smette di valere subito.

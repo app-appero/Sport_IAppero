@@ -228,3 +228,18 @@ export interface HistoryPredictionList {
   offset: number;
   count: number;
 }
+
+export interface AuthUser {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+export interface AuthSession {
+  access_token: string;
+  token_type: string;
+  expires_at: string;
+  user: AuthUser;
+}

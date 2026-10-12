@@ -114,3 +114,29 @@ class ProviderFetchRun(Base):
     item_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)  # message only, never secrets
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class User(Base):
+    """App account. Created on first sign-in; deleting it removes the row and its identities."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # uuid4 hex
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class UserIdentity(Base):
+    """One external login (today only Google) linked to a user; provider-agnostic on purpose."""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (UniqueConstraint("provider", "subject", name="uq_identity_provider_subject"),)
+
+    id: Mapped[int] = mapped_column(PkInt, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(16))  # "google" (later "apple")
+    subject: Mapped[str] = mapped_column(String(128))  # provider's stable user id (`sub`)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

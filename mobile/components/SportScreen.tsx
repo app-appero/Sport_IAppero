@@ -19,6 +19,7 @@ import { EventCard } from '@/components/EventCard';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { FilterChips } from '@/components/FilterChips';
+import { ProfileButton } from '@/components/ProfileButton';
 import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportRail, type SportId } from '@/components/SportRail';
 import { SportThemeProvider } from '@/components/SportTheme';
@@ -175,6 +176,7 @@ export function SportScreen({
         <View style={styles.header}>
           <View style={styles.brandRow}>
             <BrandHeader />
+<View style={styles.brandActions}>
             <Pressable
               onPress={() => router.push({ pathname: '/storico', params: { sport } })}
               style={[styles.historyBtn, { borderColor: colors.line, backgroundColor: colors.surfaceElevated }]}
@@ -184,6 +186,8 @@ export function SportScreen({
             >
               <Text style={[styles.historyText, { color: colors.ink }]}>Storico</Text>
             </Pressable>
+            <ProfileButton />
+          </View>
           </View>
           {showSportDropdown ? (
             <SportRail
@@ -313,6 +317,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.md,
   },
+  brandActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   historyBtn: {
     minHeight: 36,

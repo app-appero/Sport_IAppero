@@ -72,6 +72,23 @@ Dati osservati sul deploy dopo il rilascio: Calcio 153 giocate PLAY (89 prese su
 
 Differenza tra le due statistiche: "Statistica giornata" è calcolata nell'app su tutte le predizioni del giorno scelto; lo Storico conta solo giocate consigliate, ufficiali e pubblicate prima dell'inizio. Non vanno confrontate.
 
+## Sprint 4 — account facoltativo
+
+Decisioni di prodotto: accesso **facoltativo** (l'app resta usabile senza account), **solo Google** per ora. Apple arriva con iPhone (regola App Store: chi offre Google deve offrire anche Apple). Nessun pagamento in questo sprint.
+
+| ID | Attività | Stato |
+|---|---|---|
+| A01 | Tabelle `users` e `user_identities` (provider generico, pronta per Apple) | **Implementato** (migrazione 0002) |
+| A02 | `POST /api/v1/auth/google`: verifica del token Google (firma RS256, audience, issuer, scadenza), crea o ritrova l'utente, emette una sessione del BFF (JWT, 30 giorni) | **Implementato** con test (token scaduti, altra app, firma sbagliata) |
+| A03 | `GET /api/v1/me` e `DELETE /api/v1/me` (cancellazione account: il token smette di valere subito) | **Implementato** |
+| A04 | App: pulsante "Accedi" / avatar nell'header, schermata Profilo (accedi, esci, elimina account con conferma), sessione in `expo-secure-store` | **Implementato**; pulsante nascosto se manca `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` |
+| A05 | Configurazione Google Cloud (consenso OAuth, client Web e Android con SHA-1), variabili su Railway (`GOOGLE_CLIENT_IDS`, `SESSION_SECRET`) | **Da fare a mano** |
+| A06 | Prova del login su Android con APK nuovo | **Da fare** |
+| A07 | Informativa privacy (URL richiesto da Google e dagli store) | **Da fare** |
+| A08 | Accedi con Apple | Rinviato a quando si va su iPhone (serve plugin `iosUrlScheme` e account Apple Developer) |
+
+I dati salvati per utente: nome, email verificata e foto del profilo Google. Il resto dell'API resta pubblico: l'account non sblocca nulla finora.
+
 ## Test significativi
 
 - Soccer binary prediction=0: probabilità selezione 1-p, non p; preferenza decision_cards.

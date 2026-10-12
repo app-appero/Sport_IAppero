@@ -5,6 +5,8 @@ import type {
   CompetitionListResponse,
   EventListResponse,
   FeedItem,
+  AuthSession,
+  AuthUser,
   FeedResponse,
   HistoryPredictionList,
   HistoryStats,
@@ -65,9 +67,20 @@ function extractErrorCode(body: string): string | undefined {
   }
 }
 
-async function getJson<T>(path: string): Promise<T> {
+async function request<T>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  opts?: { body?: unknown; token?: string },
+): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
-  const response = await fetch(url);
+  const headers: Record<string, string> = {};
+  if (opts?.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (opts?.token) headers.Authorization = `Bearer ${opts.token}`;
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
   if (!response.ok) {
     const text = await response.text();
     throw new ApiError(
@@ -76,7 +89,12 @@ async function getJson<T>(path: string): Promise<T> {
       extractErrorCode(text),
     );
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+function getJson<T>(path: string): Promise<T> {
+  return request<T>('GET', path);
 }
 
 export function getSports() {
@@ -322,4 +340,17 @@ export function getHistoryPredictions(opts?: {
   if (opts?.offset != null) params.set('offset', String(opts.offset));
   const q = params.toString() ? `?${params}` : '';
   return getJson<HistoryPredictionList>(`/api/v1/history/predictions${q}`);
+}
+
+
+export function loginWithGoogle(idToken: string) {
+  return request<AuthSession>('POST', '/api/v1/auth/google', { body: { id_token: idToken } });
+}
+
+export function getMe(token: string) {
+  return request<AuthUser>('GET', '/api/v1/me', { token });
+}
+
+export function deleteMe(token: string) {
+  return request<void>('DELETE', '/api/v1/me', { token });
 }

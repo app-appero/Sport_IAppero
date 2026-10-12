@@ -44,6 +44,10 @@ Spaziature e raggi sono in `spacing` / `radii`.
 
 `/storico` si apre sullo sport che stai guardando (Calcio o Tennis) e ha la barra sport per cambiarlo (pulsante "Storico" nell'header e link nel pannello "Statistica giornata"): percentuale = prese / (prese + perse), con il denominatore sempre scritto; annullate, in attesa e non piazzate sono a parte. Legge `GET /api/v1/history/stats` e `/history/predictions` del BFF (solo giocate consigliate, cioè decisione PLAY, ufficiali e registrate prima del calcio d'inizio; il BFF accetta `decision=all` ma l'app non lo usa). L'elenco carica 50 righe per volta mentre scorri; il filtro periodo (sempre, 30 giorni, 7 giorni) vale sul giorno d'inizio partita. Senza database sul BFF mostra "Storico non disponibile". Non è la stessa cosa della "Statistica giornata", che conta tutte le predizioni del giorno.
 
+## Account (facoltativo)
+
+Accesso con Google, solo app nativa (Android per ora). Senza account l'app funziona come prima. Il pulsante "Accedi" compare solo se in `mobile/.env` c'è `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; la sessione è salvata con `expo-secure-store`. Il modulo Google non gira in Expo Go: serve il development build / APK (`npm run apk`). Per iPhone mancano Apple Sign-In e l'`iosUrlScheme` del plugin Google.
+
 ## Setup
 
 Run commands **from `mobile/`** (not the repo root). Root has no `package.json`.
