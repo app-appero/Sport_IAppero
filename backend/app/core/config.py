@@ -48,8 +48,13 @@ class Settings(BaseSettings):
 
     @property
     def deploy_sha(self) -> str:
-        sha = (self.git_sha or self.railway_git_commit_sha or "").strip()
-        return sha or "unknown"
+        # The Dockerfile bakes GIT_SHA=unknown as a fallback; it must not mask the commit
+        # Railway injects at runtime (RAILWAY_GIT_COMMIT_SHA).
+        for candidate in (self.git_sha, self.railway_git_commit_sha):
+            value = (candidate or "").strip()
+            if value and value.lower() != "unknown":
+                return value
+        return "unknown"
 
 
 @lru_cache

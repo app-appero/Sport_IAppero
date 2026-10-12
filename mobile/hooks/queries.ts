@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getCompetitions,
@@ -155,29 +155,38 @@ export function useEventPredictions(
   });
 }
 
-export function useHistoryStats(opts?: { sport?: string; market?: string }) {
+export function useHistoryStats(opts?: { sport?: string; market?: string; from?: string }) {
   return useQuery({
-    queryKey: ['history', 'stats', opts?.sport ?? null, opts?.market ?? null],
+    queryKey: ['history', 'stats', opts?.sport ?? null, opts?.market ?? null, opts?.from ?? null],
     queryFn: () => getHistoryStats(opts),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
 }
 
+export const HISTORY_PAGE_SIZE = 50;
+
+/** Ledger list, 50 rows per page; the BFF has no total, a full page means "maybe more". */
 export function useHistoryPredictions(opts?: {
   sport?: string;
   market?: string;
   status?: string;
+  from?: string;
 }) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: [
       'history',
       'predictions',
       opts?.sport ?? null,
       opts?.market ?? null,
       opts?.status ?? null,
+      opts?.from ?? null,
     ],
-    queryFn: () => getHistoryPredictions({ ...opts, limit: 100 }),
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      getHistoryPredictions({ ...opts, limit: HISTORY_PAGE_SIZE, offset: pageParam }),
+    getNextPageParam: (last) =>
+      last.count >= HISTORY_PAGE_SIZE ? last.offset + HISTORY_PAGE_SIZE : undefined,
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });

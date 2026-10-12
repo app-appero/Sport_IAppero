@@ -296,10 +296,11 @@ export function getHealthProviders() {
   );
 }
 
-export function getHistoryStats(opts?: { sport?: string; market?: string }) {
+export function getHistoryStats(opts?: { sport?: string; market?: string; from?: string }) {
   const params = new URLSearchParams();
   if (opts?.sport) params.set('sport', opts.sport);
   if (opts?.market) params.set('market', opts.market);
+  if (opts?.from) params.set('from', opts.from);
   const q = params.toString() ? `?${params}` : '';
   return getJson<HistoryStats>(`/api/v1/history/stats${q}`);
 }
@@ -308,12 +309,14 @@ export function getHistoryPredictions(opts?: {
   sport?: string;
   market?: string;
   status?: string;
+  from?: string;
   limit?: number;
   offset?: number;
 }) {
   const params = new URLSearchParams();
   if (opts?.sport) params.set('sport', opts.sport);
   if (opts?.market) params.set('market', opts.market);
+  if (opts?.from) params.set('from', opts.from);
   if (opts?.status) params.set('status', opts.status);
   if (opts?.limit != null) params.set('limit', String(opts.limit));
   if (opts?.offset != null) params.set('offset', String(opts.offset));

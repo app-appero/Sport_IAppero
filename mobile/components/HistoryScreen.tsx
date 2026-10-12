@@ -23,6 +23,7 @@ import {
   formatRate,
   othersLine,
 } from '@/utils/history';
+import { PERIOD_OPTIONS, periodFrom, periodLabel, romeToday, type PeriodId } from '@/utils/period';
 import { offlineBannerText } from '@/utils/staleness';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -54,10 +55,13 @@ function HistoryBody({
   const styles = useThemedStyles(makeStyles);
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [period, setPeriod] = useState<PeriodId>('all');
   const online = useOnline();
 
-  const stats = useHistoryStats({ sport, market });
-  const list = useHistoryPredictions({ sport, market, status });
+  const from = useMemo(() => periodFrom(period, romeToday()), [period]);
+  const stats = useHistoryStats({ sport, market, from });
+  const list = useHistoryPredictions({ sport, market, status, from });
+  const rows = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data]);
 
   const offlineText = offlineBannerText(online, Boolean(stats.data), stats.dataUpdatedAt);
   const updating = stats.isPlaceholderData || list.isPlaceholderData;
@@ -78,10 +82,16 @@ function HistoryBody({
         onChange={setMarket}
         accessibilityLabel="Filtro mercato"
       />
+      <FilterChips
+        options={PERIOD_OPTIONS}
+        value={period}
+        onChange={(next) => setPeriod(next ?? 'all')}
+        accessibilityLabel="Filtro periodo"
+      />
       <OfflineBanner text={offlineText} />
       {stats.data ? (
         <>
-          <Hero counts={stats.data.totals} sport={sport} />
+          <Hero counts={stats.data.totals} sport={sport} period={period} />
           <Text style={styles.note}>
             Storico delle sole giocate consigliate (PLAY): le predizioni che il modello scarta non sono contate. La percentuale conta solo prese e perse; annullate e in attesa non sono sconfitte.
             {excludedNote(stats.data.excluded_not_pre_match)
@@ -150,27 +160,41 @@ function HistoryBody({
   return (
     <SafeAreaView style={styles.root} edges={['bottom']}>
       <FlatList
-        data={list.data?.items ?? []}
+        data={rows}
         keyExtractor={(item) => String(item.revision_id)}
         contentContainerStyle={[styles.content, updating && styles.dimmed]}
         ListHeaderComponent={header}
+        onEndReachedThreshold={0.4}
+        onEndReached={() => {
+          if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
+        }}
+        ListFooterComponent={
+          rows.length === 0 ? null : list.isFetchingNextPage ? (
+            <Text style={styles.listEnd}>Carico altre predizioni…</Text>
+          ) : list.hasNextPage ? null : (
+            <Text style={styles.listEnd}>
+              Fine dell&apos;elenco · {rows.length} {rows.length === 1 ? 'predizione' : 'predizioni'}
+            </Text>
+          )
+        }
         ListEmptyComponent={
           list.isLoading ? (
             <EventCardSkeleton count={3} />
           ) : (
             <EmptyState
-              title={status || market ? 'Nessuna predizione con questi filtri' : 'Ancora nessuna predizione'}
+              title={status || market || from ? 'Nessuna predizione con questi filtri' : 'Ancora nessuna predizione'}
               subtitle={
-                status || market
-                  ? 'Prova a cambiare mercato o stato.'
+                status || market || from
+                  ? 'Prova a cambiare mercato, stato o periodo.'
                   : 'Lo storico si riempie man mano che le predizioni ufficiali vengono registrate.'
               }
-              actionLabel={status || market ? 'Azzera filtri' : undefined}
+              actionLabel={status || market || from ? 'Azzera filtri' : undefined}
               onAction={
-                status || market
+                status || market || from
                   ? () => {
                       setMarket(undefined);
                       setStatus(undefined);
+                      setPeriod('all');
                     }
                   : undefined
               }
@@ -197,7 +221,15 @@ const STATUS_COLOR: Record<SettlementStatus, keyof Palette> = {
   unknown: 'inkMuted',
 };
 
-function Hero({ counts, sport }: { counts: HistoryCounts; sport: SportId }) {
+function Hero({
+  counts,
+  sport,
+  period,
+}: {
+  counts: HistoryCounts;
+  sport: SportId;
+  period: PeriodId;
+}) {
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
   const sportLabel = SPORTS.find((x) => x.value === sport)?.label ?? sport;
@@ -205,7 +237,7 @@ function Hero({ counts, sport }: { counts: HistoryCounts; sport: SportId }) {
   const others = othersLine(counts);
   return (
     <View style={styles.hero} accessible accessibilityLabel={`Storico: ${formatRate(counts.win_rate)}, ${decidedLine(counts)}`}>
-      <Text style={styles.kicker}>{`${sportLabel} · solo giocate consigliate`}</Text>
+      <Text style={styles.kicker}>{`${sportLabel} · solo giocate consigliate${period === 'all' ? '' : ` · ${periodLabel(period).toLowerCase()}`}`}</Text>
       <Text style={styles.big}>{formatRate(counts.win_rate)}</Text>
       <Text style={styles.sub}>{decidedLine(counts)}</Text>
       {shares.length > 0 ? (
@@ -381,6 +413,13 @@ const makeStyles = (colors: Palette) =>
     rowPick: { flex: 1, fontFamily: fonts.body, fontSize: fs(13), color: colors.ink },
     badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: radii.pill },
     badgeText: { fontFamily: fonts.bodyBold, fontSize: fs(11), color: '#FFFFFF' },
+    listEnd: {
+      fontFamily: fonts.body,
+      fontSize: fs(12),
+      color: colors.inkMuted,
+      textAlign: 'center',
+      paddingVertical: spacing.md,
+    },
     footer: {
       borderTopColor: colors.line,
       borderTopWidth: StyleSheet.hairlineWidth,
