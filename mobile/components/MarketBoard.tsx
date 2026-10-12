@@ -214,4 +214,10 @@ const makeStyles = (colors: Palette) =>
       color: colors.inkMuted,
       marginTop: 2,
     },
+    hintMuted: {
+      fontFamily: fonts.body,
+      fontSize: fs(11),
+      color: colors.warning,
+      marginTop: 2,
+    },
   });
