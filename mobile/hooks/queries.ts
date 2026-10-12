@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getCompetitions,
@@ -6,9 +6,13 @@ import {
   getEvents,
   getFeedWithFallback,
   getHealthProviders,
+  getHistoryPredictions,
+  getHistoryStats,
   getPrediction,
   getPredictions,
 } from '@/services/api';
+import { pollIntervalFor } from '@/utils/staleness';
+import { todayKey } from '@/utils/dates';
 import type { FeedResponse, PredictionListResponse, UnifiedPrediction } from '@/types/api';
 
 export function useProviderHealth() {
@@ -46,6 +50,9 @@ export function useFeed(opts?: {
       }),
     enabled: opts?.enabled ?? true,
     staleTime: 30_000,
+    // Keep the previous day on screen while the next one loads.
+    placeholderData: keepPreviousData,
+    refetchInterval: pollIntervalFor(opts?.date, todayKey()),
   });
 }
 
@@ -77,6 +84,12 @@ export function useSportPredictions(
         limit: opts?.limit,
       }),
     enabled: opts?.enabled ?? true,
+    // Keep the previous day on screen while the next one loads; never carry
+    // another sport's list over (different palette, different matches).
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === sport ? previous : undefined,
+    // Today refreshes while the app is in the foreground; other days are static.
+    refetchInterval: pollIntervalFor(opts?.date, todayKey()),
   });
 }
 
@@ -139,5 +152,33 @@ export function useEventPredictions(
     queryKey: ['event-predictions', eventId, opts?.sport ?? null, opts?.date ?? null],
     queryFn: () => getEventPredictions(eventId, opts),
     enabled: Boolean(eventId),
+  });
+}
+
+export function useHistoryStats(opts?: { sport?: string; market?: string }) {
+  return useQuery({
+    queryKey: ['history', 'stats', opts?.sport ?? null, opts?.market ?? null],
+    queryFn: () => getHistoryStats(opts),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useHistoryPredictions(opts?: {
+  sport?: string;
+  market?: string;
+  status?: string;
+}) {
+  return useQuery({
+    queryKey: [
+      'history',
+      'predictions',
+      opts?.sport ?? null,
+      opts?.market ?? null,
+      opts?.status ?? null,
+    ],
+    queryFn: () => getHistoryPredictions({ ...opts, limit: 100 }),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }

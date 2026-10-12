@@ -22,6 +22,9 @@ export function formatApiError(err: unknown): string {
     const status = err.status ?? 0;
     const code = (err.code || '').toUpperCase();
 
+    if (code === 'PERSISTENCE_DISABLED') {
+      return 'Lo storico non è ancora disponibile. Riprova più tardi.';
+    }
     if (
       status === 404 ||
       code === 'PREDICTION_NOT_FOUND' ||

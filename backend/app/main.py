@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -6,14 +7,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.db.session import close_db, init_db, persistence_enabled
+from app.persistence.ledger_sync import ledger_sync_loop
 from app.services.registry import close_providers, get_providers
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_logging()
+    sync_task: asyncio.Task | None = None
+    if await init_db() and get_settings().ledger_sync_enabled:
+        sync_task = asyncio.create_task(ledger_sync_loop())
     yield
+    if sync_task:
+        sync_task.cancel()
+        try:
+            await sync_task
+        except asyncio.CancelledError:
+            pass
     await close_providers()
+    await close_db()
 
 
 app = FastAPI(
@@ -65,6 +78,7 @@ async def readiness() -> dict:
         "status": "ok",
         "providers": sorted(providers.keys()),
         "fixtures": settings.use_provider_fixtures,
+        "persistence": persistence_enabled(),
         "timezone": settings.app_timezone,
         "git_sha": settings.deploy_sha,
     }

@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { BrandHeader } from '@/components/BrandHeader';
+import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { MarketBoard } from '@/components/MarketBoard';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
@@ -81,7 +82,7 @@ function EventDetail() {
     return (
       <View style={styles.center}>
         {header}
-        <ActivityIndicator color={colors.accentDeep} />
+        <EventCardSkeleton count={3} />
       </View>
     );
   }

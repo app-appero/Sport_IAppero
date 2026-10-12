@@ -35,6 +35,18 @@ Expo/TypeScript, API client, home e viste sport, dettaglio, filtri, cache/refres
 
 Persistenza revisioni e ledger read-only, settlement osservato, storico per mercato/modello con denominatori. Successivamente account/follow/push. Abbonamenti solo dopo validazione uso e analisi del canale di vendita. Live/schedine/Oracle Score non inclusi negli sprint iniziali.
 
+### Stato Sprint 3 (Soccer)
+
+| ID | Attività | Stato |
+|---|---|---|
+| P01 | PostgreSQL + Alembic, migrazione all'avvio | **Implementato**; senza `DATABASE_URL` il BFF funziona come prima |
+| P02 | Tabelle `events`, `prediction_revisions`, `prediction_settlements`, `provider_fetch_runs` | **Implementato**; `feed_snapshots` rinviata (non serve ancora) |
+| P03 | Registrazione append-only delle predizioni viste nel feed | **Implementato** (`feed_observed`, mai ufficiali) |
+| P04 | Ledger ufficiale Soccer in sola lettura + settlement | **Implementato** (sync ogni 15 min, mappa enum in `providers/soccer/ledger.py`) |
+| P05 | `GET /api/v1/history/stats` e `/history/predictions` con denominatori | **Implementato**; conta solo pubblicazioni con `captured_at` < kickoff |
+| P06 | Ledger Tennis published | **Implementato** con fixture (`/api/published-predictions` + esiti da `/api/live-beta-dashboard`); usa il login admin già configurato, nessuna modifica a Tennis Oracle. Collaudo live ancora aperto |
+| P07 | Schermata storico mobile | Da fare |
+
 ## Test significativi
 
 - Soccer binary prediction=0: probabilità selezione 1-p, non p; preferenza decision_cards.

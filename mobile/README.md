@@ -31,7 +31,18 @@ Spaziature e raggi sono in `spacing` / `radii`.
 
 - Nessuna tab bar in basso (tema scuro)
 - **Partite** → default Calcio, barra sport scorrevole in alto (Calcio, Tennis, ...)
-- **Salvati** → preferiti locali (AsyncStorage)
+
+## Caricamento, cache e offline
+
+- Caricamento: `EventCardSkeleton` (card segnaposto, ferme con "riduci animazioni").
+- Cambio giorno: la lista precedente resta visibile attenuata con una barra di avanzamento (`placeholderData`, solo dello stesso sport).
+- Cache React Query persistita su AsyncStorage (24 h, `services/queryClient.ts`). Senza rete si vede l'ultima snapshot con l'avviso "Offline · dati delle HH:MM".
+- Il giorno corrente si aggiorna ogni 60 s solo con l'app in primo piano (`AppState` → `focusManager`); gli altri giorni non fanno polling.
+- Test delle regole pure: `npm test`; typecheck: `npm run typecheck`.
+
+## Storico
+
+`/storico` (pulsante "Storico" nell'header e link nel pannello "Statistica giornata"): percentuale = prese / (prese + perse), con il denominatore sempre scritto; annullate, in attesa e non piazzate sono a parte. Legge `GET /api/v1/history/stats` e `/history/predictions` del BFF (solo giocate consigliate, cioè decisione PLAY, ufficiali e registrate prima del calcio d'inizio; il BFF accetta `decision=all` ma l'app non lo usa). Senza database sul BFF mostra "Storico non disponibile". Non è la stessa cosa della "Statistica giornata", che conta tutte le predizioni del giorno.
 
 ## Setup
 

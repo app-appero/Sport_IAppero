@@ -8,6 +8,7 @@ from app.domain.models import (
     SportInfo,
     UnifiedPrediction,
 )
+from app.persistence.recorder import schedule_record
 from app.services.registry import get_provider, get_providers
 
 SPORT_CATALOG = [
@@ -87,6 +88,7 @@ async def list_predictions(sport: str, **filters) -> PredictionListResponse:
     try:
         items = await provider.get_predictions(**filters)
         status = "ok"
+        schedule_record(items)
     except ProviderError:
         items = []
         status = "unavailable"

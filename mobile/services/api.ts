@@ -6,6 +6,8 @@ import type {
   EventListResponse,
   FeedItem,
   FeedResponse,
+  HistoryPredictionList,
+  HistoryStats,
   MarketListResponse,
   PredictionListResponse,
   SportInfo,
@@ -292,4 +294,29 @@ export function getHealthProviders() {
   return getJson<Record<string, { provider: string; status: string; detail?: string | null }>>(
     '/api/v1/health/providers',
   );
+}
+
+export function getHistoryStats(opts?: { sport?: string; market?: string }) {
+  const params = new URLSearchParams();
+  if (opts?.sport) params.set('sport', opts.sport);
+  if (opts?.market) params.set('market', opts.market);
+  const q = params.toString() ? `?${params}` : '';
+  return getJson<HistoryStats>(`/api/v1/history/stats${q}`);
+}
+
+export function getHistoryPredictions(opts?: {
+  sport?: string;
+  market?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const params = new URLSearchParams();
+  if (opts?.sport) params.set('sport', opts.sport);
+  if (opts?.market) params.set('market', opts.market);
+  if (opts?.status) params.set('status', opts.status);
+  if (opts?.limit != null) params.set('limit', String(opts.limit));
+  if (opts?.offset != null) params.set('offset', String(opts.offset));
+  const q = params.toString() ? `?${params}` : '';
+  return getJson<HistoryPredictionList>(`/api/v1/history/predictions${q}`);
 }

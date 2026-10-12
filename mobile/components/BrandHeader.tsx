@@ -27,7 +27,7 @@ export function BrandHeader({ size = 'md' }: Props) {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: {
-      width: '100%',
+      flexShrink: 1,
       alignItems: 'flex-start',
       marginBottom: spacing.sm,
     },

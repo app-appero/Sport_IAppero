@@ -28,6 +28,7 @@ from app.domain.models import (
     ProviderFeedStatus,
     UnifiedPrediction,
 )
+from app.persistence.recorder import schedule_record
 from app.services.cache import SingleFlightCache, SnapshotStore
 from app.services.registry import get_provider
 
@@ -169,6 +170,7 @@ async def _fetch_sport(
         truncated = len(preds) > settings.provider_max_items
         if truncated:
             preds = preds[: settings.provider_max_items]
+        schedule_record(preds)
         return ProviderSlice(
             sport=sport,
             provider=provider.provider_name,
