@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BrandHeader } from '@/components/BrandHeader';
+import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel } from '@/constants/markets';
@@ -83,7 +84,7 @@ function PredictionDetail() {
     return (
       <View style={styles.center}>
         {header}
-        <ActivityIndicator color={colors.accentDeep} />
+        <EventCardSkeleton count={3} />
       </View>
     );
   }

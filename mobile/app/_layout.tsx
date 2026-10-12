@@ -8,7 +8,7 @@ import {
   DMSans_700Bold,
   useFonts as useDmSans,
 } from '@expo-google-fonts/dm-sans';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +17,7 @@ import 'react-native-reanimated';
 
 import { BootSplash } from '@/components/BootSplash';
 import { defaultPalette as colors } from '@/constants/theme';
+import { CACHE_MAX_AGE_MS, createQueryClient, queryPersister } from '@/services/queryClient';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -57,20 +58,18 @@ export default function RootLayout() {
     };
   }, [fontsReady]);
 
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            retry: 1,
-            refetchOnWindowFocus: false,
-          },
-        },
-      }),
-  );
+  const [queryClient] = useState(createQueryClient);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: queryPersister,
+        maxAge: CACHE_MAX_AGE_MS,
+        // Only successful results are worth showing as an offline snapshot.
+        dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' },
+      }}
+    >
       <StatusBar style="light" />
       {/*
         Mount the app only once the fonts are registered. On Android, Text laid out
@@ -99,6 +98,6 @@ export default function RootLayout() {
       </Stack>
       ) : null}
       {fontsReady && !bootDone ? <BootSplash /> : null}
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

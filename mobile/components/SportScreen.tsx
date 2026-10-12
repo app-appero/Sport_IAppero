@@ -2,7 +2,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -16,6 +15,8 @@ import { DayScroller } from '@/components/DayScroller';
 import { DayStatsPanel } from '@/components/DayStatsPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
+import { EventCardSkeleton } from '@/components/EventCardSkeleton';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { FilterChips } from '@/components/FilterChips';
 import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportRail, type SportId } from '@/components/SportRail';
@@ -23,10 +24,12 @@ import { SportThemeProvider } from '@/components/SportTheme';
 import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
 import { paletteFor, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
+import { useOnline } from '@/hooks/useOnline';
 import type { FeedItem } from '@/types/api';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
 import { formatApiError } from '@/utils/formatApiError';
+import { offlineBannerText } from '@/utils/staleness';
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
   football: {
@@ -60,6 +63,10 @@ export function SportScreen({
   const query = useSportPredictions(sport, {
     date,
   });
+  const online = useOnline();
+  const offlineText = offlineBannerText(online, Boolean(query.data), query.dataUpdatedAt);
+  // Previous day's list kept on screen while the new one loads.
+  const showingPrevious = query.isPlaceholderData;
   const providerHealth = health.data?.[sport];
   const copy = SPORT_COPY[sport];
   const colors = paletteFor(sport);
@@ -187,13 +194,31 @@ export function SportScreen({
             />
           ) : null}
           <ProviderWarning status={providerHealth?.status} provider={providerHealth?.provider} />
+          <OfflineBanner text={offlineText} />
         </View>
+        {showingPrevious ? (
+          <View
+            style={[styles.progress, { backgroundColor: colors.track }]}
+            accessibilityRole="progressbar"
+            accessibilityLabel="Aggiornamento in corso"
+          >
+            <View style={[styles.progressFill, { backgroundColor: colors.accent }]} />
+          </View>
+        ) : null}
 
         {query.isLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.accent} />
+          <EventCardSkeleton count={5} />
+        ) : !query.data && !online ? (
+          <View style={styles.emptyPad}>
+            <EmptyState
+              tone="error"
+              title="Sei offline"
+              subtitle="Nessun dato salvato per questo giorno. Riconnettiti e riprova."
+              actionLabel="Riprova"
+              onAction={() => query.refetch()}
+            />
           </View>
-        ) : query.isError ? (
+        ) : query.isError && !query.data ? (
           <View style={styles.emptyPad}>
             <EmptyState
               tone="error"
@@ -207,7 +232,7 @@ export function SportScreen({
           <FlatList
             data={events}
             keyExtractor={(item) => item.event.id}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, showingPrevious && styles.dimmed]}
             refreshControl={
               <RefreshControl
                 refreshing={query.isRefetching}
@@ -276,7 +301,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.md,
   },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  dimmed: { opacity: 0.4 },
+  progress: { height: 3, overflow: 'hidden' },
+  progressFill: { height: 3, width: '40%' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   bottomFilters: {
     paddingHorizontal: spacing.md,
