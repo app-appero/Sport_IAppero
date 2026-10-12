@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -14,6 +15,7 @@ type Props = {
 /** Daily hit summary — tap to expand market aggregates + per-event accordions. */
 export function DayStatsPanel({ stats }: Props) {
   const styles = useThemedStyles(makeStyles);
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
@@ -50,6 +52,8 @@ export function DayStatsPanel({ stats }: Props) {
         </View>
       </Pressable>
 
+      <Text style={styles.scope}>Tutte le predizioni del giorno, non solo le ufficiali</Text>
+
       {open ? (
         <ScrollView
           style={styles.detail}
@@ -74,6 +78,15 @@ export function DayStatsPanel({ stats }: Props) {
               }
             />
           ))}
+          <Pressable
+            onPress={() => router.push('/storico')}
+            style={styles.historyLink}
+            accessibilityRole="link"
+            accessibilityLabel="Vedi storico ufficiale"
+          >
+            <Text style={styles.historyLinkText}>Vedi storico ufficiale</Text>
+            <Text style={styles.historyLinkText}>›</Text>
+          </Pressable>
         </ScrollView>
       ) : null}
     </View>
@@ -224,6 +237,26 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     fontSize: fs(11),
     color: colors.inkMuted,
   },
+  scope: {
+    fontFamily: fonts.body,
+    fontSize: fs(11),
+    color: colors.inkMuted,
+    paddingHorizontal: spacing.md,
+    paddingBottom: 8,
+  },
+  historyLink: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 44,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  historyLinkText: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
   chevron: {
     fontFamily: fonts.bodyBold,
     fontSize: fs(12),

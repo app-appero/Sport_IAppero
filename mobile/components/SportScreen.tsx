@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -22,7 +23,7 @@ import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportRail, type SportId } from '@/components/SportRail';
 import { SportThemeProvider } from '@/components/SportTheme';
 import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
-import { paletteFor, spacing } from '@/constants/theme';
+import { fonts, fs, paletteFor, radii, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
 import type { FeedItem } from '@/types/api';
@@ -172,7 +173,18 @@ export function SportScreen({
       />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <BrandHeader />
+          <View style={styles.brandRow}>
+            <BrandHeader />
+            <Pressable
+              onPress={() => router.push('/storico')}
+              style={[styles.historyBtn, { borderColor: colors.line, backgroundColor: colors.surfaceElevated }]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Apri storico"
+            >
+              <Text style={[styles.historyText, { color: colors.ink }]}>Storico</Text>
+            </Pressable>
+          </View>
           {showSportDropdown ? (
             <SportRail
               value={sport}
@@ -301,6 +313,17 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.md,
   },
+  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  historyBtn: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
   progress: { height: 3, overflow: 'hidden' },
   progressFill: { height: 3, width: '40%' },

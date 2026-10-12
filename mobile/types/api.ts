@@ -164,3 +164,67 @@ export interface FeedResponse {
   page: FeedPage;
   meta: FeedMeta;
 }
+
+export type SettlementStatus = 'won' | 'lost' | 'void' | 'pending' | 'not_placed' | 'unknown';
+
+export interface HistoryCounts {
+  won: number;
+  lost: number;
+  void: number;
+  pending: number;
+  not_placed: number;
+  unknown: number;
+  total: number;
+  /** won + lost: the declared denominator of win_rate. */
+  decided: number;
+  win_rate: number | null;
+}
+
+export interface HistoryGroup extends HistoryCounts {
+  sport: string;
+  market: string;
+  model_name: string | null;
+  model_version: string | null;
+}
+
+export interface HistoryStats {
+  scope: string;
+  filters: Record<string, string | null>;
+  totals: HistoryCounts;
+  groups: HistoryGroup[];
+  excluded_not_pre_match: number;
+  notes: string[];
+}
+
+export interface HistoryPrediction {
+  revision_id: number;
+  source_ref: string | null;
+  sport: string;
+  event_id: string;
+  event_name: string | null;
+  market: string;
+  line: string | null;
+  selection: string;
+  probability: number | null;
+  odds: number | null;
+  model_name: string | null;
+  model_version: string | null;
+  decision: string | null;
+  kickoff_at: string | null;
+  published_at: string | null;
+  pre_match: boolean | null;
+  settlement: {
+    status: SettlementStatus;
+    source_status: string | null;
+    settled_at: string | null;
+    actual_outcome: string | null;
+    pnl: number | null;
+  };
+}
+
+export interface HistoryPredictionList {
+  items: HistoryPrediction[];
+  limit: number;
+  offset: number;
+  count: number;
+}

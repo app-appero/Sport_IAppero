@@ -89,6 +89,13 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="prediction/[id]" options={{ headerShown: false }} />
         <Stack.Screen
+          name="storico"
+          options={{
+            title: 'Storico',
+            headerBackTitle: 'Indietro',
+          }}
+        />
+        <Stack.Screen
           name="event/[id]"
           options={{
             title: 'Evento',

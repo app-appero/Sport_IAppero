@@ -1,0 +1,59 @@
+import type { HistoryCounts, SettlementStatus } from '@/types/api';
+
+export const STATUS_LABEL: Record<SettlementStatus, string> = {
+  won: 'Presa',
+  lost: 'Persa',
+  void: 'Annullata',
+  pending: 'In attesa',
+  not_placed: 'Non piazzata',
+  unknown: 'Da verificare',
+};
+
+/** "55%" or "n.d." when nothing is decided yet. */
+export function formatRate(rate: number | null): string {
+  return rate == null ? 'n.d.' : `${Math.round(rate * 100)}%`;
+}
+
+/** "6 prese su 11 decise" — the denominator is always spelled out. */
+export function decidedLine(c: HistoryCounts): string {
+  if (c.decided === 0) return 'Nessuna predizione ancora decisa';
+  return `${c.won} ${c.won === 1 ? 'presa' : 'prese'} su ${c.decided} ${c.decided === 1 ? 'decisa' : 'decise'}`;
+}
+
+/** Other statuses, reported next to the rate but never counted as losses. */
+export function othersLine(c: HistoryCounts): string {
+  const parts: string[] = [];
+  if (c.void) parts.push(`${c.void} ${c.void === 1 ? 'annullata' : 'annullate'}`);
+  if (c.pending) parts.push(`${c.pending} in attesa`);
+  if (c.not_placed) parts.push(`${c.not_placed} non ${c.not_placed === 1 ? 'piazzata' : 'piazzate'}`);
+  if (c.unknown) parts.push(`${c.unknown} da verificare`);
+  return parts.join(' · ');
+}
+
+/** Widths (0..1) for the stacked bar; empty when there is no data. */
+export function barShares(c: HistoryCounts): { status: SettlementStatus; share: number }[] {
+  if (c.total <= 0) return [];
+  const order: SettlementStatus[] = ['won', 'lost', 'void', 'pending', 'not_placed', 'unknown'];
+  return order
+    .filter((s) => c[s] > 0)
+    .map((s) => ({ status: s, share: c[s] / c.total }));
+}
+
+export function excludedNote(n: number): string | null {
+  if (n <= 0) return null;
+  return `${n} ${n === 1 ? 'predizione esclusa' : 'predizioni escluse'}: non verificabile come pubblicata prima dell'inizio della partita.`;
+}
+
+/** "03 ott" in Europe/Rome, or "—" when the kickoff is unknown. */
+export function formatKickoffDay(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('it-IT', {
+    day: '2-digit',
+    month: 'short',
+    timeZone: 'Europe/Rome',
+  })
+    .format(d)
+    .replace('.', '');
+}

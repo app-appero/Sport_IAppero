@@ -40,6 +40,10 @@ Spaziature e raggi sono in `spacing` / `radii`.
 - Il giorno corrente si aggiorna ogni 60 s solo con l'app in primo piano (`AppState` → `focusManager`); gli altri giorni non fanno polling.
 - Test delle regole pure: `npm test`; typecheck: `npm run typecheck`.
 
+## Storico
+
+`/storico` (pulsante "Storico" nell'header e link nel pannello "Statistica giornata"): percentuale = prese / (prese + perse), con il denominatore sempre scritto; annullate, in attesa e non piazzate sono a parte. Legge `GET /api/v1/history/stats` e `/history/predictions` del BFF (solo predizioni ufficiali registrate prima del calcio d'inizio). Senza database sul BFF mostra "Storico non disponibile". Non è la stessa cosa della "Statistica giornata", che conta tutte le predizioni del giorno.
+
 ## Setup
 
 Run commands **from `mobile/`** (not the repo root). Root has no `package.json`.

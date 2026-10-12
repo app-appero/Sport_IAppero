@@ -6,6 +6,8 @@ import {
   getEvents,
   getFeedWithFallback,
   getHealthProviders,
+  getHistoryPredictions,
+  getHistoryStats,
   getPrediction,
   getPredictions,
 } from '@/services/api';
@@ -150,5 +152,33 @@ export function useEventPredictions(
     queryKey: ['event-predictions', eventId, opts?.sport ?? null, opts?.date ?? null],
     queryFn: () => getEventPredictions(eventId, opts),
     enabled: Boolean(eventId),
+  });
+}
+
+export function useHistoryStats(opts?: { sport?: string; market?: string }) {
+  return useQuery({
+    queryKey: ['history', 'stats', opts?.sport ?? null, opts?.market ?? null],
+    queryFn: () => getHistoryStats(opts),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useHistoryPredictions(opts?: {
+  sport?: string;
+  market?: string;
+  status?: string;
+}) {
+  return useQuery({
+    queryKey: [
+      'history',
+      'predictions',
+      opts?.sport ?? null,
+      opts?.market ?? null,
+      opts?.status ?? null,
+    ],
+    queryFn: () => getHistoryPredictions({ ...opts, limit: 100 }),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
