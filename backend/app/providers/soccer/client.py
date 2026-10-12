@@ -13,7 +13,8 @@ from app.domain.models import Competition, Event, MarketInfo, UnifiedPrediction
 from app.providers.base import SportProvider
 from app.providers.http_utils import load_fixture, request_json
 from app.providers.prediction_utils import limit_predictions_keeping_events
-from app.providers.soccer import mapper
+from app.providers.soccer import ledger, mapper
+from app.providers.soccer.ledger import LedgerRecord
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,23 @@ class SoccerProvider(SportProvider):
             return load_fixture("soccer", "day.json")
         if path == "/dashboard/available-dates":
             return load_fixture("soccer", "available_dates.json")
+        if path == "/predictions/official/plays":
+            return load_fixture("soccer", "official_plays.json")
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path} params={params}")
+
+    async def get_official_plays(
+        self, *, limit: int = 2000, market: str | None = None
+    ) -> list[LedgerRecord]:
+        """Official ledger rows (read-only). Upstream has no date filter or offset."""
+        params: dict[str, Any] = {"limit": limit}
+        if market:
+            params["market"] = market
+        payload = await self._get("/predictions/official/plays", params=params)
+        if isinstance(payload, dict):
+            total, rows = payload.get("total"), payload.get("rows")
+            if isinstance(total, int) and isinstance(rows, list) and len(rows) < total:
+                logger.warning("Soccer official ledger truncated: %s of %s", len(rows), total)
+        return ledger.map_ledger_payload(payload)
 
     async def healthcheck(self) -> dict[str, Any]:
         try:

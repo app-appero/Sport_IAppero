@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     git_sha: str | None = None
     railway_git_commit_sha: str | None = None
 
+    # Persistence (Sprint 3). Unset = no database, BFF behaves as in Sprint 2.
+    database_url: str | None = None
+    # Poll the Soccer official ledger for new publications / settlements.
+    ledger_sync_enabled: bool = True
+    ledger_sync_interval_seconds: int = 900
+
     log_level: str = "INFO"
 
     @property

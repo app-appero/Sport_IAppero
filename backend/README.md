@@ -83,3 +83,12 @@ uvicorn app.main:app --reload --port 8000
    (`PORT` è impostata da Railway; il container fa bind su `${PORT}`.)
 4. **Settings → Networking → Generate Domain**, poi verifica `https://<dominio>/api/v1/health`.
 5. Nel mobile imposta `EXPO_PUBLIC_API_URL=https://<dominio>`.
+
+
+## Persistenza e storico (Sprint 3)
+
+- `DATABASE_URL` (PostgreSQL; `postgres://` e `postgresql://` vengono convertiti per asyncpg). Se assente, nessun database: feed e API come prima.
+- All'avvio il BFF applica le migrazioni Alembic (`app/db/migrations`). Se il DB non risponde, la persistenza resta spenta e il feed continua a funzionare (`/ready` mostra `persistence`).
+- Le predizioni viste nel feed sono salvate append-only (`source=feed_observed`, mai ufficiali). Il ledger ufficiale Soccer viene letto ogni `LEDGER_SYNC_INTERVAL_SECONDS` (default 900).
+- `GET /api/v1/history/stats` e `GET /api/v1/history/predictions`: win rate = won/(won+lost), con void, pending e non piazzate dichiarati a parte. Entrano solo pubblicazioni ufficiali con `captured_at` precedente al calcio d'inizio.
+- Test locali: `pip install -e ".[dev]" && pytest` (SQLite in memoria/file temporaneo, nessun Postgres richiesto).
