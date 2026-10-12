@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 import { buildDayWindow, type DayOption } from '@/utils/dates';
 
 const CHIP_SLOT = 128;
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export function DayScroller({ value, onChange }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const days = useMemo(() => buildDayWindow(), []);
   const ref = useRef<ScrollView>(null);
 
@@ -55,6 +57,7 @@ function DayChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -72,7 +75,7 @@ function DayChip({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   scroller: { flexGrow: 0, marginBottom: spacing.sm },
   scrollContent: { flexGrow: 0 },
   row: {
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     paddingHorizontal: 10,
     paddingVertical: 12,
     minHeight: 64,
@@ -97,7 +100,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chipPast: { backgroundColor: '#151C18' },
+  chipPast: { backgroundColor: colors.track },
   weekday: {
     fontFamily: fonts.bodyMedium,
     fontSize: 13,

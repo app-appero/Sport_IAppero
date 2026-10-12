@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
 import { BootSplash } from '@/components/BootSplash';
-import { colors } from '@/constants/theme';
+import { defaultPalette as colors } from '@/constants/theme';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -70,7 +70,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.surface },

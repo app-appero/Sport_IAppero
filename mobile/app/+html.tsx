@@ -8,7 +8,7 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <meta name="color-scheme" content="dark" />
+        <meta name="color-scheme" content="light" />
         <title>Sport IApperò</title>
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: baseCss }} />
@@ -65,8 +65,8 @@ html, body, #root {
 }
 body {
   margin: 0;
-  background-color: #0E1411;
-  color-scheme: dark;
+  background-color: #F3FBF6;
+  color-scheme: light;
 }
 #root:not(:empty) ~ #boot-fallback,
 body:has(#root .css-view-g5y9jx) #boot-fallback {

@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { providerLabel } from '@/constants/providers';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 
 const STATUS_COPY: Record<string, string> = {
   degraded: 'parzialmente disponibile',
@@ -18,6 +19,7 @@ export function ProviderWarning({
   status?: string;
   provider?: string;
 }) {
+  const styles = useThemedStyles(makeStyles);
   if (!status || status === 'ok') return null;
   const label = STATUS_COPY[status] ?? status;
   return (
@@ -29,7 +31,7 @@ export function ProviderWarning({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: {
     backgroundColor: colors.warnBg,
     borderColor: colors.warning,

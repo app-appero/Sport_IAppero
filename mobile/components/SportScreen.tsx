@@ -19,9 +19,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { FilterChips } from '@/components/FilterChips';
 import { ProviderWarning } from '@/components/ProviderWarning';
-import { SportDropdown, type SportId } from '@/components/SportDropdown';
+import { SportRail, type SportId } from '@/components/SportRail';
+import { SportThemeProvider } from '@/components/SportTheme';
 import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
-import { colors, gradients, spacing } from '@/constants/theme';
+import { paletteFor, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import type { FeedItem, PredictionListResponse } from '@/types/api';
 import { buildDayStats } from '@/utils/dayStats';
@@ -63,6 +64,7 @@ export function SportScreen({
   });
   const providerHealth = health.data?.[sport];
   const copy = SPORT_COPY[sport];
+  const colors = paletteFor(sport);
 
   const marketOptions = useMemo(() => marketsForSport(sport), [sport]);
 
@@ -164,9 +166,10 @@ export function SportScreen({
   };
 
   return (
-    <View style={styles.root}>
+    <SportThemeProvider sport={sport}>
+    <View style={[styles.root, { backgroundColor: colors.surface }]}>
       <LinearGradient
-        colors={[...gradients.screen]}
+        colors={[...colors.gradient]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -175,7 +178,7 @@ export function SportScreen({
         <View style={styles.header}>
           <BrandHeader />
           {showSportDropdown ? (
-            <SportDropdown
+            <SportRail
               value={sport}
               onChange={(next) => {
                 setSport(next);
@@ -250,7 +253,12 @@ export function SportScreen({
           />
         )}
 
-        <View style={styles.bottomFilters}>
+        <View
+          style={[
+            styles.bottomFilters,
+            { borderTopColor: colors.line, backgroundColor: colors.surface },
+          ]}
+        >
           <FilterChips
             size="large"
             options={marketOptions}
@@ -261,11 +269,12 @@ export function SportScreen({
         </View>
       </SafeAreaView>
     </View>
+    </SportThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1 },
   safe: { flex: 1 },
   header: {
     paddingHorizontal: spacing.lg,
@@ -285,7 +294,5 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
-    backgroundColor: colors.surface,
   },
 });

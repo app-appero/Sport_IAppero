@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { providerLabel } from '@/constants/providers';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 import type { FeedMeta } from '@/types/api';
 
 export function FeedBanner({
@@ -11,6 +12,7 @@ export function FeedBanner({
   meta?: FeedMeta;
   source?: 'feed' | 'fallback';
 }) {
+  const styles = useThemedStyles(makeStyles);
   if (!meta) return null;
   const lines: string[] = [];
 
@@ -62,7 +64,7 @@ export function FeedBanner({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: {
     borderWidth: 1,
     borderRadius: radii.sm,

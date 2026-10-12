@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 
 export type ChipOption<T extends string | undefined = string | undefined> = {
   label: string;
@@ -28,6 +29,7 @@ export function FilterChips<T extends string | undefined>({
   onChange,
   accessibilityLabel,
 }: Props<T>) {
+  const styles = useThemedStyles(makeStyles);
   if (options.length === 0) return null;
   return (
     <ScrollView
@@ -68,7 +70,7 @@ export function FilterChipStack({ children }: { children: ReactNode }) {
   return <View>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   scroller: {
     flexGrow: 0,
     marginBottom: spacing.sm,
@@ -86,17 +88,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
-    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     minHeight: 44,
     justifyContent: 'center',
   },
-  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  chipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   chipText: {
     fontFamily: fonts.bodyMedium,
     color: colors.ink,
     fontSize: 13,
   },
-  chipTextActive: { color: colors.onAccent, fontFamily: fonts.bodyBold },
+  chipTextActive: { color: colors.accentText, fontFamily: fonts.bodyBold },
 });

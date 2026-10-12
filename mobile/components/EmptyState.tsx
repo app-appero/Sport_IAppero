@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 
 type Props = {
   title: string;
@@ -17,6 +18,7 @@ export function EmptyState({
   onAction,
   tone = 'empty',
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View
       style={[
@@ -42,7 +44,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: {
     padding: spacing.lg,
     gap: spacing.sm,

@@ -3,7 +3,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { marketLabel } from '@/constants/markets';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export function PredictionCard({ item, index = 0, onPress }: Props) {
-  const sportColor = item.sport === 'tennis' ? colors.tennis : colors.football;
+  const styles = useThemedStyles(makeStyles);
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}>
       <Pressable
@@ -23,7 +24,7 @@ export function PredictionCard({ item, index = 0, onPress }: Props) {
         accessibilityRole="button"
       >
         <View style={styles.top}>
-          <Text style={[styles.badge, { backgroundColor: sportColor }]}>
+          <Text style={styles.badge}>
             {(item.event.competition?.name || item.sport).toUpperCase()}
           </Text>
           <Text style={styles.market}>{marketLabel(item.prediction.type)}</Text>
@@ -37,7 +38,7 @@ export function PredictionCard({ item, index = 0, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.md,
@@ -46,11 +47,14 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     gap: spacing.sm,
     minHeight: 44,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
   },
   pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   badge: {
-    color: colors.ink,
+    color: colors.onAccent,
+    backgroundColor: colors.accent,
+    alignSelf: 'flex-start',
     overflow: 'hidden',
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -81,7 +85,7 @@ const styles = StyleSheet.create({
   pick: {
     fontFamily: fonts.display,
     fontSize: 28,
-    color: colors.accent,
+    color: colors.accentText,
     letterSpacing: 0.5,
     lineHeight: 30,
   },

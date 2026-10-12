@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { marketLabel } from '@/constants/markets';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 import type { DayStats, EventDayStat, MarketTypeStat } from '@/utils/dayStats';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -12,6 +13,7 @@ type Props = {
 
 /** Daily hit summary — tap to expand market aggregates + per-event accordions. */
 export function DayStatsPanel({ stats }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
@@ -79,6 +81,7 @@ export function DayStatsPanel({ stats }: Props) {
 }
 
 function MarketTypeRow({ market }: { market: MarketTypeStat }) {
+  const styles = useThemedStyles(makeStyles);
   const ratio = market.settled > 0 ? `${market.hits}/${market.settled}` : '0/0';
   const pct =
     market.hitRate != null ? `${Math.round(market.hitRate * 100)}%` : '—';
@@ -102,6 +105,7 @@ function EventAccordion({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const ratio =
     event.settled > 0
       ? `${event.hits}/${event.settled}`
@@ -177,7 +181,7 @@ function EventAccordion({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: {
     marginBottom: spacing.sm,
     borderWidth: 1,
@@ -185,6 +189,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.surfaceElevated,
     overflow: 'hidden',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
   },
   summary: {
     flexDirection: 'row',
@@ -208,11 +213,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.ink,
   },
-  ratioAccent: { color: colors.accent },
+  ratioAccent: { color: colors.accentText },
   pct: {
     fontFamily: fonts.bodyBold,
     fontSize: 16,
-    color: colors.accent,
+    color: colors.accentText,
   },
   meta: {
     fontFamily: fonts.body,
@@ -265,7 +270,7 @@ const styles = StyleSheet.create({
   marketTypeRatio: {
     fontFamily: fonts.bodyBold,
     fontSize: 14,
-    color: colors.accent,
+    color: colors.accentText,
     minWidth: 52,
     textAlign: 'right',
   },
@@ -304,7 +309,7 @@ const styles = StyleSheet.create({
   eventRatio: {
     fontFamily: fonts.bodyBold,
     fontSize: 14,
-    color: colors.accent,
+    color: colors.accentText,
   },
   eventStatus: {
     fontFamily: fonts.bodyMedium,
@@ -343,8 +348,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeHit: { backgroundColor: colors.hit },
-  badgeMiss: { backgroundColor: colors.miss },
+  badgeHit: { backgroundColor: colors.hitBadge },
+  badgeMiss: { backgroundColor: colors.missBadge },
   badgePending: { backgroundColor: colors.line },
   badgeText: {
     fontFamily: fonts.bodyBold,

@@ -13,10 +13,18 @@ Local APK (`npm run apk`) always runs `expo prebuild --clean` so icons/labels ar
 
 If an old APK still shows **Oracle Sports** or the default Expo icon, uninstall it and rebuild from this `main`.
 
+## Tema
+
+Tema chiaro con una palette per sport: la schermata prende il colore dello sport
+in cui ti trovi (Calcio verde, Tennis giallo, Basket arancio pronto). Le palette
+stanno in `constants/theme.ts` (`sportPalettes`); i componenti le leggono da
+`components/SportTheme.tsx` (`useThemedStyles`). Per aggiungere uno sport: una
+palette in `sportPalettes` e una voce in `SPORTS` (`components/SportRail.tsx`).
+
 ## Navigazione
 
 - Nessuna tab bar in basso (tema scuro)
-- **Partite** → default Calcio, menù a tendina per Tennis; pulsante Salvati in header
+- **Partite** → default Calcio, barra sport scorrevole in alto (Calcio, Tennis, ...)
 - **Salvati** → preferiti locali (AsyncStorage)
 
 ## Setup

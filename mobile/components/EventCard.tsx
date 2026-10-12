@@ -3,7 +3,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { marketLabel, predictionMatchesMarket } from '@/constants/markets';
-import { colors, fonts, radii, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/components/SportTheme';
+import { fonts, radii, spacing, type Palette } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
@@ -27,7 +28,7 @@ export function EventCard({
   preferredMarket,
   selectedDate,
 }: Props) {
-  const sportColor = item.sport === 'tennis' ? colors.tennis : colors.football;
+  const styles = useThemedStyles(makeStyles);
   const preferred =
     preferredMarket
       ? item.predictions.filter((p) => predictionMatchesMarket(p.prediction.type, preferredMarket))
@@ -51,7 +52,7 @@ export function EventCard({
   const body = (
     <>
       <View style={styles.top}>
-        <Text style={[styles.badge, { backgroundColor: sportColor }]}>
+        <Text style={styles.badge}>
           {(item.event.competition?.name || item.sport).toUpperCase()}
         </Text>
         <View style={styles.topRight}>
@@ -115,6 +116,7 @@ export function EventCard({
 
 /** Compact row for a single market inside event detail (not tappable). */
 export function MarketRow({ item }: { item: UnifiedPrediction }) {
+  const styles = useThemedStyles(makeStyles);
   const tone = outcomeTone(item);
   const scoreLine = scoreForMarket(item.event, item.prediction.type);
   return (
@@ -143,7 +145,7 @@ export function MarketRow({ item }: { item: UnifiedPrediction }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.md,
@@ -152,6 +154,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     gap: spacing.sm,
     minHeight: 44,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
   },
   cardHit: { borderColor: colors.hit, backgroundColor: colors.hitBg },
   cardMiss: { borderColor: colors.miss, backgroundColor: colors.missBg },
@@ -159,7 +162,9 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   topRight: { alignItems: 'flex-end', gap: 4 },
   badge: {
-    color: colors.ink,
+    color: colors.onAccent,
+    backgroundColor: colors.accent,
+    alignSelf: 'flex-start',
     overflow: 'hidden',
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -182,8 +187,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hit: { backgroundColor: colors.hit },
-  miss: { backgroundColor: colors.miss },
+  hit: { backgroundColor: colors.hitBadge },
+  miss: { backgroundColor: colors.missBadge },
   outcomeText: {
     color: '#fff',
     fontFamily: fonts.bodyBold,
@@ -214,7 +219,7 @@ const styles = StyleSheet.create({
   pick: {
     fontFamily: fonts.display,
     fontSize: 28,
-    color: colors.accent,
+    color: colors.accentText,
     letterSpacing: 0.5,
     lineHeight: 30,
   },
@@ -245,7 +250,7 @@ const styles = StyleSheet.create({
   marketPick: {
     fontFamily: fonts.display,
     fontSize: 24,
-    color: colors.accent,
+    color: colors.accentText,
     lineHeight: 26,
   },
 });

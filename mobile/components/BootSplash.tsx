@@ -1,7 +1,7 @@
 import { Image, StyleSheet, View } from 'react-native';
 
 import { APP_NAME, BRAND_SPLASH } from '@/constants/brand';
-import { colors } from '@/constants/theme';
+import { splashBackground } from '@/constants/theme';
 
 /** Full-screen boot / loading frame matching the native splash art. */
 export function BootSplash() {
@@ -15,7 +15,7 @@ export function BootSplash() {
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: colors.surface,
+    backgroundColor: splashBackground,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
