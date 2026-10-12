@@ -152,3 +152,50 @@ def test_history_requires_database(monkeypatch):
         assert client.get("/api/v1/feed", params={"date": "2026-09-20"}).status_code == 200
     get_settings.cache_clear()
     get_providers.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_default_counts_only_recommended_plays_and_names_are_filled(tmp_path, monkeypatch):
+    import json
+    from dataclasses import replace
+    from pathlib import Path
+
+    from app.db import session as db_session
+    from app.domain.models import Event as DomainEvent
+    from app.persistence import history
+    from app.persistence.recorder import apply_event_names, missing_name_days, record_ledger
+    from app.providers.soccer.ledger import map_ledger_payload
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'dec.db'}")
+    get_settings.cache_clear()
+    assert await db_session.init_db()
+    try:
+        fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
+        records = map_ledger_payload(json.loads(fixture.read_text()))
+        no_bet = replace(
+            records[1], source_ref="no-bet-1", fixture_id="999", decision="NO BET", settlement_status="won"
+        )
+        await record_ledger(records + [no_bet])
+
+        async with db_session.get_sessionmaker()() as session:
+            default = await history.compute_stats(session, sport="football")
+            everything = await history.compute_stats(session, sport="football", decision="all")
+            only_nobet = await history.compute_stats(session, sport="football", decision="NO BET")
+            listed = await history.list_ledger(session, sport="football")
+        assert default["filters"]["decision"] == "PLAY"
+        assert default["totals"]["won"] == 1  # the NO BET win is not counted
+        assert everything["totals"]["won"] == 2
+        assert only_nobet["totals"]["total"] == 1
+        assert all(i["decision"] == "PLAY" for i in listed["items"])
+
+        # Names: only filled where missing, never overwritten.
+        assert "2026-10-03" in await missing_name_days("football")
+        evs = [DomainEvent(id="1579486", name="Roma vs Lazio"), DomainEvent(id="404", name="Ghost")]
+        assert await apply_event_names("football", evs) == 1
+        assert await apply_event_names("football", [DomainEvent(id="1579486", name="Other")]) == 0
+        async with db_session.get_sessionmaker()() as session:
+            items = (await history.list_ledger(session, sport="football", limit=50))["items"]
+        assert "Roma vs Lazio" in {i["event_name"] for i in items}
+    finally:
+        await db_session.close_db()
+        get_settings.cache_clear()

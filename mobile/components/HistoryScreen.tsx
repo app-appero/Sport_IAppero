@@ -69,7 +69,7 @@ function HistoryBody() {
         <>
           <Hero counts={stats.data.totals} />
           <Text style={styles.note}>
-            La percentuale conta solo prese e perse. Annullate e in attesa non sono sconfitte.
+            Storico delle sole giocate consigliate (PLAY): le predizioni che il modello scarta non sono contate. La percentuale conta solo prese e perse; annullate e in attesa non sono sconfitte.
             {excludedNote(stats.data.excluded_not_pre_match)
               ? ` ${excludedNote(stats.data.excluded_not_pre_match)}`
               : ''}
@@ -167,7 +167,7 @@ function HistoryBody() {
       />
       <View style={styles.footer}>
         <Text style={styles.footText}>
-          Solo predizioni ufficiali del provider registrate prima del calcio d&apos;inizio.
+          Solo giocate consigliate (PLAY), ufficiali e registrate prima del calcio d&apos;inizio.
         </Text>
       </View>
     </SafeAreaView>
@@ -190,7 +190,7 @@ function Hero({ counts }: { counts: HistoryCounts }) {
   const others = othersLine(counts);
   return (
     <View style={styles.hero} accessible accessibilityLabel={`Storico: ${formatRate(counts.win_rate)}, ${decidedLine(counts)}`}>
-      <Text style={styles.kicker}>Calcio · predizioni ufficiali</Text>
+      <Text style={styles.kicker}>Calcio · solo giocate consigliate</Text>
       <Text style={styles.big}>{formatRate(counts.win_rate)}</Text>
       <Text style={styles.sub}>{decidedLine(counts)}</Text>
       {shares.length > 0 ? (

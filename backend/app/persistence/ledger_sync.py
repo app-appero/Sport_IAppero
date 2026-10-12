@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from app.core.config import get_settings
 from app.db.models import ProviderFetchRun
 from app.db.session import get_sessionmaker
-from app.persistence.recorder import record_ledger
+from app.persistence.recorder import apply_event_names, missing_name_days, record_ledger
 from app.providers.soccer.client import SoccerProvider
 from app.providers.tennis.client import TennisProvider
 from app.services.registry import get_provider
@@ -64,6 +64,31 @@ async def sync_soccer_ledger() -> dict[str, int] | None:
     return await _sync("football", SoccerProvider, "soccer-oracle", "/predictions/official/plays")
 
 
+_names_tried: set[str] = set()
+
+
+async def enrich_football_names(max_days: int = 15) -> int:
+    """Ledger rows carry only the fixture id: ask the provider for that day's matches.
+
+    Days the provider cannot resolve are not retried until restart, and a name is never invented.
+    """
+    provider = get_provider("football")
+    if get_sessionmaker() is None or not isinstance(provider, SoccerProvider):
+        return 0
+    filled = 0
+    for day in [d for d in await missing_name_days("football", 60) if d not in _names_tried][:max_days]:
+        try:
+            events = await provider.get_events(date=day, with_predictions=False)
+        except Exception as exc:  # noqa: BLE001 — retry on the next pass
+            logger.info("football names for %s unavailable: %s", day, exc)
+            continue
+        _names_tried.add(day)
+        filled += await apply_event_names("football", events)
+    if filled:
+        logger.info("football event names filled: %s", filled)
+    return filled
+
+
 async def sync_tennis_ledger() -> dict[str, int] | None:
     return await _sync("tennis", TennisProvider, "tennis-oracle", "/api/published-predictions")
 
@@ -73,5 +98,9 @@ async def ledger_sync_loop() -> None:
     while True:
         # Independent: one provider failing never blocks the other.
         await sync_soccer_ledger()
+        try:
+            await enrich_football_names()
+        except Exception:  # noqa: BLE001
+            logger.exception("name enrichment failed")
         await sync_tennis_ledger()
         await asyncio.sleep(max(60, settings.ledger_sync_interval_seconds))

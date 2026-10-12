@@ -11,6 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Event, PredictionRevision, PredictionSettlement
 
+# The performance shown to users is about recommended plays only; tracked-but-discarded
+# rows (NO BET, BORDERLINE) stay in the database and can be requested explicitly.
+DEFAULT_DECISION = "PLAY"
+DECISIONS = ("PLAY", "BORDERLINE", "NO BET", "all")
 STATUSES = ("won", "lost", "void", "pending", "not_placed", "unknown")
 
 
@@ -54,6 +58,7 @@ def _base_query(
     model_name: str | None,
     date_from: date | None,
     date_to: date | None,
+    decision: str | None = DEFAULT_DECISION,
 ):
     q = (
         select(PredictionRevision, PredictionSettlement, Event)
@@ -63,6 +68,8 @@ def _base_query(
     )
     if sport:
         q = q.where(PredictionRevision.sport == sport)
+    if decision and decision != "all":
+        q = q.where(PredictionRevision.decision == decision)
     if market:
         q = q.where(PredictionRevision.market == market)
     if model_name:
@@ -93,11 +100,17 @@ async def compute_stats(
     model_name: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    decision: str | None = DEFAULT_DECISION,
 ) -> dict[str, Any]:
     rows = (
         await session.execute(
             _base_query(
-                sport=sport, market=market, model_name=model_name, date_from=date_from, date_to=date_to
+                sport=sport,
+                market=market,
+                model_name=model_name,
+                date_from=date_from,
+                date_to=date_to,
+                decision=decision,
             )
         )
     ).all()
@@ -119,6 +132,7 @@ async def compute_stats(
             "sport": sport,
             "market": market,
             "model_name": model_name,
+            "decision": decision or DEFAULT_DECISION,
             "from": date_from.isoformat() if date_from else None,
             "to": date_to.isoformat() if date_to else None,
             "date_field": "kickoff_at (UTC)",
@@ -139,6 +153,7 @@ async def compute_stats(
             "win_rate = won / (won + lost); void, pending e not_placed sono riportati ma non contati.",
             "Le conteggi sono aggregati per gruppo; nessuna media dei win rate.",
             "Solo pubblicazioni ufficiali del provider con captured_at precedente al calcio d'inizio.",
+            "Per default solo le giocate consigliate (decision = PLAY); decision=all include anche NO BET e BORDERLINE.",
         ],
     }
 
@@ -153,8 +168,16 @@ async def list_ledger(
     date_to: date | None = None,
     limit: int = 50,
     offset: int = 0,
+    decision: str | None = DEFAULT_DECISION,
 ) -> dict[str, Any]:
-    q = _base_query(sport=sport, market=market, model_name=None, date_from=date_from, date_to=date_to)
+    q = _base_query(
+        sport=sport,
+        market=market,
+        model_name=None,
+        date_from=date_from,
+        date_to=date_to,
+        decision=decision,
+    )
     if status:
         q = q.where(PredictionSettlement.status == status)
     q = q.order_by(PredictionRevision.kickoff_at.desc(), PredictionRevision.id.desc())

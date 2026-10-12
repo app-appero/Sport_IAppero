@@ -280,3 +280,47 @@ async def record_ledger(records: list[LedgerRecord]) -> dict[str, int]:
                 counts["settlements_updated"] += 1
         await session.commit()
     return counts
+
+
+async def missing_name_days(sport: str, limit: int = 15) -> list[str]:
+    """Europe/Rome days (newest first) of events stored without a name."""
+    from zoneinfo import ZoneInfo
+
+    maker = get_sessionmaker()
+    if maker is None:
+        return []
+    async with maker() as session:
+        starts = (
+            await session.scalars(
+                select(Event.start_time).where(
+                    Event.sport == sport, Event.name.is_(None), Event.start_time.is_not(None)
+                )
+            )
+        ).all()
+    rome = ZoneInfo("Europe/Rome")
+    # Stored values are UTC; SQLite (tests) hands them back naive.
+    days = {
+        (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(rome).date().isoformat()
+        for t in starts
+    }
+    return sorted(days, reverse=True)[:limit]
+
+
+async def apply_event_names(sport: str, events: list) -> int:
+    """Fill names/competition/participants for stored events. Never overwrites known values."""
+    maker = get_sessionmaker()
+    if maker is None or not events:
+        return 0
+    updated = 0
+    async with maker() as session:
+        for ev in events:
+            row = await session.get(Event, f"{sport}:{ev.id}")
+            if row is None or row.name or not ev.name:
+                continue
+            row.name = ev.name
+            row.competition_id = row.competition_id or (ev.competition.id if ev.competition else None)
+            row.competition_name = row.competition_name or (ev.competition.name if ev.competition else None)
+            row.participants = row.participants or ([p.model_dump() for p in ev.participants] or None)
+            updated += 1
+        await session.commit()
+    return updated
