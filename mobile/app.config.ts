@@ -46,7 +46,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       'expo-router',
-      'expo-font',
+      [
+        'expo-font',
+        {
+          // Bundled natively so the fonts exist from the first frame. Loaded only
+          // at runtime (useFonts), an Android release build can lay Text out with
+          // the fallback font first and keep those narrow widths (clipped labels).
+          // Family names = file names, matching constants/theme.ts.
+          fonts: [
+            './node_modules/@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf',
+            './node_modules/@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf',
+            './node_modules/@expo-google-fonts/dm-sans/700Bold/DMSans_700Bold.ttf',
+            './node_modules/@expo-google-fonts/bebas-neue/400Regular/BebasNeue_400Regular.ttf',
+          ],
+        },
+      ],
       [
         'expo-splash-screen',
         {
