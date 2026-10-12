@@ -184,7 +184,9 @@ export function SportScreen({
               accessibilityRole="button"
               accessibilityLabel="Apri storico"
             >
-              <Text style={[styles.historyText, { color: colors.ink }]}>Storico</Text>
+              <Text style={[styles.historyText, { color: colors.ink }]} maxFontSizeMultiplier={1.2}>
+                Storico
+              </Text>
             </Pressable>
             <ProfileButton />
           </View>
@@ -317,8 +319,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.md,
   },
-  brandActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandActions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
   historyBtn: {
     minHeight: 36,
     paddingHorizontal: 14,
