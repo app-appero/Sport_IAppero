@@ -176,7 +176,7 @@ export function SportScreen({
           <View style={styles.brandRow}>
             <BrandHeader />
             <Pressable
-              onPress={() => router.push('/storico')}
+              onPress={() => router.push({ pathname: '/storico', params: { sport } })}
               style={[styles.historyBtn, { borderColor: colors.line, backgroundColor: colors.surfaceElevated }]}
               hitSlop={6}
               accessibilityRole="button"
@@ -196,7 +196,7 @@ export function SportScreen({
             />
           ) : null}
           <DayScroller value={date} onChange={onDateChange} />
-          {!query.isLoading && !query.isError ? <DayStatsPanel stats={dayStats} /> : null}
+          {!query.isLoading && !query.isError ? <DayStatsPanel stats={dayStats} sport={sport} /> : null}
           {competitionOptions.length > 1 ? (
             <FilterChips
               options={competitionOptions}

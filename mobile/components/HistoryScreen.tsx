@@ -6,9 +6,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { FilterChips } from '@/components/FilterChips';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { SportThemeProvider, useThemedStyles } from '@/components/SportTheme';
-import { FOOTBALL_MARKETS, marketLabel } from '@/constants/markets';
-import { fonts, radii, spacing, type Palette, fs, paletteFor } from '@/constants/theme';
+import { SportRail, SPORTS, type SportId } from '@/components/SportRail';
+import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
+import { marketLabel, marketsForSport } from '@/constants/markets';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import { useHistoryPredictions, useHistoryStats } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
 import type { HistoryCounts, HistoryPrediction, SettlementStatus } from '@/types/api';
@@ -25,8 +26,6 @@ import {
 import { offlineBannerText } from '@/utils/staleness';
 import { selectionLabel } from '@/utils/selectionLabel';
 
-const SPORT = 'football';
-
 const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
   { label: 'Tutte', value: undefined },
   { label: 'Prese', value: 'won' },
@@ -36,30 +35,45 @@ const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
 ];
 
 /** Official-ledger history: rate with declared denominator, per-market groups, full list. */
-export function HistoryScreen() {
+export function HistoryScreen({ initialSport = 'football' }: { initialSport?: SportId }) {
+  const [sport, setSport] = useState<SportId>(initialSport);
   return (
-    <SportThemeProvider sport={SPORT}>
-      <HistoryBody />
+    <SportThemeProvider sport={sport}>
+      <HistoryBody sport={sport} onSportChange={setSport} />
     </SportThemeProvider>
   );
 }
 
-function HistoryBody() {
+function HistoryBody({
+  sport,
+  onSportChange,
+}: {
+  sport: SportId;
+  onSportChange: (sport: SportId) => void;
+}) {
   const styles = useThemedStyles(makeStyles);
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string | undefined>(undefined);
   const online = useOnline();
 
-  const stats = useHistoryStats({ sport: SPORT, market });
-  const list = useHistoryPredictions({ sport: SPORT, market, status });
+  const stats = useHistoryStats({ sport, market });
+  const list = useHistoryPredictions({ sport, market, status });
 
   const offlineText = offlineBannerText(online, Boolean(stats.data), stats.dataUpdatedAt);
   const updating = stats.isPlaceholderData || list.isPlaceholderData;
 
   const header = (
     <View style={styles.header}>
+      <SportRail
+        value={sport}
+        onChange={(next) => {
+          onSportChange(next);
+          setMarket(undefined);
+          setStatus(undefined);
+        }}
+      />
       <FilterChips
-        options={FOOTBALL_MARKETS}
+        options={marketsForSport(sport)}
         value={market}
         onChange={setMarket}
         accessibilityLabel="Filtro mercato"
@@ -67,7 +81,7 @@ function HistoryBody() {
       <OfflineBanner text={offlineText} />
       {stats.data ? (
         <>
-          <Hero counts={stats.data.totals} />
+          <Hero counts={stats.data.totals} sport={sport} />
           <Text style={styles.note}>
             Storico delle sole giocate consigliate (PLAY): le predizioni che il modello scarta non sono contate. La percentuale conta solo prese e perse; annullate e in attesa non sono sconfitte.
             {excludedNote(stats.data.excluded_not_pre_match)
@@ -183,14 +197,15 @@ const STATUS_COLOR: Record<SettlementStatus, keyof Palette> = {
   unknown: 'inkMuted',
 };
 
-function Hero({ counts }: { counts: HistoryCounts }) {
+function Hero({ counts, sport }: { counts: HistoryCounts; sport: SportId }) {
   const styles = useThemedStyles(makeStyles);
-  const colors = paletteFor(SPORT);
+  const colors = useSportPalette();
+  const sportLabel = SPORTS.find((x) => x.value === sport)?.label ?? sport;
   const shares = barShares(counts);
   const others = othersLine(counts);
   return (
     <View style={styles.hero} accessible accessibilityLabel={`Storico: ${formatRate(counts.win_rate)}, ${decidedLine(counts)}`}>
-      <Text style={styles.kicker}>Calcio · solo giocate consigliate</Text>
+      <Text style={styles.kicker}>{`${sportLabel} · solo giocate consigliate`}</Text>
       <Text style={styles.big}>{formatRate(counts.win_rate)}</Text>
       <Text style={styles.sub}>{decidedLine(counts)}</Text>
       {shares.length > 0 ? (
@@ -255,7 +270,7 @@ function GroupCard({
 
 function Row({ item }: { item: HistoryPrediction }) {
   const styles = useThemedStyles(makeStyles);
-  const colors = paletteFor(SPORT);
+  const colors = useSportPalette();
   const st = item.settlement.status;
   return (
     <View style={styles.row}>

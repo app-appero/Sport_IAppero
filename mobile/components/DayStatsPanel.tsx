@@ -10,10 +10,12 @@ import { selectionLabel } from '@/utils/selectionLabel';
 
 type Props = {
   stats: DayStats;
+  /** Sport whose history the link opens. */
+  sport?: string;
 };
 
 /** Daily hit summary — tap to expand market aggregates + per-event accordions. */
-export function DayStatsPanel({ stats }: Props) {
+export function DayStatsPanel({ stats, sport }: Props) {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -79,7 +81,7 @@ export function DayStatsPanel({ stats }: Props) {
             />
           ))}
           <Pressable
-            onPress={() => router.push('/storico')}
+            onPress={() => router.push({ pathname: '/storico', params: { sport: sport ?? 'football' } })}
             style={styles.historyLink}
             accessibilityRole="link"
             accessibilityLabel="Vedi storico ufficiale"
