@@ -357,13 +357,17 @@ class SoccerProvider(SportProvider):
 
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
         event_id = filters.get("event_id")
-        # Direct match lookup when listing markets for one fixture (detail screen).
-        if event_id and not filters.get("date"):
+        market = filters.get("market")
+
+        # Event detail: always prefer match endpoint (1x2 board + decision_cards).
+        # Day cache is still binary for h2h/dc and lacks EV.
+        if event_id:
             detail_preds = await self._predictions_from_match(str(event_id))
             if detail_preds:
-                market = filters.get("market")
                 if market:
-                    detail_preds = [p for p in detail_preds if p.prediction.type == market]
+                    detail_preds = [
+                        p for p in detail_preds if p.prediction.type == market
+                    ]
                 return detail_preds
 
         day = filters.get("date")
@@ -386,7 +390,6 @@ class SoccerProvider(SportProvider):
             predictions = mapper.map_day_payload(payload)
 
         competition_id = filters.get("competition_id")
-        market = filters.get("market")
         min_confidence = filters.get("min_confidence")
 
         if competition_id:
@@ -399,12 +402,6 @@ class SoccerProvider(SportProvider):
                     or p.event.competition.name == competition_id
                 )
             ]
-        if event_id:
-            eid = str(event_id)
-            predictions = [p for p in predictions if p.event.id == eid]
-            # Day payload for "today" may omit the fixture; fall back to match detail.
-            if not predictions:
-                predictions = await self._predictions_from_match(eid)
         if market:
             predictions = [p for p in predictions if p.prediction.type == market]
         if min_confidence is not None:

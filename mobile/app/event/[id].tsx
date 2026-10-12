@@ -3,14 +3,43 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 
 import { BrandHeader } from '@/components/BrandHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { MarketRow } from '@/components/EventCard';
+import { MarketBoard } from '@/components/MarketBoard';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, spacing, type Palette } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
+import type { UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
 import { formatApiError } from '@/utils/formatApiError';
 import { scoreForMarket } from '@/utils/outcome';
+
+const MARKET_ORDER = [
+  'h2h',
+  'dc',
+  'under_over_1_5',
+  'under_over_2_5',
+  'under_over_3_5',
+  'goal_no_goal',
+  'cards_line_3_5',
+  'cards_line_4_5',
+  'cards_line_5_5',
+  'cards_line_6_5',
+  'match_winner',
+  'first_set_winner',
+  'over_under_games',
+  'total_games',
+];
+
+function sortMarkets(items: UnifiedPrediction[]): UnifiedPrediction[] {
+  return [...items].sort((a, b) => {
+    const ia = MARKET_ORDER.indexOf(a.prediction.type);
+    const ib = MARKET_ORDER.indexOf(b.prediction.type);
+    const ra = ia === -1 ? 999 : ia;
+    const rb = ib === -1 ? 999 : ib;
+    if (ra !== rb) return ra - rb;
+    return a.prediction.type.localeCompare(b.prediction.type);
+  });
+}
 
 export default function EventDetailScreen() {
   const { sport } = useLocalSearchParams<{ sport?: string }>();
@@ -71,7 +100,7 @@ function EventDetail() {
     );
   }
 
-  const items = query.data?.items ?? [];
+  const items = sortMarkets(query.data?.items ?? []);
   const event = items[0]?.event;
   const title = event?.name ?? `Evento ${id}`;
   const timeLabel = formatEventTime(event?.start_time ?? null);
@@ -102,7 +131,9 @@ function EventDetail() {
             ) : statusLabel ? (
               <Text style={styles.score}>Stato · {statusLabel}</Text>
             ) : null}
-            <Text style={styles.subtitle}>{items.length} mercati predetti</Text>
+            <Text style={styles.subtitle}>
+              {items.length} mercati · il badge Consigliata è l’unica usata in statistica
+            </Text>
           </View>
         }
         ListEmptyComponent={
@@ -113,7 +144,7 @@ function EventDetail() {
             onAction={() => query.refetch()}
           />
         }
-        renderItem={({ item }) => <MarketRow item={item} />}
+        renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
       />
     </>
   );
@@ -121,10 +152,15 @@ function EventDetail() {
 
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
     errorWrap: { flex: 1, backgroundColor: colors.surface },
     list: { flex: 1, backgroundColor: colors.surface },
-    content: { padding: spacing.lg, gap: spacing.md },
+    content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
     header: { gap: 4, marginBottom: spacing.sm },
     title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },
     subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
