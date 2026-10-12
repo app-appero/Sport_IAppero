@@ -14,6 +14,18 @@ param(
 $ErrorActionPreference = 'Stop'
 $src = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
+# Keep node_modules in sync with package.json: after a pull that adds a dependency,
+# Metro would otherwise fail with "Unable to resolve module ...".
+Write-Host '==> npm install'
+Push-Location $src
+try {
+  npm install --no-audit --no-fund
+  if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+}
+finally {
+  Pop-Location
+}
+
 Write-Host "==> Sync $src -> $BuildDir"
 # Exclude only the root-level dirs: a bare /XD dist would also skip node_modules/**/dist.
 robocopy $src $BuildDir /E /NFL /NDL /NJH /NJS /NP `
