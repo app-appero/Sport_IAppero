@@ -27,7 +27,7 @@ Response: `items`, `total`, `offset`, `limit`. Paginare fino a esaurimento con t
 
 `require_admin_or_service` accetta JWT Bearer admin oppure `X-Service-Token`. Le chiavi valide sono `SERVICE_API_KEY` e opzionalmente `SERVICE_API_KEY_PREVIOUS`. Se nessuna chiave è configurata e ALLOW_UNAUTHENTICATED_SERVICE_READS è true, il codice permette letture anonime; sul deployment osservato la richiesta anonima al feed dà 401. Non possiamo dedurre quale variabile provochi questa configurazione.
 
-Il BFF usa TENNIS_SERVICE_TOKEN lato server. Non incorporare token nell'app Expo, non loggare header Authorization/X-Service-Token. Il registro published è protetto da `require_admin`, quindi il service token del feed non lo sblocca. MVP: usare feed tecnico e segnalarne la provenienza, senza dichiararlo tutto ufficiale. Per ledger/storico ufficiale serve una futura route read-only per servizio o un'integrazione admin server esplicitamente valutata. Non cambiare le dipendenze auth dei motori dentro questo task.
+Il BFF autentica lato server con `TENNIS_ORACLE_USERNAME`/`TENNIS_ORACLE_PASSWORD` (login su `/api/auth/login`, bearer admin); `TENNIS_SERVICE_TOKEN` non esiste nella configurazione. Non incorporare credenziali nell'app Expo, non loggare header Authorization. Il registro published è protetto da `require_admin`: il login admin del BFF lo sblocca, quindi non serve alcuna route nuova su Tennis Oracle. Il feed tecnico resta segnalato come tale, senza dichiararlo ufficiale. Non cambiare le dipendenze auth dei motori dentro questo task.
 
 ## Mapping evento items[]
 
@@ -61,7 +61,10 @@ Probability della selezione: usare p o 1-p in funzione di predicted_winner. Se l
 
 Campo `market`, `selection`, `probability`, `model_version`, `model_name`, `odds`, `void_odds`, `edge`, `published_at`. Sono già schemi separati: non appiattirli nel match-winner. Sorgenti previste dal ledger: `first_set_winner`, `over_under_games`. Normalizzare a `first_set_winner` (periodo first_set) e `total_games` (periodo match). La linea non è un campo esplicito di ExtraMarketPredictionRead: parser selezione solo con esempi reali e test; altrimenti source label e linea null, nessun numero inventato.
 
-## Ledger pubblicato (fase successiva)
+## Ledger pubblicato (implementato in Sprint 3)
+
+Il BFF legge `/api/published-predictions` (`official_only`, `latest_only`, paginato) e gli esiti da `/api/live-beta-dashboard` giorno per giorno e mercato per mercato (tetto 100 righe per chiamata, avviso nel log se raggiunto). L'esito lo decide Tennis Oracle. Il provider rifiuta di pubblicare o correggere dopo l'inizio della partita; data/ora d'inizio sono Europe/Rome locali, e senza `event_time` la riga resta fuori dalle statistiche.
+
 
 `publication_id`, `content_version`, `previous_version_id`, `is_latest`, `initial_status`, `published_at`, `event_key`, `market`, `selection`, `probability`, `value_decision`, `official_play`, modello, quote, player/tournament/date/time. Distinguere published da official_play; draft non appare nel feed consumer. Filtri `from`/`to` sono passati come from_date/to_date e non vanno assunti filtri evento: verificare il servizio prima dello storico. Stats ha filtri distinti event_date_from/event_date_to.
 

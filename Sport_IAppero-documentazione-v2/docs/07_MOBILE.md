@@ -9,7 +9,7 @@ React Native, Expo, TypeScript, Expo Router. Verificare SDK e dipendenze corrent
 3. Tennis: filtri torneo e mercato quando disponibili; nomi giocatori, superficie, match winner e extra markets separati.
 4. Dettaglio: evento, esiti, probability, modello, decisione e quote se disponibili, timestamp e warning. Distinguere dati tecnici da pubblicazioni ufficiali.
 
-Bottom tabs Home/Sport/Salvati opzionale. Preferiti locali in AsyncStorage o equivalente; nessun account necessario nell'MVP. ID namespace impediscono collisioni tra sport. Non includere schermi pagamento o login finti.
+Implementazione attuale: nessuna tab bar; una schermata con barra sport scorrevole e giorni, più la schermata `/storico` aperta dal pulsante in header o dal pannello "Statistica giornata". I preferiti locali sono stati rimossi per scelta di prodotto; nessun account necessario nell'MVP. ID namespace impediscono collisioni tra sport. Non includere schermi pagamento o login finti.
 
 ## Comportamento
 
