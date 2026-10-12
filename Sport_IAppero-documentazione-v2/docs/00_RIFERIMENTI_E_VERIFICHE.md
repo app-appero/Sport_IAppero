@@ -8,7 +8,7 @@ Data audit: 2026-10-07. Solo letture; nessun training, import, refresh forzato o
 |---|---|---|---|
 | Calcio | https://github.com/romy1992/ia_predict_soccer | https://github.com/romy1992/ia_predict_soccer.git | main, `6bab8e3f8ba7ce38775a32f0082e8c01457f2eb4` |
 | Tennis | https://github.com/romy1992/tennis_oracle | https://github.com/romy1992/tennis_oracle.git | main, `48a7f1040d018ae8a8b79e1b0b84e5e5dcb3d50a` |
-| Aggregatore | Sport_IAppero, URL non fornito | Da impostare | Da verificare |
+| Aggregatore | Sport_IAppero, `https://bff-sport-iappero-dev.up.railway.app` | Impostato | Verificato: `/ready` con `persistence: true`, feed e storico rispondono |
 
 Entrambi i repository sorgente risultano pubblici. L'accesso disponibile è di lettura. Il commit effettivamente distribuito su Railway non è stato verificato: un commit GitHub non prova la versione del deployment.
 
