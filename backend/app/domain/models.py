@@ -58,6 +58,24 @@ class ProviderMetadata(BaseModel):
     version: str | None = None
 
 
+class PricingInfo(BaseModel):
+    """Optional bookmaker / model pricing from provider decision cards."""
+
+    odds_decimal: float | None = None
+    expected_value: float | None = None
+    probability_edge: float | None = None
+    fair_odds: float | None = None
+    bookmakers_count: int | None = None
+
+
+class DecisionInfo(BaseModel):
+    """Provider value decision (PLAY / BORDERLINE / NO BET, …)."""
+
+    code: str | None = None
+    reason: str | None = None
+    policy_version: str | None = None
+
+
 class MarketInfo(BaseModel):
     key: str
     name: str
@@ -75,6 +93,8 @@ class UnifiedPrediction(BaseModel):
     oracle_score: float | None = None
     generated_at: datetime | None = None
     correct: bool | None = None
+    pricing: PricingInfo | None = None
+    decision: DecisionInfo | None = None
     raw: dict[str, Any] | None = Field(default=None, exclude=True)
 
 
