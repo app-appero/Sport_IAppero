@@ -25,7 +25,9 @@ class SportProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_prediction(self, prediction_id: str) -> UnifiedPrediction | None:
+    async def get_prediction(
+        self, prediction_id: str, **filters: Any
+    ) -> UnifiedPrediction | None:
         raise NotImplementedError
 
     @abstractmethod

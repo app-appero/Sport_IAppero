@@ -2,6 +2,7 @@ type ApiLikeError = {
   name?: string;
   status?: number;
   message?: string;
+  code?: string;
 };
 
 function isApiLikeError(err: unknown): err is ApiLikeError {
@@ -19,7 +20,16 @@ function isApiLikeError(err: unknown): err is ApiLikeError {
 export function formatApiError(err: unknown): string {
   if (isApiLikeError(err)) {
     const status = err.status ?? 0;
-    if (status === 404 || status === 502 || status === 503 || status === 504) {
+    const code = (err.code || '').toUpperCase();
+
+    if (
+      status === 404 ||
+      code === 'PREDICTION_NOT_FOUND' ||
+      code === 'EVENT_NOT_FOUND'
+    ) {
+      return 'Dettaglio non disponibile per questo esito. Torna all’evento e riprova, oppure cambia giorno.';
+    }
+    if (status === 502 || status === 503 || status === 504) {
       return 'Al momento il provider non è raggiungibile. Riprova tra poco.';
     }
     if (status >= 500) {

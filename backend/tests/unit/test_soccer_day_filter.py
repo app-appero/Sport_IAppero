@@ -100,3 +100,73 @@ async def test_neighbour_utc_days_merged_then_rome_filtered():
         assert all("Late" not in (p.event.name or "") for p in oct8)
     finally:
         await provider.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_past_day_event_uses_day_feed_not_match_detail():
+    """Past calendar days must not wait on match/oracle-detail timeouts."""
+    settings = Settings(
+        soccer_oracle_base_url="https://soccer.test",
+        soccer_oracle_username="admin",
+        soccer_oracle_password="secret",
+        use_provider_fixtures=False,
+    )
+    respx.post("https://soccer.test/auth/login").mock(
+        return_value=httpx.Response(200, json={"access_token": "tok"})
+    )
+    match_route = respx.get(
+        url__regex=r"https://soccer\.test/dashboard/match/555/.*"
+    ).mock(return_value=httpx.Response(404, json={"detail": "gone"}))
+
+    def day_response(request: httpx.Request) -> httpx.Response:
+        target = request.url.params.get("target_date")
+        if target != "2020-01-15":
+            return httpx.Response(200, json={"total": 0, "returned": 0, "rows": []})
+        return httpx.Response(
+            200,
+            json={
+                "total": 1,
+                "returned": 1,
+                "rows": [
+                    {
+                        "fixture_id": 555,
+                        "date": "2020-01-15",
+                        "datetime": "2020-01-15T18:00:00+00:00",
+                        "home": "Past",
+                        "away": "Side",
+                        "league": "Test",
+                        "status": "FT",
+                        "phase": "finished",
+                        "score": {"home": 1, "away": 0},
+                        "predictions": {
+                            "h2h": {
+                                "prediction": 1,
+                                "probability": 0.61,
+                                "correct": True,
+                            }
+                        },
+                    }
+                ],
+            },
+        )
+
+    respx.get("https://soccer.test/dashboard/day").mock(side_effect=day_response)
+
+    provider = SoccerProvider(settings)
+    try:
+        items = await provider.get_predictions(
+            event_id="555", date="2020-01-15", market="h2h"
+        )
+        assert len(items) == 1
+        assert items[0].event.id == "555"
+        assert match_route.call_count == 0
+
+        single = await provider.get_prediction(
+            items[0].id, date="2020-01-15"
+        )
+        assert single is not None
+        assert single.id == items[0].id
+        assert match_route.call_count == 0
+    finally:
+        await provider.aclose()

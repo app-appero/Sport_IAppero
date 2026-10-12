@@ -96,7 +96,13 @@ async def list_predictions(sport: str, **filters) -> PredictionListResponse:
     )
 
 
-async def get_prediction(prediction_id: str) -> UnifiedPrediction:
+async def get_prediction(
+    prediction_id: str, *, date: str | None = None
+) -> UnifiedPrediction:
+    filters: dict = {}
+    if date:
+        filters["date"] = date
+
     if prediction_id.startswith("soccer_"):
         provider = get_provider("football")
     elif prediction_id.startswith("tennis_"):
@@ -104,12 +110,12 @@ async def get_prediction(prediction_id: str) -> UnifiedPrediction:
     else:
         provider = None
         for candidate in get_providers().values():
-            found = await candidate.get_prediction(prediction_id)
+            found = await candidate.get_prediction(prediction_id, **filters)
             if found:
                 return found
     if not provider:
         raise PredictionNotFound(prediction_id)
-    found = await provider.get_prediction(prediction_id)
+    found = await provider.get_prediction(prediction_id, **filters)
     if not found:
         raise PredictionNotFound(prediction_id)
     return found

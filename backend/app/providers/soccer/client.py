@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -355,13 +355,28 @@ class SoccerProvider(SportProvider):
             events.append(pred.event)
         return mapper.map_competitions_from_events(events)
 
+    @staticmethod
+    def _is_past_rome_day(day: str | None) -> bool:
+        """True when `day` is strictly before today's Europe/Rome calendar date."""
+        if not day:
+            return False
+        try:
+            return date.fromisoformat(str(day)) < datetime.now(_ROME).date()
+        except ValueError:
+            return False
+
     async def get_predictions(self, **filters: Any) -> list[UnifiedPrediction]:
         event_id = filters.get("event_id")
         market = filters.get("market")
+        day = filters.get("date")
 
-        # Event detail: always prefer match endpoint (1x2 board + decision_cards).
-        # Day cache is still binary for h2h/dc and lacks EV.
-        if event_id:
+        # Today / unknown day: prefer match detail (1x2 board + decision_cards).
+        # Past calendar days: day feed first — match detail often 404s/times out
+        # on finished fixtures and made event/prediction detail feel broken + slow.
+        prefer_match = bool(event_id) and not self._is_past_rome_day(
+            str(day) if day else None
+        )
+        if prefer_match:
             detail_preds = await self._predictions_from_match(str(event_id))
             if detail_preds:
                 if market:
@@ -370,7 +385,6 @@ class SoccerProvider(SportProvider):
                     ]
                 return detail_preds
 
-        day = filters.get("date")
         if day:
             predictions: list[UnifiedPrediction] = []
             seen: set[str] = set()
@@ -428,6 +442,21 @@ class SoccerProvider(SportProvider):
             limit = filters.get("limit")
             if limit is not None:
                 predictions = limit_predictions_keeping_events(predictions, int(limit))
+
+        # Past-day event detail: if the day feed had nothing, one last match try
+        # (richer boards) — skipped when we already preferred match above.
+        if (
+            event_id
+            and not predictions
+            and self._is_past_rome_day(str(day) if day else None)
+        ):
+            detail_preds = await self._predictions_from_match(str(event_id))
+            if market:
+                detail_preds = [
+                    p for p in detail_preds if p.prediction.type == market
+                ]
+            return detail_preds
+
         return predictions
 
     async def _predictions_from_match(self, fixture_id: str) -> list[UnifiedPrediction]:
@@ -443,29 +472,23 @@ class SoccerProvider(SportProvider):
             return []
         return mapper.map_day_payload({"rows": [detail]})
 
-    async def get_prediction(self, prediction_id: str) -> UnifiedPrediction | None:
+    async def get_prediction(
+        self, prediction_id: str, **filters: Any
+    ) -> UnifiedPrediction | None:
         parsed = mapper.parse_prediction_id(prediction_id)
         if not parsed:
             return None
         fixture_id, market = parsed
 
-        # Prefer scanning day/list payloads mapped to UnifiedPrediction
-        for candidate in await self.get_predictions(event_id=fixture_id, market=market):
+        lookup = {
+            "event_id": fixture_id,
+            "market": market,
+        }
+        if filters.get("date"):
+            lookup["date"] = filters["date"]
+
+        # Single path — get_predictions already chooses day vs match wisely.
+        for candidate in await self.get_predictions(**lookup):
             if candidate.id == prediction_id or candidate.prediction.type == market:
                 return candidate
-
-        try:
-            detail = await self._get(f"/dashboard/match/{fixture_id}/oracle-detail")
-        except Exception:
-            try:
-                detail = await self._get(f"/dashboard/match/{fixture_id}")
-            except Exception:
-                return None
-
-        if not isinstance(detail, dict):
-            return None
-        mapped = mapper.map_day_payload({"rows": [detail]})
-        for pred in mapped:
-            if pred.id == prediction_id or pred.prediction.type == market:
-                return pred
-        return mapped[0] if mapped else None
+        return None

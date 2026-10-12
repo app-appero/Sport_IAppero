@@ -28,6 +28,28 @@ function fmtOdd(value: number | null | undefined): string {
   return value.toFixed(2);
 }
 
+function decisionLabel(code: string | null | undefined): string {
+  if (!code) return '—';
+  const key = code.trim().toUpperCase().replace(/[_-]+/g, ' ');
+  if (key === 'NO BET' || key === 'NOBET') return 'No bet';
+  if (key === 'PLAY') return 'Play';
+  if (key === 'BORDERLINE') return 'Borderline';
+  return code;
+}
+
+/** Provider jargon → short Italian note (never looks like a crash). */
+function decisionReasonNote(reason: string | null | undefined): string | null {
+  if (!reason?.trim()) return null;
+  const raw = reason.trim();
+  if (/quota inferiore.*void/i.test(raw) || /below.*void/i.test(raw)) {
+    return 'La quota di mercato è sotto la soglia void del modello: il provider segna No bet.';
+  }
+  if (/no\s*edge/i.test(raw)) {
+    return 'Nessun edge positivo rispetto alla quota: il provider segna No bet.';
+  }
+  return raw;
+}
+
 export default function PredictionDetailScreen() {
   const { sport } = useLocalSearchParams<{ sport?: string }>();
   return (
@@ -38,10 +60,11 @@ export default function PredictionDetailScreen() {
 }
 
 function PredictionDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, date } = useLocalSearchParams<{ id: string; date?: string }>();
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
-  const query = usePredictionDetail(String(id ?? ''));
+  const selectedDate = date ? String(date) : undefined;
+  const query = usePredictionDetail(String(id ?? ''), { date: selectedDate });
 
   const header = (
     <Stack.Screen
@@ -56,7 +79,7 @@ function PredictionDetail() {
     />
   );
 
-  if (query.isLoading) {
+  if (query.isLoading && !query.data) {
     return (
       <View style={styles.center}>
         {header}
@@ -65,7 +88,7 @@ function PredictionDetail() {
     );
   }
 
-  if (query.isError || !query.data) {
+  if ((query.isError && !query.data) || !query.data) {
     return (
       <View style={styles.errorWrap}>
         {header}
@@ -74,6 +97,7 @@ function PredictionDetail() {
           subtitle={formatApiError(query.error)}
           actionLabel="Riprova"
           onAction={() => query.refetch()}
+          tone="error"
         />
       </View>
     );
@@ -100,6 +124,7 @@ function PredictionDetail() {
     pricing?.odds_decimal != null ||
     pricing?.probability_edge != null ||
     decision?.code != null;
+  const reasonNote = decisionReasonNote(decision?.reason);
 
   return (
     <>
@@ -149,7 +174,11 @@ function PredictionDetail() {
         <Text style={styles.section}>Valore e quote</Text>
         {hasExtras ? (
           <View style={styles.board}>
-            <InfoRow styles={styles} label="Decisione" value={decision?.code ?? '—'} />
+            <InfoRow
+              styles={styles}
+              label="Decisione"
+              value={decisionLabel(decision?.code)}
+            />
             <InfoRow
               styles={styles}
               label="EV"
@@ -170,8 +199,11 @@ function PredictionDetail() {
               label="Quota fair"
               value={fmtOdd(pricing?.fair_odds ?? null)}
             />
-            {decision?.reason ? (
-              <Text style={styles.reason}>{decision.reason}</Text>
+            {reasonNote ? (
+              <View style={styles.reasonBox}>
+                <Text style={styles.reasonLabel}>Nota</Text>
+                <Text style={styles.reason}>{reasonNote}</Text>
+              </View>
             ) : null}
           </View>
         ) : (
@@ -210,7 +242,12 @@ const makeStyles = (colors: Palette) =>
       justifyContent: 'center',
       backgroundColor: colors.surface,
     },
-    errorWrap: { flex: 1, backgroundColor: colors.surface },
+    errorWrap: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      padding: spacing.lg,
+    },
     list: { flex: 1, backgroundColor: colors.surface },
     content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
     kicker: {
@@ -271,11 +308,26 @@ const makeStyles = (colors: Palette) =>
     },
     infoLabel: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
     infoValue: { fontFamily: fonts.bodyBold, fontSize: fs(15), color: colors.ink },
+    reasonBox: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      gap: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.line,
+      backgroundColor: colors.surface,
+    },
+    reasonLabel: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fs(11),
+      color: colors.inkMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
     reason: {
       fontFamily: fonts.body,
       fontSize: fs(13),
       color: colors.inkMuted,
-      padding: spacing.md,
+      lineHeight: fs(18),
     },
     muted: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
   });
