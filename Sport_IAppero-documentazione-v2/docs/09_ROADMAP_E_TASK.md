@@ -63,6 +63,10 @@ Persistenza revisioni e ledger read-only, settlement osservato, storico per merc
 | P07 | Schermata Storico mobile (`/storico`, pulsante in header, link nel pannello giornata; si apre sullo sport corrente, barra sport per Calcio/Tennis) | **Implementato**; prova su dispositivo da fare con il nuovo APK |
 | P08 | Storico limitato alle giocate consigliate (`decision=PLAY` di default, `decision=all` per il resto) | **Implementato**: nel registro Soccer NO BET e BORDERLINE gonfiavano la percentuale (62,4% contro 59,7%) |
 | P09 | Nomi delle partite di calcio nello storico | **Implementato**: recuperati dal provider giorno per giorno, mai inventati |
+| P10 | `git_sha` reale su `/ready` | **Corretto**: il valore `unknown` incorporato nel Dockerfile oscurava `RAILWAY_GIT_COMMIT_SHA`; ora viene ignorato. Da verificare dopo il deploy |
+| P11 | Elenco Storico paginato (50 righe per pagina, caricamento allo scorrimento) | **Implementato**: prima l'app mostrava solo le prime 100 su 1.744 del Tennis |
+| P12 | Filtro periodo nello Storico (sempre / 30 giorni / 7 giorni, sul giorno d'inizio partita) | **Implementato**; usa `from` del BFF già presente |
+| P13 | Backup e retention di PostgreSQL | **Da configurare su Railway** (vedi `08_DATI_E_STORICO.md`): lo storico non è ricostruibile |
 
 Dati osservati sul deploy dopo il rilascio: Calcio 153 giocate PLAY (89 prese su 149 decise, 59,7%), Tennis 1.744 giocate (926 prese su 1.656 decise, 55,9%), 0 righe escluse per orario. Lo storico parte dalla data di prima registrazione del provider (Tennis dal 22 luglio, Calcio dal 12 settembre): non promette osservazioni anteriori.
 
