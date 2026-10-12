@@ -9,9 +9,8 @@ type Props = {
 };
 
 /**
- * Text wordmark, top-left. The PNG wordmark has near-white letters (made for the
- * old dark theme) and disappears on light backgrounds, so the light theme draws
- * it as text with the brand-blue "IA".
+ * Text wordmark, top-left, in the sport palette's ink with a brand-blue "IA"
+ * (the PNG wordmark has dark letters, made for light backgrounds).
  */
 export function BrandHeader({ size = 'md' }: Props) {
   const styles = useThemedStyles(makeStyles);
@@ -37,5 +36,5 @@ const makeStyles = (colors: Palette) =>
       color: colors.ink,
       letterSpacing: -0.5,
     },
-    ia: { color: '#0A8CFF' },
+    ia: { color: '#2A9BFF' },
   });

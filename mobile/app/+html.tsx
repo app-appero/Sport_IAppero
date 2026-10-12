@@ -8,17 +8,17 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <meta name="color-scheme" content="light" />
+        <meta name="color-scheme" content="dark" />
         <title>Sport IApperò</title>
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: baseCss }} />
       </head>
       <body>
         <div id="boot-fallback" style={fallbackStyle}>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#0F2A1E', letterSpacing: -0.5 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: '#F4F4F4', letterSpacing: -0.5 }}>
             Sport IApperò
           </div>
-          <div style={{ marginTop: 8, color: '#4A6A5B' }}>Avvio app…</div>
+          <div style={{ marginTop: 8, color: '#9B9B9B' }}>Avvio app…</div>
         </div>
         {children}
         <script
@@ -53,7 +53,7 @@ const fallbackStyle: Record<string, string | number> = {
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#F3FBF6',
+  background: '#000000',
   fontFamily: 'system-ui, sans-serif',
   padding: 24,
   textAlign: 'center',
@@ -65,8 +65,8 @@ html, body, #root {
 }
 body {
   margin: 0;
-  background-color: #F3FBF6;
-  color-scheme: light;
+  background-color: #000000;
+  color-scheme: dark;
 }
 #root:not(:empty) ~ #boot-fallback,
 body:has(#root .css-view-g5y9jx) #boot-fallback {

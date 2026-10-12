@@ -17,11 +17,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: 'portrait' as const,
     icon: './assets/images/icon.png',
     scheme: 'sportiappero',
-    userInterfaceStyle: 'light' as const,
+    userInterfaceStyle: 'dark' as const,
     splash: {
       image: './assets/images/splash-icon.png',
       resizeMode: 'contain' as const,
-      backgroundColor: '#F3FBF6',
+      backgroundColor: '#000000',
     },
     ios: {
       supportsTablet: true,
@@ -53,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           image: './assets/images/splash-icon.png',
           imageWidth: 280,
           resizeMode: 'contain',
-          backgroundColor: '#F3FBF6',
+          backgroundColor: '#000000',
         },
       ],
     ],

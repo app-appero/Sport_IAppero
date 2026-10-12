@@ -41,9 +41,7 @@ export function BootSplash() {
       accessibilityLabel={`Caricamento ${APP_NAME}`}
     >
       <LinearGradient
-        colors={[splashBackground, '#E9F6EE']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        colors={[splashBackground, splashBackground]}
         style={StyleSheet.absoluteFill}
       />
       <Image source={BRAND_SPLASH} style={styles.mark} resizeMode="contain" />
@@ -79,7 +77,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   word: { fontFamily: fonts.bodyBold, fontSize: fs(30), color: ink, letterSpacing: -0.5 },
-  ia: { color: '#0A8CFF' },
+  ia: { color: '#2A9BFF' },
   tag: { fontFamily: fonts.body, fontSize: fs(13), color: inkMuted },
   dots: { flexDirection: 'row', gap: 8, marginTop: 14 },
   dot: { width: 8, height: 8, borderRadius: 4 },
