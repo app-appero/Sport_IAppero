@@ -4,7 +4,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { marketLabel } from '@/constants/markets';
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -60,33 +60,33 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     fontFamily: fonts.bodyBold,
-    fontSize: 11,
+    fontSize: fs(11),
     letterSpacing: 0.4,
   },
   market: {
     color: colors.inkMuted,
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: fs(12),
     textTransform: 'capitalize',
     flexShrink: 1,
     textAlign: 'right',
   },
   event: {
     fontFamily: fonts.bodyBold,
-    fontSize: 17,
+    fontSize: fs(17),
     color: colors.ink,
   },
   pickLabel: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
-    fontSize: 12,
+    fontSize: fs(12),
     marginTop: 2,
   },
   pick: {
     fontFamily: fonts.display,
-    fontSize: 28,
+    fontSize: fs(28),
     color: colors.accentText,
     letterSpacing: 0.5,
-    lineHeight: 30,
+    lineHeight: fs(30),
   },
 });

@@ -5,7 +5,7 @@ import { BrandHeader } from '@/components/BrandHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { MarketBoard } from '@/components/MarketBoard';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
-import { fonts, spacing, type Palette } from '@/constants/theme';
+import { fonts, spacing, type Palette, fs } from '@/constants/theme';
 import { useEventPredictions } from '@/hooks/queries';
 import type { UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
@@ -162,7 +162,7 @@ const makeStyles = (colors: Palette) =>
     list: { flex: 1, backgroundColor: colors.surface },
     content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
     header: { gap: 4, marginBottom: spacing.sm },
-    title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },
-    subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
-    score: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink, marginTop: 4 },
+    title: { fontFamily: fonts.bodyBold, fontSize: fs(22), color: colors.ink },
+    subtitle: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
+    score: { fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.ink, marginTop: 4 },
   });

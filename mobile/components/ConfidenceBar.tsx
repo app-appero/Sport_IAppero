@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, type Palette } from '@/constants/theme';
+import { fonts, radii, type Palette, fs } from '@/constants/theme';
 
 export function ConfidenceBar({ value }: { value: number | null }) {
   const styles = useThemedStyles(makeStyles);
@@ -20,7 +20,7 @@ const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: { gap: 6 },
     track: {
-      height: 8,
+      height: 6,
       borderRadius: radii.sm,
       backgroundColor: colors.track,
       overflow: 'hidden',
@@ -33,6 +33,6 @@ const makeStyles = (colors: Palette) =>
     label: {
       fontFamily: fonts.bodyBold,
       color: colors.ink,
-      fontSize: 13,
+      fontSize: fs(13),
     },
   });

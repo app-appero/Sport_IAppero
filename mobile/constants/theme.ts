@@ -1,17 +1,18 @@
 import { Platform } from 'react-native';
 
 /**
- * Light theme with one palette per sport: the screen takes the colour of the
- * sport being browsed (football green, tennis yellow, ...). Brand cyan is kept
- * for sport-less screens (`defaultPalette`).
+ * Dark theme (pure black background) with one accent palette per sport: the
+ * screen takes the colour of the sport being browsed (football green, tennis
+ * yellow, ...). Brand cyan is kept for sport-less screens (`defaultPalette`).
+ * The previous light theme lives in git history (commit 47dac3d).
  *
- * Adding a sport = adding a palette below (accent, soft backgrounds, ink).
+ * Adding a sport = adding a palette below (accent + on-accent colour).
  */
 export type Palette = {
-  /** Fill colour for active pills, badges, bars (never for small text on white). */
+  /** Sport colour: fills (active pills, badges, bars) and accent text on black. */
   accent: string;
   accentDeep: string;
-  /** Darker accent that reads as text on white / tinted surfaces (>= 4.5:1). */
+  /** Accent used for text. Same as `accent` on black; kept separate for a light theme. */
   accentText: string;
   accentSoft: string;
   /** Text on accent fills. */
@@ -40,88 +41,64 @@ export type Palette = {
   infoBg: string;
 };
 
-const status = {
+const base = {
+  surface: '#000000',
+  surfaceElevated: '#0F0F0F',
+  line: '#262626',
+  track: '#1B1B1B',
+  gradient: ['#000000', '#000000'] as const,
+  ink: '#F4F4F4',
+  inkMuted: '#9B9B9B',
+  infoBg: '#0F0F0F',
   hit: '#2F9E44',
-  hitBg: '#E3F7EA',
+  hitBg: '#08170E',
   hitBadge: '#1F8A4C',
-  miss: '#D64545',
-  missBg: '#FDE8E8',
+  miss: '#C23B3B',
+  missBg: '#1E0B0B',
   missBadge: '#C92A2A',
-  warning: '#8A5A00',
-  warnBg: '#FFF4D6',
-  errorBg: '#FDE8E8',
+  warning: '#E6B84D',
+  warnBg: '#2A2414',
+  errorBg: '#1E0B0B',
 };
 
 /** Brand cyan — used outside a sport (not-found, fallbacks). */
 export const defaultPalette: Palette = {
+  ...base,
   accent: '#00E5FF',
   accentDeep: '#00B8D4',
-  accentText: '#006E85',
-  accentSoft: 'rgba(0,229,255,0.16)',
+  accentText: '#00E5FF',
+  accentSoft: 'rgba(0,229,255,0.14)',
   onAccent: '#04202A',
-  ink: '#0A1A2A',
-  inkMuted: '#4A6070',
-  surface: '#F4FAFD',
-  surfaceElevated: '#FFFFFF',
-  line: '#CFE3EC',
-  track: '#E2EEF3',
-  gradient: ['#F4FAFD', '#E5F3F9'],
-  dot: '#0A8CFF',
-  infoBg: '#E2EEF3',
-  ...status,
+  dot: '#00E5FF',
 };
 
 export const sportPalettes: Record<string, Palette> = {
   football: {
+    ...base,
     accent: '#1FDC7C',
     accentDeep: '#12B862',
-    accentText: '#0B7A43',
-    accentSoft: 'rgba(31,220,124,0.16)',
+    accentText: '#1FDC7C',
+    accentSoft: 'rgba(31,220,124,0.14)',
     onAccent: '#04210F',
-    ink: '#0F2A1E',
-    inkMuted: '#4A6A5B',
-    surface: '#F3FBF6',
-    surfaceElevated: '#FFFFFF',
-    line: '#CFE5D8',
-    track: '#E1EEE6',
-    gradient: ['#F3FBF6', '#E6F5EC'],
-    dot: '#0E9F57',
-    infoBg: '#E1EEE6',
-    ...status,
+    dot: '#1FDC7C',
   },
   tennis: {
+    ...base,
     accent: '#FFD60A',
     accentDeep: '#E8B800',
-    accentText: '#7A5F00',
-    accentSoft: 'rgba(255,214,10,0.22)',
+    accentText: '#FFD60A',
+    accentSoft: 'rgba(255,214,10,0.14)',
     onAccent: '#2A2000',
-    ink: '#2A2000',
-    inkMuted: '#695A1E',
-    surface: '#FFFBEA',
-    surfaceElevated: '#FFFFFF',
-    line: '#EADFA9',
-    track: '#F5EDC8',
-    gradient: ['#FFFBEA', '#FFF3C4'],
-    dot: '#C9A100',
-    infoBg: '#F5EDC8',
-    ...status,
+    dot: '#FFD60A',
   },
   basketball: {
+    ...base,
     accent: '#FF8A3D',
     accentDeep: '#E8691A',
-    accentText: '#B04508',
-    accentSoft: 'rgba(255,138,61,0.16)',
+    accentText: '#FF8A3D',
+    accentSoft: 'rgba(255,138,61,0.14)',
     onAccent: '#2A1202',
-    ink: '#2A1405',
-    inkMuted: '#7A4B2C',
-    surface: '#FFF7F0',
-    surfaceElevated: '#FFFFFF',
-    line: '#F0D3BE',
-    track: '#FBE4D3',
-    gradient: ['#FFF7F0', '#FFEBDC'],
-    dot: '#E8691A',
-    infoBg: '#FBE4D3',
-    ...status,
+    dot: '#FF8A3D',
   },
 };
 
@@ -129,21 +106,28 @@ export function paletteFor(sport?: string | null): Palette {
   return (sport && sportPalettes[sport]) || defaultPalette;
 }
 
-/** Dark navy of the native splash art (BootSplash must match it). */
-export const splashBackground = '#050A14';
+/** Native splash background; BootSplash must match it so the hand-off is seamless. */
+export const splashBackground = '#000000';
+
+/**
+ * One knob for the whole app's type size: every fontSize/lineHeight goes through
+ * `fs()`. 1 = the original sizes; lower it to shrink all text, raise it to grow it.
+ */
+export const TEXT_SCALE = 0.88;
+export const fs = (size: number) => Math.round(size * TEXT_SCALE);
 
 export const spacing = {
-  xs: 6,
-  sm: 10,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  xs: 5,
+  sm: 8,
+  md: 14,
+  lg: 20,
+  xl: 28,
 };
 
 export const radii = {
-  sm: 10,
-  md: 16,
-  lg: 24,
+  sm: 8,
+  md: 14,
+  lg: 20,
   pill: 999,
 };
 

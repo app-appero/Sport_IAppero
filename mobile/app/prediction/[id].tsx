@@ -5,7 +5,7 @@ import { BrandHeader } from '@/components/BrandHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel } from '@/constants/markets';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import { usePredictionDetail } from '@/hooks/queries';
 import { formatApiError } from '@/utils/formatApiError';
 import { outcomeTone, scoreForMarket } from '@/utils/outcome';
@@ -215,19 +215,19 @@ const makeStyles = (colors: Palette) =>
     content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
     kicker: {
       fontFamily: fonts.bodyBold,
-      fontSize: 12,
+      fontSize: fs(12),
       color: colors.inkMuted,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
       marginTop: spacing.sm,
     },
-    title: { fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink },
-    subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
-    score: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
-    tone: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.accentText },
+    title: { fontFamily: fonts.bodyBold, fontSize: fs(22), color: colors.ink },
+    subtitle: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
+    score: { fontFamily: fonts.bodyBold, fontSize: fs(15), color: colors.ink },
+    tone: { fontFamily: fonts.bodyMedium, fontSize: fs(13), color: colors.accentText },
     section: {
       fontFamily: fonts.bodyBold,
-      fontSize: 13,
+      fontSize: fs(13),
       color: colors.inkMuted,
       textTransform: 'uppercase',
       letterSpacing: 0.4,
@@ -252,12 +252,12 @@ const makeStyles = (colors: Palette) =>
     },
     rowHot: { backgroundColor: colors.accentSoft },
     rowLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-    rowLabel: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.ink },
-    rowPct: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink },
+    rowLabel: { fontFamily: fonts.bodyMedium, fontSize: fs(15), color: colors.ink },
+    rowPct: { fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.ink },
     badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
     badgeText: {
       fontFamily: fonts.bodyBold,
-      fontSize: 10,
+      fontSize: fs(10),
       color: colors.onAccent,
       textTransform: 'uppercase',
     },
@@ -269,13 +269,13 @@ const makeStyles = (colors: Palette) =>
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.line,
     },
-    infoLabel: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
-    infoValue: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
+    infoLabel: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
+    infoValue: { fontFamily: fonts.bodyBold, fontSize: fs(15), color: colors.ink },
     reason: {
       fontFamily: fonts.body,
-      fontSize: 13,
+      fontSize: fs(13),
       color: colors.inkMuted,
       padding: spacing.md,
     },
-    muted: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted },
+    muted: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
   });

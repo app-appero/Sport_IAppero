@@ -2,7 +2,7 @@ import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, spacing, type Palette } from '@/constants/theme';
+import { fonts, spacing, type Palette, fs } from '@/constants/theme';
 
 export default function NotFoundScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -28,7 +28,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     backgroundColor: colors.surface,
     gap: spacing.md,
   },
-  title: { fontFamily: fonts.bodyBold, fontSize: 20, color: colors.ink },
+  title: { fontFamily: fonts.bodyBold, fontSize: fs(20), color: colors.ink },
   link: { marginTop: spacing.sm },
-  linkText: { fontFamily: fonts.bodyMedium, color: colors.accentText, fontSize: 16 },
+  linkText: { fontFamily: fonts.bodyMedium, color: colors.accentText, fontSize: fs(16) },
 });

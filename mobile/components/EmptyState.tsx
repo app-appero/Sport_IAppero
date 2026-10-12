@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 
 type Props = {
   title: string;
@@ -61,17 +61,17 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     borderColor: colors.warning,
     backgroundColor: colors.warnBg,
   },
-  title: { fontFamily: fonts.bodyBold, fontSize: 18, color: colors.ink },
-  subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.inkMuted, lineHeight: 20 },
+  title: { fontFamily: fonts.bodyBold, fontSize: fs(18), color: colors.ink },
+  subtitle: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted, lineHeight: fs(20) },
   action: {
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
     backgroundColor: colors.accent,
     borderRadius: radii.sm,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    minHeight: 44,
+    paddingVertical: 8,
+    minHeight: 38,
     justifyContent: 'center',
   },
-  actionText: { fontFamily: fonts.bodyBold, color: colors.onAccent, fontSize: 14 },
+  actionText: { fontFamily: fonts.bodyBold, color: colors.onAccent, fontSize: fs(14) },
 });
