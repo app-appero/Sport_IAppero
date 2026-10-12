@@ -402,6 +402,9 @@ class SoccerProvider(SportProvider):
                     or p.event.competition.name == competition_id
                 )
             ]
+        if event_id:
+            eid = str(event_id)
+            predictions = [p for p in predictions if p.event.id == eid]
         if market:
             predictions = [p for p in predictions if p.prediction.type == market]
         if min_confidence is not None:
@@ -420,7 +423,8 @@ class SoccerProvider(SportProvider):
         )
         # Day-scoped feed: always return every match for that calendar day.
         # Optional `limit` only applies when no date filter is set.
-        if not day:
+        # Never apply a global limit when filtering a single event.
+        if not day and not event_id:
             limit = filters.get("limit")
             if limit is not None:
                 predictions = limit_predictions_keeping_events(predictions, int(limit))
