@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 
 import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel } from '@/constants/markets';
-import { fonts, radii, spacing, type Palette } from '@/constants/theme';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
 import { outcomeTone, scoreForMarket } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
@@ -129,7 +129,7 @@ const makeStyles = (colors: Palette) =>
     },
     marketName: {
       fontFamily: fonts.bodyBold,
-      fontSize: 15,
+      fontSize: fs(15),
       color: colors.ink,
       flex: 1,
     },
@@ -144,12 +144,12 @@ const makeStyles = (colors: Palette) =>
     miss: { backgroundColor: colors.miss },
     outcomeText: {
       fontFamily: fonts.bodyBold,
-      fontSize: 12,
+      fontSize: fs(12),
       color: '#fff',
     },
     score: {
       fontFamily: fonts.body,
-      fontSize: 13,
+      fontSize: fs(13),
       color: colors.inkMuted,
     },
     outcomes: { gap: 6 },
@@ -178,13 +178,13 @@ const makeStyles = (colors: Palette) =>
     },
     outcomeLabel: {
       fontFamily: fonts.bodyMedium,
-      fontSize: 14,
+      fontSize: fs(14),
       color: colors.ink,
     },
     outcomeLabelHot: { color: colors.accentDeep },
     outcomePct: {
       fontFamily: fonts.bodyBold,
-      fontSize: 15,
+      fontSize: fs(15),
       color: colors.ink,
       minWidth: 44,
       textAlign: 'right',
@@ -196,14 +196,14 @@ const makeStyles = (colors: Palette) =>
     },
     badgeText: {
       fontFamily: fonts.bodyBold,
-      fontSize: 10,
+      fontSize: fs(10),
       color: colors.onAccent,
       textTransform: 'uppercase',
       letterSpacing: 0.4,
     },
     hint: {
       fontFamily: fonts.body,
-      fontSize: 11,
+      fontSize: fs(11),
       color: colors.inkMuted,
       marginTop: 2,
     },
