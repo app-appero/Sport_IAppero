@@ -33,6 +33,7 @@ Open:
 
 - http://localhost:8000/docs
 - http://localhost:8000/health · http://localhost:8000/ready
+- http://localhost:8000/privacy (bozza di informativa privacy, da completare e far verificare; testo in `app/legal/privacy_text.py`, copia in `Sport_IAppero-documentazione-v2/docs/legal/PRIVACY_POLICY_BOZZA.md`, da tenere allineate)
 - http://localhost:8000/api/v1/feed
 - http://localhost:8000/api/v1/sports/football/predictions
 - http://localhost:8000/api/v1/sports/tennis/predictions
