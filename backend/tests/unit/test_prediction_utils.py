@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.models import Event, PredictionValue, ProviderMetadata, Selection, UnifiedPrediction
 from app.providers.prediction_utils import limit_predictions_keeping_events
@@ -15,7 +15,7 @@ def _pred(event_id: str, market: str, conf: float) -> UnifiedPrediction:
             confidence=conf,
         ),
         provider=ProviderMetadata(name="test"),
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
 

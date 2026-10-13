@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 ROME = ZoneInfo("Europe/Rome")
-UTC = timezone.utc
+UTC = UTC
 
 
 def rome_day_bounds(day: date | str) -> tuple[datetime, datetime]:

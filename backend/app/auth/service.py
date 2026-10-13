@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +12,7 @@ from app.db.models import User, UserIdentity
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 async def sign_in_google(maker: async_sessionmaker[AsyncSession], profile: GoogleProfile) -> User:
