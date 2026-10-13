@@ -5,7 +5,14 @@ import { deleteMe, getMe, loginWithGoogle } from '@/services/api';
 import type { AuthSession, AuthUser } from '@/types/api';
 
 const KEY = 'sport_iappero.session.v1';
-const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+/**
+ * Google OAuth *Web* client ID of the "SportIAppero" Cloud project. Not a secret (it ships in
+ * every APK), so it is the default; EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in mobile/.env overrides it.
+ * It must equal GOOGLE_CLIENT_IDS on the BFF, which checks it as the token audience.
+ */
+const DEFAULT_WEB_CLIENT_ID =
+  '113489003769-66q7tc5ccgdrq2hue7vod0ve75i80hu9.apps.googleusercontent.com';
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || DEFAULT_WEB_CLIENT_ID;
 
 /** Sign-in exists only in native builds that were given a Google Web client ID. */
 export const AUTH_AVAILABLE = Platform.OS !== 'web' && WEB_CLIENT_ID.length > 0;
