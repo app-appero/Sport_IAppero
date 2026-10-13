@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { marketLabel } from '@/constants/markets';
 import { useThemedStyles } from '@/components/SportTheme';
@@ -18,6 +18,9 @@ type Props = {
 export function DayStatsPanel({ stats, sport }: Props) {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
+  // Leave room for the pinned history button and the filter bar under the panel.
+  const detailMaxHeight = Math.min(420, Math.round(windowHeight * 0.36));
   const [open, setOpen] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
@@ -58,7 +61,7 @@ export function DayStatsPanel({ stats, sport }: Props) {
 
       {open ? (
         <ScrollView
-          style={styles.detail}
+          style={[styles.detail, { maxHeight: detailMaxHeight }]}
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
         >
@@ -80,16 +83,22 @@ export function DayStatsPanel({ stats, sport }: Props) {
               }
             />
           ))}
+        </ScrollView>
+      ) : null}
+
+      {open ? (
+        // Outside the ScrollView: always fully visible, never clipped at the panel edge.
+        <View style={styles.historyBar}>
           <Pressable
             onPress={() => router.push({ pathname: '/storico', params: { sport: sport ?? 'football' } })}
-            style={styles.historyLink}
+            style={({ pressed }) => [styles.historyLink, pressed && styles.historyLinkPressed]}
             accessibilityRole="link"
             accessibilityLabel="Vedi storico ufficiale"
           >
             <Text style={styles.historyLinkText}>Vedi storico ufficiale</Text>
             <Text style={styles.historyLinkText}>›</Text>
           </Pressable>
-        </ScrollView>
+        </View>
       ) : null}
     </View>
   );
@@ -246,19 +255,23 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: 8,
   },
+  historyBar: {
+    padding: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  // Solid accent so it reads as the panel's main action, not a faint row.
   historyLink: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
-    marginTop: spacing.sm,
+    minHeight: 48,
     paddingHorizontal: spacing.md,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+    borderRadius: radii.md,
+    backgroundColor: colors.accent,
   },
-  historyLinkText: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
+  historyLinkPressed: { opacity: 0.85 },
+  historyLinkText: { fontFamily: fonts.bodyBold, fontSize: fs(15), color: colors.onAccent },
   chevron: {
     fontFamily: fonts.bodyBold,
     fontSize: fs(12),
