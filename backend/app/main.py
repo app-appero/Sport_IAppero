@@ -3,11 +3,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.session import close_db, init_db, persistence_enabled
+from app.legal.privacy_text import PRIVACY_POLICY_MD
+from app.legal.render import render_page
 from app.persistence.ledger_sync import ledger_sync_loop
 from app.services.registry import close_providers, get_providers
 
@@ -60,6 +63,12 @@ async def root() -> dict[str, str]:
         "feed": "/api/v1/feed",
         "git_sha": settings.deploy_sha,
     }
+
+
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy() -> HTMLResponse:
+    """Informativa privacy (BOZZA da completare): URL pubblico da indicare a Google e agli store."""
+    return HTMLResponse(render_page(PRIVACY_POLICY_MD))
 
 
 @app.get("/health")

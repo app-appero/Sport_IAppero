@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.config import get_settings
 from app.db.models import ProviderFetchRun
@@ -33,7 +33,7 @@ async def _log_run(
                 latency_ms=latency_ms,
                 item_count=count,
                 error=error[:300] if error else None,
-                fetched_at=datetime.now(timezone.utc),
+                fetched_at=datetime.now(UTC),
             )
         )
         await session.commit()
