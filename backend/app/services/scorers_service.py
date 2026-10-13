@@ -42,3 +42,30 @@ async def get_scorers(day: str) -> dict[str, Any]:
     rows = await provider.get_scorers(day)
     fixtures = group_by_fixture(rows)
     return {"date": day, "note": MARKET_NOTE, "count": len(fixtures), "fixtures": fixtures}
+
+
+TOP_PER_TEAM = 3
+
+
+async def get_event_scorers(event_id: str) -> dict[str, Any]:
+    """Marcatori di una partita: `available=False` finche' la formazione ufficiale non e' pubblicata.
+    `top` = i primi 3 per squadra (sezione dell'app); `players` = tutti i titolari (web)."""
+    provider = get_provider("football")
+    if provider is None:
+        raise ProviderError("soccer", "Provider calcio non configurato")
+    rows = await provider.get_scorers_for_fixture(event_id)
+    fixtures = group_by_fixture(rows)
+    if not fixtures:
+        return {"event_id": event_id, "available": False, "note": MARKET_NOTE, "teams": []}
+    fixture = fixtures[0]
+    teams: dict[Any, dict[str, Any]] = {}
+    for p in fixture["players"]:
+        team = teams.setdefault(p["team_id"], {"team_id": p["team_id"], "team": p["team"], "players": []})
+        team["players"].append(p)
+    out = []
+    for team in teams.values():
+        team["top"] = team["players"][:TOP_PER_TEAM]
+        team["expected_scorers"] = round(sum(p["probability"] for p in team["players"]), 2)
+        out.append(team)
+    return {"event_id": event_id, "available": True, "note": MARKET_NOTE, "kickoff": fixture["kickoff"],
+            "model_version": fixture["model_version"], "lineup_type": fixture["lineup_type"], "teams": out}

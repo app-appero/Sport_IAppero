@@ -168,6 +168,11 @@ class SoccerProvider(SportProvider):
             return load_fixture("soccer", "official_plays.json")
         if path == "/scorers/day":
             return load_fixture("soccer", "scorers_day.json")
+        if path.startswith("/scorers/fixture/"):
+            fixture = load_fixture("soccer", "scorers_day.json")
+            wanted = path.rsplit("/", 1)[-1]
+            fixture["rows"] = [r for r in fixture["rows"] if str(r["fixture_id"]) == wanted]
+            return fixture
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path} params={params}")
 
     async def get_official_plays(
@@ -208,6 +213,12 @@ class SoccerProvider(SportProvider):
             if ko.astimezone(_ROME).date().isoformat() == day:
                 out.append(row)
         return out
+
+    async def get_scorers_for_fixture(self, fixture_id: str) -> list[dict[str, Any]]:
+        """Probabilita' marcatori (ultima revisione) di una partita. Lista vuota se la formazione ufficiale
+        non e' ancora stata pubblicata."""
+        payload = await self._get(f"/scorers/fixture/{fixture_id}")
+        return list(payload.get("rows") or []) if isinstance(payload, dict) else []
 
     async def healthcheck(self) -> dict[str, Any]:
         try:
