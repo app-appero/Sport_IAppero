@@ -266,9 +266,13 @@ export interface ScorerTeam {
   players: ScorerPlayer[];
 }
 
+export type ScorersStatus = 'ready' | 'lineup_pending' | 'unsupported';
+
 export interface EventScorersResponse {
   event_id: string;
   available: boolean;
+  /** `unsupported` = competizione fuori dal mercato marcatori: la sezione non va mostrata. */
+  status?: ScorersStatus;
   note: string;
   kickoff: string | null;
   model_version: string | null;

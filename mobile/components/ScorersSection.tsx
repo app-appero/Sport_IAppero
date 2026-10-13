@@ -13,6 +13,7 @@ import { useThemedStyles } from '@/components/SportTheme';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { EventScorersResponse, ScorerPlayer } from '@/types/api';
 import {
+  isScorersUnsupported,
   maxProbability,
   formatScorerPct,
   positionShort,
@@ -34,7 +35,7 @@ export function ScorersSection({ data, isLoading, isError }: Props) {
   const styles = useThemedStyles(makeStyles);
 
   if (isLoading) return <ScorersSkeleton />;
-  if (isError || !data) return null;
+  if (isError || !data || isScorersUnsupported(data)) return null;
 
   return (
     <View style={styles.card} accessibilityLabel="Possibili marcatori">

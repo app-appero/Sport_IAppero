@@ -57,3 +57,13 @@ export function scorerA11yLabel(player: ScorerPlayer): string {
   const scored = player.scored === true ? ', ha segnato' : '';
   return `${player.name}, ${positionLong(player.position)}, ${pct} percento${scored}`;
 }
+
+/** La sezione sparisce per le competizioni fuori dal mercato (es. Champions League). */
+export function isScorersUnsupported(data: { status?: string } | undefined): boolean {
+  return data?.status === 'unsupported';
+}
+
+/** Si rinfresca solo mentre si aspetta la formazione ufficiale. */
+export function shouldPollScorers(data: { available: boolean; status?: string } | undefined): boolean {
+  return Boolean(data) && !data!.available && data!.status !== 'unsupported';
+}

@@ -14,6 +14,7 @@ import {
 } from '@/services/api';
 import { pollIntervalFor } from '@/utils/staleness';
 import { todayKey } from '@/utils/dates';
+import { shouldPollScorers } from '@/utils/scorers';
 import type { FeedResponse, PredictionListResponse, UnifiedPrediction } from '@/types/api';
 
 export function useProviderHealth() {
@@ -170,8 +171,7 @@ export function useEventScorers(eventId: string, enabled = true) {
     placeholderData: keepPreviousData,
     // Only polls while data says "not available yet"; React Query pauses it in
     // background and offline. Errors stop the polling and the section hides.
-    refetchInterval: (query) =>
-      query.state.data && !query.state.data.available ? SCORERS_PENDING_REFETCH_MS : false,
+    refetchInterval: (query) => (shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false),
   });
 }
 
