@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import type {
   CompetitionListResponse,
   EventListResponse,
+  EventScorersResponse,
   FeedItem,
   AuthSession,
   AuthUser,
@@ -301,6 +302,12 @@ export async function getEventPredictions(
   }
   return getJson<PredictionListResponse>(
     `/api/v1/events/${encodeURIComponent(eventId)}/predictions${q}`,
+  );
+}
+
+export function getEventScorers(eventId: string) {
+  return getJson<EventScorersResponse>(
+    `/api/v1/events/${encodeURIComponent(eventId)}/scorers`,
   );
 }
 

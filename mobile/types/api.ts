@@ -243,3 +243,35 @@ export interface AuthSession {
   expires_at: string;
   user: AuthUser;
 }
+
+export type ScorerPosition = 'F' | 'M' | 'D' | string;
+
+export interface ScorerPlayer {
+  player_id: number | string;
+  name: string;
+  team_id: number;
+  team: string;
+  position: ScorerPosition;
+  /** Probability of scoring at least one goal, 0..1. */
+  probability: number;
+  /** Final result: true/false once the match is over, null before. */
+  scored: boolean | null;
+}
+
+export interface ScorerTeam {
+  team_id: number;
+  team: string;
+  expected_scorers: number;
+  top: ScorerPlayer[];
+  players: ScorerPlayer[];
+}
+
+export interface EventScorersResponse {
+  event_id: string;
+  available: boolean;
+  note: string;
+  kickoff: string | null;
+  model_version: string | null;
+  lineup_type: string | null;
+  teams: ScorerTeam[];
+}
