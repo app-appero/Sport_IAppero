@@ -7,6 +7,7 @@ from app.domain.models import (
     Competition,
     Event,
     EventScore,
+    LiveState,
     MarketInfo,
     Participant,
     PredictionValue,
@@ -286,6 +287,27 @@ def _participants(raw: dict[str, Any]) -> list[Participant]:
     return out
 
 
+def _live_state(raw: dict[str, Any], live: Any) -> LiveState | None:
+    """Live snapshot for a match the provider flags as in progress (`event_live` == 1)."""
+    flag = str(_dig(raw, "event_live") or "").strip().lower()
+    if flag not in {"1", "true", "yes"}:
+        return None
+    live = live if isinstance(live, dict) else {}
+    sets: list[list[int]] = []
+    for row in live.get("sets") or []:
+        if isinstance(row, dict):
+            g1, g2, _ = _games_in_set(row)
+            sets.append([g1, g2])
+    game = live.get("current_game")
+    game = game.strip() if isinstance(game, str) and game.strip() not in {"", "-", "0 - 0"} else None
+    server_raw = str(live.get("server") or "").strip().lower()
+    server = "home" if server_raw in {"first player", "player_1", "1"} else (
+        "away" if server_raw in {"second player", "player_2", "2"} else None)
+    detail = _dig(raw, "event_status", "status")
+    return LiveState(sets=sets, current_game=game, server=server,
+                     status_detail=str(detail).strip() if detail else None)
+
+
 def map_event(raw: dict[str, Any]) -> Event:
     event_id = str(_dig(raw, "event_key", "id", "event_id", "fixture_id", "match_id") or "")
     participants = _participants(raw)
@@ -350,6 +372,11 @@ def map_event(raw: dict[str, Any]) -> Event:
         else:
             score_obj = EventScore(display=display)
 
+    live_state = _live_state(raw, live)
+    status = str(_dig(raw, "event_status", "status", "match_lifecycle_status") or "") or None
+    if live_state is not None:
+        status = "live"  # the provider says "Set 2": the app only needs to know it is in progress
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
@@ -357,8 +384,9 @@ def map_event(raw: dict[str, Any]) -> Event:
         start_time=start,
         calendar_date=calendar_date,
         participants=participants,
-        status=str(_dig(raw, "event_status", "status", "match_lifecycle_status") or "") or None,
+        status=status,
         score=score_obj,
+        live=live_state,
         actual_totals=actual_totals,
     )
 

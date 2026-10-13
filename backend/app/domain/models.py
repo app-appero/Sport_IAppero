@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,19 @@ class EventScore(BaseModel):
     display: str | None = None
 
 
+class LiveState(BaseModel):
+    """In-progress snapshot of a match (tennis): games per set, the current game and who serves."""
+
+    is_live: bool = True
+    # Games per set as [home, away], in play order, e.g. [[6, 4], [3, 2]].
+    sets: list[list[int]] = Field(default_factory=list)
+    # Points in the current game as shown by the provider, e.g. "30 - 15".
+    current_game: str | None = None
+    server: Literal["home", "away"] | None = None
+    # Provider status text, e.g. "Set 2".
+    status_detail: str | None = None
+
+
 class Event(BaseModel):
     id: str
     name: str
@@ -33,6 +46,7 @@ class Event(BaseModel):
     participants: list[Participant] = Field(default_factory=list)
     status: str | None = None
     score: EventScore | None = None
+    live: LiveState | None = None
     actual_totals: dict[str, Any] | None = None
 
 

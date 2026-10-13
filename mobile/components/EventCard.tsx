@@ -8,6 +8,7 @@ import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
+import { isLiveEvent, liveLine } from '@/utils/liveScore';
 import { outcomeTone, pickBestPrediction, scoreForMarket } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
 
@@ -42,6 +43,8 @@ export function EventCard({
   const tone = outcomeTone(best);
   const scoreLine = scoreForMarket(item.event, best.prediction.type);
   const timeLabel = formatEventTime(item.event.start_time);
+  const live = isLiveEvent(item.event);
+  const liveInfo = live ? liveLine(item.event) : null;
   const marketsCount = new Set(item.predictions.map((p) => p.prediction.type)).size;
   const cardStyle = [
     styles.card,
@@ -64,13 +67,28 @@ export function EventCard({
               <Text style={styles.outcomeText}>{tone === 'hit' ? 'V' : 'X'}</Text>
             </View>
           ) : null}
+          {live ? (
+            <View style={styles.liveBadge} accessibilityLabel="Partita in corso">
+              <Text style={styles.liveBadgeText}>● LIVE</Text>
+            </View>
+          ) : null}
           <Text style={styles.time}>{timeLabel}</Text>
         </View>
       </View>
 
       <Text style={styles.event}>{item.event.name}</Text>
 
-      {scoreLine ? (
+      {liveInfo ? (
+        <View style={styles.liveBlock} accessibilityLabel="Punteggio in diretta">
+          {liveInfo.sets ? <Text style={styles.score}>Set · {liveInfo.sets}</Text> : null}
+          {liveInfo.game ? <Text style={styles.scoreMuted}>Game · {liveInfo.game}</Text> : null}
+          {liveInfo.server ? <Text style={styles.scoreMuted}>Al servizio · {liveInfo.server}</Text> : null}
+        </View>
+      ) : scoreLine && !live ? (
+        <Text style={styles.score}>Risultato · {scoreLine}</Text>
+      ) : live ? (
+        <Text style={styles.scoreMuted}>In corso</Text>
+      ) : scoreLine ? (
         <Text style={styles.score}>Risultato · {scoreLine}</Text>
       ) : (
         <Text style={styles.scoreMuted}>
@@ -204,6 +222,19 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     fontSize: fs(14),
     color: colors.ink,
+  },
+  liveBlock: { gap: 2 },
+  liveBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
+  },
+  liveBadgeText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fs(11),
+    letterSpacing: 0.6,
+    color: colors.surface,
   },
   scoreMuted: {
     fontFamily: fonts.body,

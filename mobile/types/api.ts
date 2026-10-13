@@ -17,6 +17,16 @@ export interface EventScore {
   display?: string | null;
 }
 
+/** In-progress snapshot of a match (tennis): games per set, current game and server. */
+export interface LiveState {
+  is_live: boolean;
+  /** Games per set as [home, away], in play order. */
+  sets: number[][];
+  current_game: string | null;
+  server: 'home' | 'away' | null;
+  status_detail: string | null;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -26,6 +36,7 @@ export interface Event {
   participants: Participant[];
   status: string | null;
   score?: EventScore | null;
+  live?: LiveState | null;
   actual_totals?: Record<string, number | string | null> | null;
 }
 

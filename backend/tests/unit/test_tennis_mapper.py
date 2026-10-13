@@ -89,3 +89,46 @@ def test_aware_start_time_preserved():
     )
     assert events[0].start_time is not None
     assert events[0].start_time.tzinfo is not None
+
+
+def _live_raw(**over):
+    raw = {
+        "event_key": 777, "event_date": "2026-10-13", "event_first_player": "A. Rossi",
+        "event_second_player": "B. Neri", "tournament_name": "Paris", "event_status": "Set 2",
+        "event_live": "1",
+        "live_score": {
+            "sets": [{"score_first": "6", "score_second": "4", "score_set": "1"},
+                     {"score_first": "3", "score_second": "2", "score_set": "2"}],
+            "current_game": "30 - 15", "server": "First Player", "final_result": "1 - 0", "status": "Set 2",
+        },
+    }
+    raw.update(over)
+    return raw
+
+
+def test_live_match_exposes_sets_current_game_and_server():
+    event = mapper.map_event(_live_raw())
+    assert event.status == "live"
+    assert event.live is not None
+    assert event.live.sets == [[6, 4], [3, 2]]
+    assert event.live.current_game == "30 - 15"
+    assert event.live.server == "home"
+    assert event.live.status_detail == "Set 2"
+    assert event.score is not None and event.score.display == "1 - 0"
+
+
+def test_tiebreak_tokens_count_games_and_placeholder_game_is_dropped():
+    raw = _live_raw()
+    raw["live_score"]["sets"] = [{"score_first": "7.7", "score_second": "6.4", "score_set": "1"}]
+    raw["live_score"]["current_game"] = "0 - 0"
+    raw["live_score"]["server"] = "Second Player"
+    event = mapper.map_event(raw)
+    assert event.live.sets == [[7, 6]]
+    assert event.live.current_game is None
+    assert event.live.server == "away"
+
+
+def test_not_live_match_keeps_provider_status_and_has_no_live_state():
+    event = mapper.map_event(_live_raw(event_live="0", event_status="Finished"))
+    assert event.live is None
+    assert event.status == "Finished"
