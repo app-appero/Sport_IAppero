@@ -16,7 +16,7 @@ def test_scorers_groups_by_fixture_sorted_by_probability():
     players = data["fixtures"][0]["players"]
     probs = [p["probability"] for p in players]
     assert probs == sorted(probs, reverse=True) and players[0]["name"] == "M. Rossi"
-    assert "non e' una quota" in data["note"]
+    assert "Non e' una quota" in data["note"]
 
 
 def test_scorers_other_rome_day_is_empty():
