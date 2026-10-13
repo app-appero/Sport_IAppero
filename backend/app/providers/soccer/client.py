@@ -166,6 +166,8 @@ class SoccerProvider(SportProvider):
             return load_fixture("soccer", "available_dates.json")
         if path == "/predictions/official/plays":
             return load_fixture("soccer", "official_plays.json")
+        if path == "/scorers/day":
+            return load_fixture("soccer", "scorers_day.json")
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path} params={params}")
 
     async def get_official_plays(
@@ -181,6 +183,31 @@ class SoccerProvider(SportProvider):
             if isinstance(total, int) and isinstance(rows, list) and len(rows) < total:
                 logger.warning("Soccer official ledger truncated: %s of %s", len(rows), total)
         return ledger.map_ledger_payload(payload)
+
+    async def get_scorers(self, day: str) -> list[dict[str, Any]]:
+        """Probabilita' "il giocatore segna" delle partite del giorno (calendario Europe/Rome).
+
+        L'engine filtra per data UTC del kickoff: si chiedono anche i giorni adiacenti e si tiene
+        solo cio' che cade nel giorno di Roma richiesto (stesso criterio degli eventi)."""
+        rows: list[dict[str, Any]] = []
+        for utc_day in self._adjacent_dates(day):
+            payload = await self._get("/scorers/day", params={"date": utc_day})
+            rows.extend(payload.get("rows") or [] if isinstance(payload, dict) else [])
+        out, seen = [], set()
+        for row in rows:
+            key = (row.get("fixture_id"), row.get("player_id"), row.get("revision"))
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                ko = datetime.fromisoformat(str(row.get("kickoff")))
+            except ValueError:
+                continue
+            if ko.tzinfo is None:
+                ko = ko.replace(tzinfo=ZoneInfo("UTC"))
+            if ko.astimezone(_ROME).date().isoformat() == day:
+                out.append(row)
+        return out
 
     async def healthcheck(self) -> dict[str, Any]:
         try:
