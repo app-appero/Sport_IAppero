@@ -67,7 +67,7 @@ async def root() -> dict[str, str]:
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 async def privacy_policy() -> HTMLResponse:
-    """Informativa privacy (BOZZA da completare): URL pubblico da indicare a Google e agli store."""
+    """Informativa privacy: URL pubblico da indicare a Google e agli store."""
     return HTMLResponse(render_page(PRIVACY_POLICY_MD))
 
 
