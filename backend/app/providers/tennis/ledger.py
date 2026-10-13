@@ -10,7 +10,7 @@ Source of truth:
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -34,7 +34,7 @@ def _dt(value: Any) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         # The provider stores publication instants as UTC-naive.
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -63,7 +63,7 @@ def kickoff_from(event_date: Any, event_time: Any) -> datetime | None:
         t = time.fromisoformat(event_time)
     except ValueError:
         return None
-    return datetime.combine(d, t, tzinfo=_ROME).astimezone(timezone.utc)
+    return datetime.combine(d, t, tzinfo=_ROME).astimezone(UTC)
 
 
 def map_outcome(outcome: Any) -> str:

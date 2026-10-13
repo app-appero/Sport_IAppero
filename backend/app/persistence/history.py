@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import date, datetime, time, timezone
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time
 from typing import Any
 
 from sqlalchemy import select
@@ -44,11 +44,11 @@ class Counts:
 
 
 def _start(d: date | None) -> datetime | None:
-    return datetime.combine(d, time.min, tzinfo=timezone.utc) if d else None
+    return datetime.combine(d, time.min, tzinfo=UTC) if d else None
 
 
 def _end(d: date | None) -> datetime | None:
-    return datetime.combine(d, time.max, tzinfo=timezone.utc) if d else None
+    return datetime.combine(d, time.max, tzinfo=UTC) if d else None
 
 
 def _base_query(
@@ -153,7 +153,8 @@ async def compute_stats(
             "win_rate = won / (won + lost); void, pending e not_placed sono riportati ma non contati.",
             "Le conteggi sono aggregati per gruppo; nessuna media dei win rate.",
             "Solo pubblicazioni ufficiali del provider con captured_at precedente al calcio d'inizio.",
-            "Per default solo le giocate consigliate (decision = PLAY); decision=all include anche NO BET e BORDERLINE.",
+            "Per default solo le giocate consigliate (decision = PLAY); "
+            "decision=all include anche NO BET e BORDERLINE.",
         ],
     }
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -14,7 +14,7 @@ class InvalidSession(Exception):
 
 
 def issue_session_token(user_id: str, secret: str, ttl_days: int) -> tuple[str, datetime]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = now + timedelta(days=ttl_days)
     token = jwt.encode(
         {"sub": user_id, "iss": _ISSUER, "iat": now, "exp": expires}, secret, algorithm="HS256"

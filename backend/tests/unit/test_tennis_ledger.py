@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.providers.tennis.ledger import (
@@ -15,7 +15,7 @@ FIX = Path(__file__).parent.parent / "fixtures" / "tennis"
 
 def test_kickoff_is_europe_rome_local_and_needs_a_time():
     # Rome is UTC+2 in October (CEST).
-    assert kickoff_from("2026-10-08", "10:00:00") == datetime(2026, 10, 8, 8, 0, tzinfo=timezone.utc)
+    assert kickoff_from("2026-10-08", "10:00:00") == datetime(2026, 10, 8, 8, 0, tzinfo=UTC)
     assert kickoff_from("2026-10-08", None) is None
     assert kickoff_from("bad", "10:00:00") is None
 

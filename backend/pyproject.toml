@@ -43,8 +43,14 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
+extend-exclude = ["app/db/migrations/versions"]
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Embedded legal text and inline CSS: long lines are the content, not code.
+"app/legal/privacy_text.py" = ["E501"]
+"app/legal/render.py" = ["E501"]

@@ -6,8 +6,8 @@ import asyncio
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -25,14 +25,14 @@ _background: set[asyncio.Task] = set()
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _aware(dt: datetime | None) -> datetime | None:
     """Naive timestamps have no verifiable zone, so they are treated as unknown."""
     if dt is None or dt.tzinfo is None:
         return None
-    return dt.astimezone(timezone.utc)
+    return dt.astimezone(UTC)
 
 
 def pre_match(moment: datetime | None, kickoff: datetime | None) -> bool | None:
@@ -300,7 +300,7 @@ async def missing_name_days(sport: str, limit: int = 15) -> list[str]:
     rome = ZoneInfo("Europe/Rome")
     # Stored values are UTC; SQLite (tests) hands them back naive.
     days = {
-        (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(rome).date().isoformat()
+        (t if t.tzinfo else t.replace(tzinfo=UTC)).astimezone(rome).date().isoformat()
         for t in starts
     }
     return sorted(days, reverse=True)[:limit]

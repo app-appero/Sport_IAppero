@@ -8,7 +8,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.config import get_settings
@@ -198,7 +198,7 @@ async def _fetch_sport(
             status=status,
             warning=warn,
         )
-    except (asyncio.TimeoutError, Exception):
+    except (TimeoutError, Exception):
         label = "Tennis" if sport == "tennis" else "Football"
         return ProviderSlice(
             sport=sport,
@@ -231,13 +231,13 @@ def _group_items(slices: list[ProviderSlice], sort: str) -> list[FeedItem]:
         if dt is None:
             return None
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
 
     def start_key(item: FeedItem) -> tuple:
         st = _aware(item.event.start_time)
         # None last
-        return (st is None, st or datetime.min.replace(tzinfo=timezone.utc), item.event.id)
+        return (st is None, st or datetime.min.replace(tzinfo=UTC), item.event.id)
 
     def prob_key(item: FeedItem) -> tuple:
         confs = [p.prediction.confidence for p in item.predictions if p.prediction.confidence is not None]
@@ -311,7 +311,7 @@ async def _build_snapshot(query: FeedQuery) -> FeedSnapshot:
 
     return FeedSnapshot(
         snapshot_id=snapshot_id,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
         query=query,
         filter_hash=_filter_hash(query),
         items=items,
