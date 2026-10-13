@@ -3,6 +3,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@t
 import {
   getCompetitions,
   getEventPredictions,
+  getEventScorers,
   getEvents,
   getFeedWithFallback,
   getHealthProviders,
@@ -152,6 +153,25 @@ export function useEventPredictions(
     queryKey: ['event-predictions', eventId, opts?.sport ?? null, opts?.date ?? null],
     queryFn: () => getEventPredictions(eventId, opts),
     enabled: Boolean(eventId),
+  });
+}
+
+export const SCORERS_STALE_MS = 2 * 60_000;
+export const SCORERS_PENDING_REFETCH_MS = 5 * 60_000;
+
+/** Possible scorers (football only). Until the official line-up is out, refetch every 5 min. */
+export function useEventScorers(eventId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['event-scorers', eventId],
+    queryFn: () => getEventScorers(eventId),
+    enabled: enabled && Boolean(eventId),
+    staleTime: SCORERS_STALE_MS,
+    // Keep the last snapshot on screen (also offline / while refetching).
+    placeholderData: keepPreviousData,
+    // Only polls while data says "not available yet"; React Query pauses it in
+    // background and offline. Errors stop the polling and the section hides.
+    refetchInterval: (query) =>
+      query.state.data && !query.state.data.available ? SCORERS_PENDING_REFETCH_MS : false,
   });
 }
 

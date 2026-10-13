@@ -5,9 +5,10 @@ import { BrandHeader } from '@/components/BrandHeader';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { MarketBoard } from '@/components/MarketBoard';
+import { ScorersSection } from '@/components/ScorersSection';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, spacing, type Palette, fs } from '@/constants/theme';
-import { useEventPredictions } from '@/hooks/queries';
+import { useEventPredictions, useEventScorers } from '@/hooks/queries';
 import type { UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
@@ -64,6 +65,9 @@ function EventDetail() {
     sport: sport ? String(sport) : undefined,
     date: selectedDate,
   });
+
+  const isFootball = (query.data?.items[0]?.sport ?? sport) === 'football';
+  const scorers = useEventScorers(String(id ?? ''), isFootball);
 
   const header = (
     <Stack.Screen
@@ -147,6 +151,15 @@ function EventDetail() {
           />
         }
         renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
+        ListFooterComponent={
+          isFootball && items.length > 0 ? (
+            <ScorersSection
+              data={scorers.data}
+              isLoading={scorers.isLoading}
+              isError={scorers.isError && !scorers.data}
+            />
+          ) : null
+        }
       />
     </>
   );
