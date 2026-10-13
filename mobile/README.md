@@ -46,7 +46,7 @@ Spaziature e raggi sono in `spacing` / `radii`.
 
 ## Account (facoltativo)
 
-Accesso con Google, solo app nativa (Android per ora). Senza account l'app funziona come prima. Il pulsante tondo del profilo (icona persona, oppure le iniziali dopo l'accesso) compare solo se in `mobile/.env` c'è `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; la sessione è salvata con `expo-secure-store`. Il modulo Google non gira in Expo Go: serve il development build / APK (`npm run apk`). Per iPhone mancano Apple Sign-In e l'`iosUrlScheme` del plugin Google.
+Accesso con Google, solo app nativa (Android per ora). Senza account l'app funziona come prima. Il pulsante tondo del profilo (icona persona, oppure le iniziali dopo l'accesso) usa l'ID client Web di Google Cloud già impostato come predefinito in `services/auth.ts` (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `mobile/.env` lo sostituisce; deve coincidere con `GOOGLE_CLIENT_IDS` sul BFF); la sessione è salvata con `expo-secure-store`. Il modulo Google non gira in Expo Go: serve il development build / APK (`npm run apk`). Per iPhone mancano Apple Sign-In e l'`iosUrlScheme` del plugin Google.
 
 ## Setup
 
