@@ -189,6 +189,19 @@ function RefreshBlock({ token }: { token: string }) {
             </View>
           ))
         : null}
+      <Pressable
+        onPress={() => start({ sports: ['tennis'], force: true })}
+        disabled={running}
+        style={[styles.secondary, running && styles.disabled]}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: running }}
+        accessibilityLabel="Forza le schedine Tennis anche dopo le 10"
+      >
+        <Text style={styles.secondaryText}>Forza schedine Tennis (dopo le 10)</Text>
+      </Pressable>
+      <Text style={styles.reason}>
+        Aggiorna il tennis e rigenera le schedine anche a pool chiuso. «Aggiorna tutto» dopo le 10 lascia le schedine come sono.
+      </Text>
       {message ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
