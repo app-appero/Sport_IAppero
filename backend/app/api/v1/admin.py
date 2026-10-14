@@ -6,6 +6,7 @@ only cosmetics: a request without the right permission gets 403 here."""
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from datetime import UTC, datetime
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 SPORTS = ("football", "tennis")
 REFRESH_COOLDOWN_SECONDS = 60
 _refresh_lock = asyncio.Lock()
-_last_refresh_started: float | None = None
+_last_started: dict[str, float] = {}  # sport -> monotonic time of its last successful start
 
 
 def _error(status: int, code: str, message: str, **extra) -> HTTPException:
@@ -139,35 +140,71 @@ async def set_role(user_id: str, body: RoleChange, actor=Depends(require_super_a
 
 class RefreshRequest(BaseModel):
     sports: list[Literal["football", "tennis"]] = Field(default_factory=lambda: list(SPORTS), min_length=1)
+    # Only the tennis engine has a closing window for its slip pool; this is its explicit override.
+    force_outside_hours: bool = False
+
+
+def _engine_error(exc: ProviderError) -> dict:
+    """What the admin sees when an engine refuses: a short reason, never a stack trace or a credential."""
+    status = getattr(exc, "status_code", None)
+    raw = str(getattr(exc, "message", "") or "")
+    if status == 423:
+        detail = None
+        start = raw.find("{")
+        if start >= 0:
+            try:
+                detail = json.loads(raw[start:]).get("detail")
+            except ValueError:
+                detail = None
+        fallback = "Il motore ha chiuso la finestra di aggiornamento di oggi"
+        return {"code": "window_closed", "message": detail or fallback}
+    if status in (401, 403):
+        return {"code": "forbidden", "message": f"Permesso negato dal motore ({status})"}
+    if status and status >= 500:
+        return {"code": "engine_error", "message": f"Errore interno del motore ({status})"}
+    if status:
+        return {"code": "rejected", "message": f"Il motore ha rifiutato la richiesta ({status})"}
+    return {"code": "unreachable", "message": "Il motore non è raggiungibile"}
 
 
 @router.post("/refresh")
 async def refresh_all(body: RefreshRequest, actor=Depends(require_permission("refresh_data"))) -> dict:
-    """Starts "Aggiorna tutto" on the selected engines (both by default). One run at a time, with a
-    short cooldown: the engines spend API-Sports quota on every run."""
-    global _last_refresh_started
+    """Starts "Aggiorna tutto" on the selected engines (both by default). Each engine has its own short
+    cooldown, counted only from a run that really started: the runs spend API-Sports quota, a refused
+    request (e.g. closed window) must be retryable at once."""
     _, maker = _auth_ready()
+    sports = list(dict.fromkeys(body.sports))
+    results: dict[str, dict] = {}
     async with _refresh_lock:
         now = time.monotonic()
-        if _last_refresh_started is not None and now - _last_refresh_started < REFRESH_COOLDOWN_SECONDS:
-            wait = int(REFRESH_COOLDOWN_SECONDS - (now - _last_refresh_started)) + 1
+        waits = {
+            s: int(REFRESH_COOLDOWN_SECONDS - (now - _last_started[s])) + 1
+            for s in sports
+            if s in _last_started and now - _last_started[s] < REFRESH_COOLDOWN_SECONDS
+        }
+        if len(waits) == len(sports):
+            wait = max(waits.values())
             raise _error(429, "cooldown", f"Aggiornamento già avviato: riprova tra {wait} secondi",
                          retry_after_seconds=wait)
-        _last_refresh_started = now
-    results: dict[str, dict] = {}
-    for sport in dict.fromkeys(body.sports):
-        provider = get_provider(sport)
-        if provider is None:
-            results[sport] = {"state": "error", "ref": None, "message": "Provider non configurato"}
-            continue
-        try:
-            started = await provider.start_refresh()
-            results[sport] = {"state": "started", "ref": started.get("ref"), "message": started.get("message")}
-        except ProviderError as exc:
-            logger.warning("admin refresh %s failed: %s", sport, exc)
-            results[sport] = {"state": "error", "ref": None, "message": "Il motore non ha accettato la richiesta"}
-    await _audit(maker, actor, "refresh", None, {"sports": list(results), "states": {
-        s: r["state"] for s, r in results.items()}})
+        for sport in sports:
+            if sport in waits:
+                results[sport] = {"state": "error", "ref": None, "code": "cooldown",
+                                  "message": f"Già avviato poco fa: riprova tra {waits[sport]} secondi"}
+                continue
+            provider = get_provider(sport)
+            if provider is None:
+                results[sport] = {"state": "error", "ref": None, "message": "Provider non configurato"}
+                continue
+            try:
+                started = await provider.start_refresh(force_outside_hours=body.force_outside_hours)
+                results[sport] = {"state": "started", "ref": started.get("ref"), "message": started.get("message")}
+                _last_started[sport] = time.monotonic()
+            except ProviderError as exc:
+                logger.warning("admin refresh %s failed: %s", sport, exc)
+                err = _engine_error(exc)
+                results[sport] = {"state": "error", "ref": None, "message": err["message"], "code": err["code"]}
+    await _audit(maker, actor, "refresh", None, {"sports": list(results), "forced": body.force_outside_hours,
+                                                 "states": {s: r["state"] for s, r in results.items()}})
     return {"started_at": datetime.now(UTC), "results": results}
 
 

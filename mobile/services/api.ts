@@ -410,10 +410,10 @@ export function adminSetRole(
   });
 }
 
-export function adminRefresh(token: string, sports: string[]) {
+export function adminRefresh(token: string, sports: string[], opts?: { forceOutsideHours?: boolean }) {
   return request<AdminRefreshResponse>('POST', '/api/v1/admin/refresh', {
     token,
-    body: { sports },
+    body: { sports, force_outside_hours: opts?.forceOutsideHours === true },
   });
 }
 

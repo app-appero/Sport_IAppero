@@ -150,9 +150,14 @@ class TennisProvider(SportProvider):
             return load_fixture("tennis", "fixtures.json")
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path}")
 
-    async def start_refresh(self) -> dict[str, Any]:
-        """"Aggiorna tutto" of the Tennis engine: the global update run (fixtures, predictions, slips)."""
-        payload = await self._get("/api/global-update", method="POST", json={})
+    async def start_refresh(self, *, force_outside_hours: bool = False) -> dict[str, Any]:
+        """"Aggiorna tutto" of the Tennis engine: the global update run (fixtures, predictions, slips).
+
+        The engine refuses (423) once today's slip pool window is closed; `force_outside_hours` is the
+        explicit override it offers, used only when the admin asks for it."""
+        payload = await self._get(
+            "/api/global-update", method="POST", json={"force_outside_hours": force_outside_hours}
+        )
         payload = payload if isinstance(payload, dict) else {}
         run_id = payload.get("run_id")
         return {"ref": str(run_id) if run_id is not None else None, "message": payload.get("message")}

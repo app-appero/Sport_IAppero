@@ -22,7 +22,7 @@ def client(tmp_path, monkeypatch, keys):  # noqa: F811
     get_settings.cache_clear()
     get_providers.cache_clear()
     monkeypatch.setattr(google, "_signing_key", lambda token: keys["public"])
-    monkeypatch.setattr(admin_module, "_last_refresh_started", None)
+    monkeypatch.setattr(admin_module, "_last_started", {})
     with TestClient(app) as c:
         yield c
     get_settings.cache_clear()
@@ -122,3 +122,47 @@ def test_every_privileged_action_is_audited(client, keys):  # noqa: F811
     assert [i["action"] for i in items] == ["refresh", "set_role"]
     assert items[1]["target_email"] == "mario@example.com"
     assert items[1]["details"]["after"] == {"role": "admin", "permissions": ["refresh_data"]}
+
+
+def test_refused_engine_gives_a_readable_reason_and_does_not_start_the_cooldown(client, keys, monkeypatch):  # noqa: F811
+    from app.core.exceptions import ProviderResponseError
+
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    tennis = get_providers()["tennis"]
+    calls = []
+
+    async def refuse(*, force_outside_hours=False):
+        calls.append(force_outside_hours)
+        if not force_outside_hours:
+            raise ProviderResponseError(
+                "tennis-oracle",
+                '/api/global-update returned 423: '
+                '{"detail":"La finestra del pool schedine di oggi è chiusa dalle 10:00."}',
+                423)
+        return {"ref": "7", "message": "forced"}
+
+    monkeypatch.setattr(tennis, "start_refresh", refuse)
+    first = client.post("/api/v1/admin/refresh", headers=owner, json={"sports": ["tennis"]}).json()["results"]["tennis"]
+    assert first["state"] == "error" and first["code"] == "window_closed"
+    assert "chiusa dalle 10:00" in first["message"]
+    # a refusal does not start the wait: the admin can force it at once
+    forced = client.post("/api/v1/admin/refresh", headers=owner,
+                         json={"sports": ["tennis"], "force_outside_hours": True}).json()["results"]["tennis"]
+    assert forced["state"] == "started" and calls == [False, True]
+    # now the wait applies to tennis only
+    assert client.post("/api/v1/admin/refresh", headers=owner, json={"sports": ["tennis"]}).status_code == 429
+
+
+def test_engine_errors_are_summarised_without_leaking_details(client, keys, monkeypatch):  # noqa: F811
+    from app.core.exceptions import ProviderUnavailable
+
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    soccer = get_providers()["football"]
+
+    async def broken(*, force_outside_hours=False):
+        raise ProviderUnavailable("soccer-oracle", "/jobs/daily-refresh returned 500", 500)
+
+    monkeypatch.setattr(soccer, "start_refresh", broken)
+    res = client.post("/api/v1/admin/refresh", headers=owner, json={"sports": ["football"]}).json()
+    assert res["results"]["football"]["message"] == "Errore interno del motore (500)"
+    assert res["results"]["football"]["code"] == "engine_error"

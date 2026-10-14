@@ -288,7 +288,10 @@ export type RefreshStartState = 'started' | 'error';
 export interface AdminRefreshResponse {
   started_at: string;
   results: Partial<
-    Record<SportId, { state: RefreshStartState; ref: string | null; message: string | null }>
+    Record<
+      SportId,
+      { state: RefreshStartState; ref: string | null; message: string | null; code?: string | null }
+    >
   >;
 }
 
