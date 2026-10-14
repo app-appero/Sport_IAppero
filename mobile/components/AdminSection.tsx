@@ -71,6 +71,8 @@ function RefreshBlock({ token }: { token: string }) {
   const [running, setRunning] = useState(false);
   const [states, setStates] = useState<States | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [canForceTennis, setCanForceTennis] = useState(false);
   const alive = useRef(true);
   const runId = useRef(0);
 
@@ -83,25 +85,33 @@ function RefreshBlock({ token }: { token: string }) {
 
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (opts?: { sports?: readonly string[]; force?: boolean }) => {
+    const sportsToRun = opts?.sports ?? SPORTS;
     const myRun = ++runId.current;
     const current = () => alive.current && runId.current === myRun;
     setRunning(true);
     setMessage(null);
     setStates(null);
+    setReasons({});
+    setCanForceTennis(false);
     try {
-      const res = await adminRefresh(token, [...SPORTS]);
+      const res = await adminRefresh(token, [...sportsToRun], { forceOutsideHours: opts?.force === true });
       if (!current()) return;
       const next: States = {};
       const refs: Record<string, string> = {};
-      for (const sport of SPORTS) {
-        const r = res.results?.[sport];
-        if (!r || r.state === 'error' || !r.ref) next[sport] = 'error';
-        else {
+      const why: Record<string, string> = {};
+      for (const sport of sportsToRun) {
+        const r = res.results?.[sport as (typeof SPORTS)[number]];
+        if (!r || r.state === 'error' || !r.ref) {
+          next[sport] = 'error';
+          if (r?.message) why[sport] = r.message;
+          if (sport === 'tennis' && r?.code === 'window_closed') setCanForceTennis(true);
+        } else {
           next[sport] = 'queued';
           refs[sport] = r.ref;
         }
       }
+      setReasons(why);
       setStates({ ...next });
       const startedAt = Date.now();
       let failures = 0;
@@ -144,7 +154,7 @@ function RefreshBlock({ token }: { token: string }) {
   return (
     <View style={styles.block}>
       <Pressable
-        onPress={start}
+        onPress={() => start()}
         disabled={running}
         style={[styles.primary, running && styles.disabled]}
         accessibilityRole="button"
@@ -156,12 +166,25 @@ function RefreshBlock({ token }: { token: string }) {
         </Text>
       </Pressable>
       {states
-        ? SPORTS.map((sport) => (
-            <Text key={sport} style={styles.stateRow}>
-              {`${sportLabel(sport)} · ${refreshStateLabel(states[sport] as never)}`}
-            </Text>
+        ? SPORTS.filter((sport) => states[sport] != null).map((sport) => (
+            <View key={sport}>
+              <Text style={styles.stateRow}>
+                {`${sportLabel(sport)} · ${refreshStateLabel(states[sport] as never)}`}
+              </Text>
+              {reasons[sport] ? <Text style={styles.reason}>{reasons[sport]}</Text> : null}
+            </View>
           ))
         : null}
+      {canForceTennis && !running ? (
+        <Pressable
+          onPress={() => start({ sports: ['tennis'], force: true })}
+          style={styles.secondary}
+          accessibilityRole="button"
+          accessibilityLabel="Forza aggiornamento Tennis fuori orario"
+        >
+          <Text style={styles.secondaryText}>Forza Tennis fuori orario</Text>
+        </Pressable>
+      ) : null}
       {message ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
@@ -206,6 +229,17 @@ const makeStyles = (colors: Palette) =>
     disabled: { opacity: 0.5 },
     stateRow: { fontFamily: fonts.bodyMedium, fontSize: fs(14), color: colors.ink },
     error: { fontFamily: fonts.bodyMedium, fontSize: fs(13), color: colors.miss },
+    reason: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
+    secondary: {
+      minHeight: 44,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    secondaryText: { fontFamily: fonts.bodyBold, fontSize: fs(14), color: colors.accentText },
     linkRow: {
       minHeight: 48,
       flexDirection: 'row',

@@ -198,7 +198,7 @@ class SoccerProvider(SportProvider):
                 logger.warning("Soccer official ledger truncated: %s of %s", len(rows), total)
         return ledger.map_ledger_payload(payload)
 
-    async def start_refresh(self) -> dict[str, Any]:
+    async def start_refresh(self, *, force_outside_hours: bool = False) -> dict[str, Any]:
         """"Aggiorna tutto" of the Soccer engine: yesterday's results + upcoming calendar (async job)."""
         payload = await self._get(
             "/jobs/daily-refresh", method="POST", json={"days_ahead": 7, "async_run": True}

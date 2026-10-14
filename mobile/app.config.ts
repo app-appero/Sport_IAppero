@@ -6,14 +6,14 @@ const APP_NAME = 'Sport IApperò';
 /**
  * Native app identity for Sport IApperò.
  * Old builds used name "Oracle Sports" + package com.appero.oraclesports —
- * uninstall that APK; this one is com.appero.sportiappero @ 1.2.0.
+ * uninstall that APK; this one is com.appero.sportiappero @ 1.2.1.
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
   const next = {
     ...config,
     name: APP_NAME,
     slug: 'sport-iappero',
-    version: '1.2.0',
+    version: '1.2.1',
     orientation: 'portrait' as const,
     icon: './assets/images/icon.png',
     scheme: 'sportiappero',
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: 'com.appero.sportiappero',
-      versionCode: 7,
+      versionCode: 8,
       // Launcher label (prebuild reads this even if typings omit it).
       label: APP_NAME,
       adaptiveIcon: {
