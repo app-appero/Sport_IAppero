@@ -27,6 +27,15 @@ Dimensioni: tutto il testo passa da `fs()` in `constants/theme.ts`; cambia
 `TEXT_SCALE` (ora 0.88) per rimpicciolire o ingrandire i testi di tutta l'app.
 Spaziature e raggi sono in `spacing` / `radii`.
 
+## Gialli (beta)
+
+Marcatori e gialli probabili stanno affiancati nella card (due colonne) e uno sotto l'altro nel
+dettaglio evento. Il modello dei gialli è in addestramento e il BFF non ha ancora la route
+`GET /api/v1/events/{id}/bookings` (stessa forma dei marcatori, con `booked` al posto di
+`scored`): finché `BOOKINGS_API_READY` (`constants/features.ts`) è falso la colonna mostra
+"Modello in addestramento" e l'app non fa richieste. Quando la route è attiva si accende con
+`EXPO_PUBLIC_BOOKINGS_API=1` o cambiando il default.
+
 ## Navigazione
 
 - Nessuna tab bar in basso (tema scuro)

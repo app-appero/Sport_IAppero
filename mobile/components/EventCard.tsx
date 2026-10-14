@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { CardScorers } from '@/components/CardScorers';
+import { CardPlayers } from '@/components/CardPlayers';
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { OutcomeDot } from '@/components/OutcomeDot';
 import { ProbabilityRing } from '@/components/ProbabilityRing';
@@ -54,7 +54,7 @@ function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate 
       </View>
       {statusText ? <Text style={styles.muted}>{statusText}</Text> : null}
       <Rings picks={picks} />
-      <CardScorers eventId={item.event.id} />
+      <CardPlayers eventId={item.event.id} />
       <MoreLine item={item} onPress={onPress} />
     </CardShell>
   );

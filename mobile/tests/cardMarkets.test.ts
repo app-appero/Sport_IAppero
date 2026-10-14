@@ -126,3 +126,27 @@ test('setPills splits set scores and ignores empties', () => {
   assert.deepEqual(setPills('2-1'), ['2–1']);
   assert.deepEqual(setPills(''), []);
 });
+
+import { bookingA11yLabel } from '../utils/scorers.ts';
+
+const booking = (id: number, team_id: number, probability: number, booked: boolean | null = null) =>
+  ({ player_id: id, name: `B${id}`, team_id, team: `T${team_id}`, position: 'M', probability, booked }) as never;
+
+test('pickCardScorers also works on yellow-card data (booked instead of scored)', () => {
+  const data = {
+    available: true,
+    status: 'ready',
+    teams: [
+      { top: [booking(1, 10, 0.38), booking(2, 10, 0.3)], players: [] },
+      { top: [booking(3, 20, 0.31)], players: [] },
+    ],
+  };
+  assert.deepEqual(pickCardScorers(data as never, 2).map((p: { player_id: number }) => p.player_id), [1, 3]);
+  assert.equal(lineupChip(data as never)?.kind, 'official');
+});
+
+test('bookingA11yLabel says booked only once it happened', () => {
+  const base = { name: 'D. Moretti', position: 'M', probability: 0.38 };
+  assert.match(bookingA11yLabel({ ...base, booked: null }), /38 percento di essere ammonito$/);
+  assert.match(bookingA11yLabel({ ...base, booked: true }), /è stato ammonito$/);
+});
