@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -210,20 +211,25 @@ export function SportScreen({
             />
           ) : null}
           <DayScroller value={date} onChange={onDateChange} />
-          {!query.isLoading && !query.isError && dayStats.events > 0 ? (
-            <Pressable
-              onPress={toggleStats}
-              style={styles.statsToggle}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: statsVisible }}
-              accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
-            >
-              <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
-                Statistica giornata {statsVisible ? '▴' : '▾'}
-              </Text>
-            </Pressable>
-          ) : null}
+          <View style={styles.metaRow}>
+            <Text style={[styles.buildTag, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.1}>
+              v{Constants.expoConfig?.version ?? '?'} · {String(Constants.expoConfig?.extra?.gitSha ?? 'n/d')}
+            </Text>
+            {!query.isLoading && !query.isError && dayStats.events > 0 ? (
+              <Pressable
+                onPress={toggleStats}
+                style={styles.statsToggle}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: statsVisible }}
+                accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
+              >
+                <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
+                  Statistica giornata {statsVisible ? '▴' : '▾'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
           {statsVisible && !query.isLoading && !query.isError ? (
             <DayStatsPanel stats={dayStats} sport={sport} />
           ) : null}
@@ -371,7 +377,9 @@ const styles = StyleSheet.create({
   },
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
-  statsToggle: { alignSelf: 'flex-end', minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 28 },
+  buildTag: { fontFamily: fonts.body, fontSize: fs(10), opacity: 0.7 },
+  statsToggle: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
   statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
   finishedDivider: {
     fontFamily: fonts.bodyBold,

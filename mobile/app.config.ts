@@ -3,6 +3,20 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 /** Must match `constants/brand.ts` — keep inline so config eval never loads image requires. */
 const APP_NAME = 'Sport IApperò';
 
+// Config is evaluated by Node; the app's tsconfig has no Node typings.
+declare const require: (id: string) => { execSync: (cmd: string, opts?: object) => { toString(): string } };
+
+/** Short commit this build was made from — shown in the app so a stale build is obvious. */
+function gitSha(): string {
+  const fromEas = process.env.EAS_BUILD_GIT_COMMIT_HASH;
+  if (fromEas) return fromEas.slice(0, 7);
+  try {
+    return require('child_process').execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'n/d';
+  }
+}
+
 /**
  * Native app identity for Sport IApperò.
  * Old builds used name "Oracle Sports" + package com.appero.oraclesports —
@@ -29,7 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: 'com.appero.sportiappero',
-      versionCode: 5,
+      versionCode: 6,
       // Launcher label (prebuild reads this even if typings omit it).
       label: APP_NAME,
       adaptiveIcon: {
@@ -76,6 +90,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       appName: APP_NAME,
+      gitSha: gitSha(),
     },
   };
   return next as ExpoConfig;
