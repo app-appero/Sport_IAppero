@@ -186,17 +186,8 @@ function EventAccordion({
                   tone === 'miss' && styles.badgeMiss,
                   !tone && styles.badgePending,
                 ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    tone === 'hit' && styles.badgeTextHit,
-                    tone === 'miss' && styles.badgeTextMiss,
-                  ]}
-                >
-                  {tone === 'hit' ? 'V' : tone === 'miss' ? 'X' : '·'}
-                </Text>
-              </View>
+                accessibilityLabel={tone === 'hit' ? 'Esito positivo' : tone === 'miss' ? 'Esito negativo' : 'In attesa'}
+              />
             </View>
           ))}
         </View>
@@ -390,20 +381,11 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     textAlign: 'right',
   },
   badge: {
-    width: 20,
-    height: 20,
+    width: 12,
+    height: 12,
     borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  badgeHit: { backgroundColor: colors.hitBadge },
+  badgeHit: { backgroundColor: colors.hit },
   badgeMiss: { backgroundColor: colors.missBadge },
   badgePending: { backgroundColor: colors.line },
-  badgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(11),
-    color: colors.inkMuted,
-  },
-  badgeTextHit: { color: '#fff' },
-  badgeTextMiss: { color: '#fff' },
 });

@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -13,8 +13,9 @@ import { useThemedStyles } from '@/components/SportTheme';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { EventScorersResponse, ScorerPlayer } from '@/types/api';
 import {
+  initials,
   isScorersUnsupported,
-  maxProbability,
+  lineupChip,
   formatScorerPct,
   positionShort,
   scorerA11yLabel,
@@ -24,75 +25,136 @@ import {
 export const SCORERS_PENDING_TEXT =
   'Formazione non ancora ufficiale. I possibili marcatori compaiono circa un’ora prima del calcio d’inizio.';
 
+const FALLBACK_NOTE =
+  'Ogni giocatore ha la sua probabilità di segnare almeno un gol: le percentuali non si sommano a 100%.';
+const PAGE = 8;
+
 type Props = {
   data: EventScorersResponse | undefined;
   isLoading: boolean;
   isError: boolean;
 };
 
-/** "Possibili marcatori": top 3 per team. Hidden on errors (and when there is nothing to say). */
+/**
+ * Event detail: state banner, Tutti / team switch, ranked list. Hidden on errors and
+ * for competitions without the market.
+ */
 export function ScorersSection({ data, isLoading, isError }: Props) {
   const styles = useThemedStyles(makeStyles);
+  const [tab, setTab] = useState<'all' | number>('all');
+  const [expanded, setExpanded] = useState(false);
+
+  const ranked = useMemo<ScorerPlayer[]>(() => {
+    if (!data) return [];
+    const teams = tab === 'all' ? data.teams : data.teams.filter((_, i) => i === tab);
+    return teams
+      .flatMap((t) => (t.players.length ? t.players : t.top))
+      .sort((a, b) => b.probability - a.probability);
+  }, [data, tab]);
 
   if (isLoading) return <ScorersSkeleton />;
   if (isError || !data || isScorersUnsupported(data)) return null;
 
+  const chip = lineupChip(data);
+  if (!chip) return null;
+  const waiting = chip.kind === 'waiting';
+  const shown = expanded ? ranked : ranked.slice(0, PAGE);
+  const hidden = ranked.length - shown.length;
+
   return (
-    <View style={styles.card} accessibilityLabel="Possibili marcatori">
-      <Text style={styles.title} accessibilityRole="header">
-        Possibili marcatori
+    <View style={styles.wrap} accessibilityLabel="Marcatori probabili">
+      <Text style={styles.cap} accessibilityRole="header">
+        Marcatori probabili
       </Text>
 
-      {!data.available || data.teams.length === 0 ? (
-        <View style={styles.pending}>
-          <Text style={styles.pendingText}>{SCORERS_PENDING_TEXT}</Text>
+      <View style={[styles.banner, waiting && styles.bannerWait, chip.kind === 'estimate' && styles.bannerEst]}>
+        <View style={[styles.dot, waiting && styles.dotWait, chip.kind === 'estimate' && styles.dotEst]} />
+        <View style={styles.bannerText}>
+          <Text style={[styles.bannerTitle, waiting && styles.bannerTitleWait, chip.kind === 'estimate' && styles.bannerTitleEst]}>
+            {waiting
+              ? 'Formazioni non ancora ufficiali'
+              : chip.kind === 'estimate'
+                ? 'Formazioni probabili (stima)'
+                : 'Formazioni ufficiali'}
+          </Text>
+          {waiting ? <Text style={styles.bannerSub}>{SCORERS_PENDING_TEXT}</Text> : null}
         </View>
-      ) : (
-        data.teams.map((team) => {
-          const shown = team.top.slice(0, 3);
-          const max = maxProbability(shown);
-          return (
-            <View key={team.team_id} style={styles.team}>
-              <Text style={styles.teamName}>{team.team}</Text>
-              {shown.map((player) => (
-                <PlayerRow key={String(player.player_id)} player={player} max={max} />
+      </View>
+
+      {waiting ? null : (
+        <>
+          {data.teams.length > 1 ? (
+            <View style={styles.seg} accessibilityRole="tablist">
+              <SegButton label="Tutti" active={tab === 'all'} onPress={() => setTab('all')} />
+              {data.teams.slice(0, 2).map((team, i) => (
+                <SegButton key={team.team_id} label={team.team} active={tab === i} onPress={() => setTab(i)} />
               ))}
             </View>
-          );
-        })
-      )}
+          ) : null}
 
-      {data.note ? <Text style={styles.note}>{data.note}</Text> : null}
+          <View style={styles.list}>
+            {shown.map((player, i) => (
+              <PlayerRow key={String(player.player_id)} player={player} rank={i + 1} estimate={chip.kind === 'estimate'} />
+            ))}
+          </View>
+
+          {hidden > 0 ? (
+            <Pressable onPress={() => setExpanded(true)} style={styles.showAll} accessibilityRole="button">
+              <Text style={styles.showAllText}>Mostra altri {hidden}</Text>
+            </Pressable>
+          ) : null}
+
+          <Text style={styles.note}>{data.note || FALLBACK_NOTE}</Text>
+        </>
+      )}
     </View>
   );
 }
 
-function PlayerRow({ player, max }: { player: ScorerPlayer; max: number }) {
+function SegButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   const styles = useThemedStyles(makeStyles);
-  const ratio = scorerBarRatio(player.probability, max);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.segBtn, active && styles.segBtnOn]}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[styles.segText, active && styles.segTextOn]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function PlayerRow({ player, rank, estimate }: { player: ScorerPlayer; rank: number; estimate: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+  const scored = player.scored === true;
+  const ratio = scorerBarRatio(player.probability, 1);
   return (
     <View style={styles.row} accessible accessibilityLabel={scorerA11yLabel(player)}>
-      <View style={styles.rowTop}>
-        <View style={styles.nameWrap}>
+      <Text style={styles.rank}>{rank}</Text>
+      <View style={[styles.avatar, scored && styles.avatarScored]}>
+        <Text style={[styles.avatarText, scored && styles.avatarTextScored]}>{initials(player.name)}</Text>
+      </View>
+      <View style={styles.mid}>
+        <View style={styles.nameRow}>
           <Text style={styles.name} numberOfLines={1}>
             {player.name}
           </Text>
-          {player.scored === true ? (
-            <View style={styles.scored}>
-              <Text style={styles.scoredText}>⚽ segnato</Text>
-            </View>
-          ) : null}
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>{positionShort(player.position)}</Text>
+          </View>
         </View>
-        <Text style={styles.pct}>{formatScorerPct(player.probability)}</Text>
-      </View>
-      <View style={styles.rowBottom}>
-        <View style={styles.pill}>
-          <Text style={styles.pillText}>{positionShort(player.position)}</Text>
-        </View>
+        <Text style={styles.team} numberOfLines={1}>
+          {player.team}
+          {scored ? ' · ha segnato' : ''}
+        </Text>
         <View style={styles.track}>
-          <View style={[styles.fill, { width: `${Math.round(ratio * 100)}%` }]} />
+          <View style={[styles.fill, estimate && styles.fillEst, { width: `${Math.round(ratio * 100)}%` }]} />
         </View>
       </View>
+      <Text style={[styles.pct, rank === 1 && styles.pctTop]}>{formatScorerPct(player.probability)}</Text>
     </View>
   );
 }
@@ -115,127 +177,130 @@ function ScorersSkeleton() {
 
   return (
     <View
-      style={styles.card}
+      style={styles.wrap}
       accessible
       accessibilityRole="progressbar"
       accessibilityLabel="Caricamento possibili marcatori"
     >
       <Animated.View style={[styles.line, styles.lineTitle, animated]} />
-      <Animated.View style={[styles.line, styles.lineWide, animated]} />
-      <Animated.View style={[styles.line, styles.lineBar, animated]} />
-      <Animated.View style={[styles.line, styles.lineWide, animated]} />
-      <Animated.View style={[styles.line, styles.lineBar, animated]} />
+      <Animated.View style={[styles.line, styles.lineBanner, animated]} />
+      <Animated.View style={[styles.line, styles.lineList, animated]} />
     </View>
   );
 }
 
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
-    card: {
-      backgroundColor: colors.surfaceElevated,
-      borderColor: colors.line,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: radii.md,
-      padding: spacing.md,
-      gap: spacing.sm,
-    },
-    title: {
-      fontFamily: fonts.bodyBold,
-      fontSize: fs(15),
-      color: colors.ink,
-    },
-    pending: {
-      backgroundColor: colors.track,
-      borderRadius: radii.sm,
-      padding: spacing.md,
-    },
-    pendingText: {
-      fontFamily: fonts.body,
-      fontSize: fs(13),
-      lineHeight: fs(18),
-      color: colors.inkMuted,
-    },
-    team: { gap: spacing.sm, marginTop: spacing.xs },
-    teamName: {
+    wrap: { gap: spacing.sm, marginTop: spacing.sm },
+    cap: {
       fontFamily: fonts.bodyMedium,
-      fontSize: fs(13),
+      fontSize: fs(11),
+      letterSpacing: 1,
+      textTransform: 'uppercase',
       color: colors.inkMuted,
+    },
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    bannerWait: { borderColor: colors.line, backgroundColor: colors.track },
+    bannerEst: { borderColor: colors.warning, backgroundColor: 'rgba(230,184,77,0.10)' },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+    dotWait: { backgroundColor: colors.inkMuted },
+    dotEst: { backgroundColor: colors.warning },
+    bannerText: { flex: 1, gap: 2 },
+    bannerTitle: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
+    bannerTitleWait: { color: colors.ink },
+    bannerTitleEst: { color: colors.warning },
+    bannerSub: { fontFamily: fonts.body, fontSize: fs(12), lineHeight: fs(17), color: colors.inkMuted },
+
+    seg: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: colors.line,
+      borderRadius: radii.pill,
+      padding: 3,
+      gap: 2,
+    },
+    segBtn: {
+      flex: 1,
+      minHeight: 34,
+      borderRadius: radii.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    segBtnOn: { backgroundColor: colors.accent },
+    segText: { fontFamily: fonts.bodyMedium, fontSize: fs(13), color: colors.inkMuted },
+    segTextOn: { fontFamily: fonts.bodyBold, color: colors.onAccent },
+
+    list: {
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: radii.md,
+      overflow: 'hidden',
     },
     row: {
-      gap: 6,
-      paddingTop: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.line,
     },
-    rowTop: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
-    },
-    nameWrap: {
-      flex: 1,
-      flexDirection: 'row',
+    rank: { width: 16, textAlign: 'center', fontFamily: fonts.bodyBold, fontSize: fs(12), color: colors.inkMuted },
+    avatar: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
       alignItems: 'center',
-      gap: spacing.sm,
-      minWidth: 0,
+      justifyContent: 'center',
+      backgroundColor: colors.track,
+      borderWidth: 1,
+      borderColor: colors.line,
     },
-    name: {
-      flexShrink: 1,
-      fontFamily: fonts.bodyBold,
-      fontSize: fs(15),
-      color: colors.ink,
-    },
-    scored: {
-      backgroundColor: colors.accentSoft,
-      borderRadius: radii.pill,
-      paddingHorizontal: 7,
+    avatarScored: { backgroundColor: colors.hitBadge, borderColor: colors.hitBadge },
+    avatarText: { fontFamily: fonts.bodyBold, fontSize: fs(11), color: colors.ink },
+    avatarTextScored: { color: '#fff' },
+    mid: { flex: 1, minWidth: 0, gap: 4 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    name: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: fs(14), color: colors.ink },
+    tag: {
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.line,
+      paddingHorizontal: 5,
       paddingVertical: 1,
     },
-    scoredText: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: fs(11),
-      color: colors.accentText,
+    tagText: { fontFamily: fonts.bodyBold, fontSize: fs(9), letterSpacing: 0.5, color: colors.inkMuted },
+    team: { fontFamily: fonts.body, fontSize: fs(11), color: colors.inkMuted },
+    track: { height: 4, borderRadius: 4, backgroundColor: colors.track, overflow: 'hidden' },
+    fill: { height: '100%', borderRadius: 4, backgroundColor: colors.accent },
+    fillEst: { backgroundColor: colors.warning },
+    pct: { fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.ink, fontVariant: ['tabular-nums'] },
+    pctTop: { color: colors.accentText },
+
+    showAll: {
+      alignSelf: 'center',
+      minHeight: 40,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.md,
     },
-    pct: {
-      fontFamily: fonts.bodyBold,
-      fontSize: fs(16),
-      color: colors.accentText,
-      fontVariant: ['tabular-nums'],
-    },
-    rowBottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    pill: {
-      backgroundColor: colors.track,
-      borderRadius: radii.pill,
-      paddingHorizontal: 7,
-      paddingVertical: 1,
-    },
-    pillText: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: fs(10),
-      color: colors.inkMuted,
-    },
-    track: {
-      flex: 1,
-      height: 5,
-      borderRadius: radii.sm,
-      backgroundColor: colors.track,
-      overflow: 'hidden',
-    },
-    fill: {
-      height: '100%',
-      borderRadius: radii.sm,
-      backgroundColor: colors.accent,
-    },
-    note: {
-      fontFamily: fonts.body,
-      fontSize: fs(11),
-      lineHeight: fs(15),
-      color: colors.inkMuted,
-      marginTop: spacing.xs,
-    },
+    showAllText: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
+    note: { fontFamily: fonts.body, fontSize: fs(11), lineHeight: fs(15), color: colors.inkMuted },
+
     line: { backgroundColor: colors.track, borderRadius: radii.sm },
-    lineTitle: { height: 14, width: '45%' },
-    lineWide: { height: 14, width: '70%' },
-    lineBar: { height: 6, width: '100%' },
+    lineTitle: { height: 12, width: '40%' },
+    lineBanner: { height: 44, width: '100%' },
+    lineList: { height: 180, width: '100%' },
   });
