@@ -117,7 +117,9 @@ class SoccerProvider(SportProvider):
             "Login succeeded but no access_token or session cookie was returned",
         )
 
-    async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    async def _get(
+        self, path: str, params: dict[str, Any] | None = None, *, method: str = "GET", json: Any = None
+    ) -> Any:
         if self._settings.use_provider_fixtures:
             return self._fixture_for(path, params)
         if path not in _PUBLIC_PATHS:
@@ -126,9 +128,10 @@ class SoccerProvider(SportProvider):
             return await request_json(
                 self._client,
                 provider=self.provider_name,
-                method="GET",
+                method=method,
                 path=path,
                 params=params,
+                json=json,
             )
         except ProviderResponseError as exc:
             # refresh token once on 401 for protected routes
@@ -143,9 +146,10 @@ class SoccerProvider(SportProvider):
                 return await request_json(
                     self._client,
                     provider=self.provider_name,
-                    method="GET",
+                    method=method,
                     path=path,
                     params=params,
+                    json=json,
                 )
             raise
 
@@ -166,6 +170,10 @@ class SoccerProvider(SportProvider):
             return load_fixture("soccer", "available_dates.json")
         if path == "/predictions/official/plays":
             return load_fixture("soccer", "official_plays.json")
+        if path == "/jobs/daily-refresh":
+            return {"queued": True, "message": "Daily refresh job queued", "details": {"job_id": "fixture-job-1"}}
+        if path.startswith("/jobs/fixture-job"):
+            return {"job_id": "fixture-job-1", "job_type": "daily_refresh", "status": "success"}
         if path == "/scorers/day":
             return load_fixture("soccer", "scorers_day.json")
         if path.startswith("/scorers/fixture/"):
@@ -189,6 +197,24 @@ class SoccerProvider(SportProvider):
             if isinstance(total, int) and isinstance(rows, list) and len(rows) < total:
                 logger.warning("Soccer official ledger truncated: %s of %s", len(rows), total)
         return ledger.map_ledger_payload(payload)
+
+    async def start_refresh(self) -> dict[str, Any]:
+        """"Aggiorna tutto" of the Soccer engine: yesterday's results + upcoming calendar (async job)."""
+        payload = await self._get(
+            "/jobs/daily-refresh", method="POST", json={"days_ahead": 7, "async_run": True}
+        )
+        details = payload.get("details") if isinstance(payload, dict) else None
+        job_id = (details or {}).get("job_id") if isinstance(details, dict) else None
+        return {"ref": str(job_id) if job_id else None, "message": (payload or {}).get("message")}
+
+    async def refresh_status(self, ref: str) -> dict[str, Any]:
+        payload = await self._get(f"/jobs/{ref}")
+        status = str((payload or {}).get("status") or "unknown").lower()
+        state = {"queued": "queued", "running": "running", "success": "success", "failed": "failed"}.get(
+            status, "unknown"
+        )
+        error = (payload or {}).get("error")
+        return {"state": state, "detail": (error or {}).get("message") if isinstance(error, dict) else None}
 
     async def get_scorers(self, day: str) -> list[dict[str, Any]]:
         """Probabilita' "il giocatore segna" delle partite del giorno (calendario Europe/Rome).

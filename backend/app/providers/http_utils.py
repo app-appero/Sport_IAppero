@@ -17,9 +17,10 @@ async def request_json(
     method: str,
     path: str,
     params: dict[str, Any] | None = None,
+    json: Any = None,
 ) -> Any:
     try:
-        response = await client.request(method, path, params=params)
+        response = await client.request(method, path, params=params, json=json)
     except httpx.TimeoutException as exc:
         raise ProviderUnavailable(provider, f"Timeout calling {path}") from exc
     except httpx.HTTPError as exc:

@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from app.auth import google, service
+from app.auth import google, roles, service
 from app.auth.tokens import InvalidSession, issue_session_token, read_session_token
 from app.core.config import get_settings
 from app.db.session import get_sessionmaker
@@ -22,6 +22,8 @@ class UserOut(BaseModel):
     email: str | None
     avatar_url: str | None
     created_at: datetime
+    role: str = "user"
+    permissions: list[str] = Field(default_factory=list)
 
 
 class SessionOut(BaseModel):
@@ -60,7 +62,10 @@ async def current_user(authorization: str | None = Header(default=None)):
 
 
 def _user_out(user) -> UserOut:
+    settings = get_settings()
     return UserOut(
+        role=roles.effective_role(user, settings),
+        permissions=roles.effective_permissions(user, settings),
         id=user.id,
         display_name=user.display_name,
         email=user.email,
