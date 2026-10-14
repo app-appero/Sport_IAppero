@@ -183,3 +183,15 @@ def test_settle_soccer_market_helpers():
         mapper._settle_soccer_market("h2h", Selection(id="draw", name="Draw"), miss)
         is False
     )
+
+
+def test_raw_cards_and_corners_models_are_not_shown():
+    event = {"fixture_id": 77, "home": "A", "away": "B"}
+    row = {**event, "predictions": [
+        {"market": "cards", "prediction": 0, "probability": 0.31},
+        {"market": "corners", "prediction": 1, "probability": 0.55},
+        {"market": "cards_line_4_5", "prediction": 1, "probability": 0.61},
+    ]}
+    types = [p.prediction.type for p in mapper.map_day_payload([row])]
+    assert "cards" not in types and "corners" not in types
+    assert "cards_line_4_5" in types
