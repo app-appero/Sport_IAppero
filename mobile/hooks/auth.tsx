@@ -26,6 +26,8 @@ type AuthState = {
   /** "loading" only until the stored session has been read. */
   status: 'loading' | 'signedOut' | 'signedIn';
   user: AuthUser | null;
+  /** Session token for authenticated BFF calls (null when signed out). */
+  token: string | null;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -89,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       available: AUTH_AVAILABLE,
       status: loading ? 'loading' : session ? 'signedIn' : 'signedOut',
       user: session?.user ?? null,
+      token: session?.token ?? null,
       signIn,
       signOut,
       deleteAccount,

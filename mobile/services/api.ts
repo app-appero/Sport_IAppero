@@ -2,6 +2,11 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import type {
+  AdminPermissionList,
+  AdminRefreshResponse,
+  AdminRefreshStatus,
+  AdminUser,
+  AdminUserList,
   CompetitionListResponse,
   EventListResponse,
   EventScorersResponse,
@@ -15,16 +20,20 @@ import type {
   PredictionListResponse,
   SportInfo,
   UnifiedPrediction,
+  UserRole,
 } from '@/types/api';
 
 export class ApiError extends Error {
   status: number;
   code?: string;
+  /** Seconds to wait before retrying (BFF 429 on admin refresh). */
+  retryAfterSeconds?: number;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, retryAfterSeconds?: number) {
     super(message);
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
     this.name = 'ApiError';
   }
 }
@@ -68,8 +77,20 @@ function extractErrorCode(body: string): string | undefined {
   }
 }
 
+function extractRetryAfter(body: string): number | undefined {
+  try {
+    const parsed = JSON.parse(body) as { detail?: { retry_after_seconds?: unknown } | string };
+    const detail = parsed?.detail;
+    if (!detail || typeof detail === 'string') return undefined;
+    const n = Number(detail.retry_after_seconds);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function request<T>(
-  method: 'GET' | 'POST' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   opts?: { body?: unknown; token?: string },
 ): Promise<T> {
@@ -88,6 +109,7 @@ async function request<T>(
       response.status,
       `API ${response.status} ${path}: ${text.slice(0, 200)}`,
       extractErrorCode(text),
+      extractRetryAfter(text),
     );
   }
   if (response.status === 204) return undefined as T;
@@ -360,4 +382,44 @@ export function getMe(token: string) {
 
 export function deleteMe(token: string) {
   return request<void>('DELETE', '/api/v1/me', { token });
+}
+
+export function adminListUsers(
+  token: string,
+  opts?: { limit?: number; offset?: number; q?: string },
+) {
+  const params = new URLSearchParams();
+  params.set('limit', String(opts?.limit ?? 50));
+  params.set('offset', String(opts?.offset ?? 0));
+  if (opts?.q) params.set('q', opts.q);
+  return request<AdminUserList>('GET', `/api/v1/admin/users?${params}`, { token });
+}
+
+export function adminListPermissions(token: string) {
+  return request<AdminPermissionList>('GET', '/api/v1/admin/permissions', { token });
+}
+
+export function adminSetRole(
+  token: string,
+  userId: string,
+  body: { role: Exclude<UserRole, 'super_admin'>; permissions: string[] },
+) {
+  return request<AdminUser>('PUT', `/api/v1/admin/users/${encodeURIComponent(userId)}/role`, {
+    token,
+    body,
+  });
+}
+
+export function adminRefresh(token: string, sports: string[]) {
+  return request<AdminRefreshResponse>('POST', '/api/v1/admin/refresh', {
+    token,
+    body: { sports },
+  });
+}
+
+/** `refs` maps a sport to the `ref` returned when its refresh started. */
+export function adminRefreshStatus(token: string, refs: Record<string, string>) {
+  const params = new URLSearchParams();
+  for (const [sport, ref] of Object.entries(refs)) params.set(sport, ref);
+  return request<AdminRefreshStatus>('GET', `/api/v1/admin/refresh/status?${params}`, { token });
 }

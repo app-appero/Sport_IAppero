@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AdminSection } from '@/components/AdminSection';
 import { useThemedStyles } from '@/components/SportTheme';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import { useAuth } from '@/hooks/auth';
+import { isAdminUser } from '@/utils/admin';
 import { authErrorMessage, initials } from '@/utils/profile';
 
 /** Optional account: the app works the same without it. */
 export function ProfileScreen() {
   const styles = useThemedStyles(makeStyles);
-  const { available, status, user, signIn, signOut, deleteAccount } = useAuth();
+  const { available, status, user, token, signIn, signOut, deleteAccount } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -93,6 +95,8 @@ export function ProfileScreen() {
             ) : null}
           </View>
         </View>
+
+        {token && isAdminUser(user) ? <AdminSection user={user} token={token} /> : null}
 
         <Pressable
           onPress={() => run(signOut)}
