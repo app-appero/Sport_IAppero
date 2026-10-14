@@ -43,6 +43,8 @@ class Event(BaseModel):
     start_time: datetime | None = None
     # Source calendar day (YYYY-MM-DD) when timezone is unknown — used for day filters.
     calendar_date: str | None = None
+    # Provider clock time "HH:MM" with NO timezone claim: only good for ordering matches of the same day.
+    local_time: str | None = None
     participants: list[Participant] = Field(default_factory=list)
     status: str | None = None
     score: EventScore | None = None

@@ -22,16 +22,22 @@ export function isEventDone(event: Pick<Event, 'status' | 'calendar_date'>, toda
   return Boolean(day && day < today && PRE_MATCH.has(s));
 }
 
-function startMs(event: Pick<Event, 'start_time'>): number {
+/** Kickoff instant when the provider gives one; else calendar day + provider clock (tennis), good for ordering only. */
+function startMs(event: Pick<Event, 'start_time' | 'calendar_date' | 'local_time'>): number {
   const t = event.start_time ? Date.parse(event.start_time) : NaN;
-  return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
+  if (!Number.isNaN(t)) return t;
+  if (event.calendar_date && event.local_time) {
+    const naive = Date.parse(`${event.calendar_date}T${event.local_time}:00Z`);
+    if (!Number.isNaN(naive)) return naive;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 /**
  * Day list order: open and live matches by start time (earliest first), then the finished
  * ones, also by start time. Matches without a start time go last in their group. Stable.
  */
-export function sortDayEvents<T extends { event: Pick<Event, 'status' | 'calendar_date' | 'start_time'> }>(
+export function sortDayEvents<T extends { event: Pick<Event, 'status' | 'calendar_date' | 'start_time' | 'local_time'> }>(
   items: T[],
   today: string,
 ): { open: T[]; done: T[] } {

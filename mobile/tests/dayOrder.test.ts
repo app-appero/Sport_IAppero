@@ -46,3 +46,11 @@ test('rows carry a single divider with the number of finished matches, and none 
   const none = buildDayRows([ev('y', '2026-10-13T11:00:00Z', 'NS')] as never, TODAY);
   assert.deepEqual(none.map((r) => r.kind), ['event']);
 });
+
+test('tennis without a timezone is ordered by the provider clock on the same day', () => {
+  const t = (id: string, time: string | null) => ({
+    event: { id, start_time: null, status: 'NS', calendar_date: TODAY, local_time: time },
+  });
+  const { open } = sortDayEvents([t('b', '14:30'), t('none', null), t('a', '04:00'), t('c', '16:00')], TODAY);
+  assert.deepEqual(open.map((i) => i.event.id), ['a', 'b', 'c', 'none']);
+});
