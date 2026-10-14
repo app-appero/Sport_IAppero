@@ -22,6 +22,16 @@ _PUBLIC_PATHS = {"/health", "/health/database"}
 _ROME = ZoneInfo("Europe/Rome")
 
 
+def _progress(value: Any, state: str) -> int | None:
+    """Avanzamento 0-100 dichiarato dal motore; 100 a lavoro finito, None se non noto."""
+    if state == "success":
+        return 100
+    try:
+        return max(0, min(100, int(float(value))))
+    except (TypeError, ValueError):
+        return None
+
+
 class SoccerProvider(SportProvider):
     sport = mapper.SPORT
     provider_name = mapper.PROVIDER
@@ -214,7 +224,9 @@ class SoccerProvider(SportProvider):
             status, "unknown"
         )
         error = (payload or {}).get("error")
-        return {"state": state, "detail": (error or {}).get("message") if isinstance(error, dict) else None}
+        summary = (payload or {}).get("summary") or {}
+        detail = (error or {}).get("message") if isinstance(error, dict) else summary.get("phase")
+        return {"state": state, "detail": detail, "progress": _progress(summary.get("progress_pct"), state)}
 
     async def get_scorers(self, day: str) -> list[dict[str, Any]]:
         """Probabilita' "il giocatore segna" delle partite del giorno (calendario Europe/Rome).

@@ -142,3 +142,23 @@ export function canEditUser(
 ): boolean {
   return isSuperAdmin(me) && target.role !== 'super_admin' && target.id !== me?.id;
 }
+
+const FINISHED_STATES = ['success', 'failed', 'unknown', 'error'];
+
+/** 0-100 for one sport: finished runs count as 100, otherwise the engine's number (0 if not known). */
+export function sportProgress(state: string | null | undefined, progress: number | null | undefined): number {
+  if (state && FINISHED_STATES.includes(state)) return 100;
+  if (typeof progress !== 'number' || !Number.isFinite(progress)) return 0;
+  return Math.max(0, Math.min(100, Math.round(progress)));
+}
+
+/** Mean progress over the sports being refreshed (null when there is nothing to average). */
+export function overallProgress(
+  states: Record<string, string | undefined>,
+  progress: Record<string, number | null | undefined>,
+): number | null {
+  const sports = Object.keys(states);
+  if (sports.length === 0) return null;
+  const sum = sports.reduce((acc, sport) => acc + sportProgress(states[sport], progress[sport]), 0);
+  return Math.round(sum / sports.length);
+}

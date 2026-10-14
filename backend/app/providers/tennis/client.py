@@ -173,7 +173,11 @@ class TennisProvider(SportProvider):
             "completed_with_errors": "success", "failed": "failed", "cancelled": "failed",
             "interrupted": "failed",
         }.get(status, "unknown")
-        return {"state": state, "detail": payload.get("current_phase")}
+        try:
+            progress = 100 if state == "success" else max(0, min(100, int(float(payload.get("progress_pct")))))
+        except (TypeError, ValueError):
+            progress = None
+        return {"state": state, "detail": payload.get("current_phase"), "progress": progress}
 
     async def get_official_plays(self, *, page_size: int = 200) -> list[LedgerRecord]:
         """Published official plays (latest versions) with the provider's own settlement.
