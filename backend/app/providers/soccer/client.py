@@ -192,6 +192,12 @@ class SoccerProvider(SportProvider):
             fixture["rows"] = [r for r in fixture["rows"] if str(r["fixture_id"]) == wanted]
             fixture["supported"] = wanted != "9002"  # 9002 = fixture di una competizione non coperta
             return fixture
+        if path.startswith("/player-cards/fixture/"):
+            fixture = load_fixture("soccer", "player_cards_day.json")
+            wanted = path.rsplit("/", 1)[-1]
+            fixture["rows"] = [r for r in fixture["rows"] if str(r["fixture_id"]) == wanted]
+            fixture["supported"] = wanted != "9002"
+            return fixture
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path} params={params}")
 
     async def get_official_plays(
@@ -258,6 +264,13 @@ class SoccerProvider(SportProvider):
         `rows` vuoto con `supported=True` = formazione ufficiale non ancora pubblicata; `supported=False` =
         competizione non coperta dal mercato. Un motore piu' vecchio senza `supported` conta come supportato."""
         payload = await self._get(f"/scorers/fixture/{fixture_id}")
+        if not isinstance(payload, dict):
+            return {"rows": [], "supported": True}
+        return {"rows": list(payload.get("rows") or []), "supported": payload.get("supported", True) is not False}
+
+    async def get_player_cards_for_fixture(self, fixture_id: str) -> dict[str, Any]:
+        """Probabilita' "il giocatore prende un giallo" (ultima revisione): stessa forma dei marcatori."""
+        payload = await self._get(f"/player-cards/fixture/{fixture_id}")
         if not isinstance(payload, dict):
             return {"rows": [], "supported": True}
         return {"rows": list(payload.get("rows") or []), "supported": payload.get("supported", True) is not False}

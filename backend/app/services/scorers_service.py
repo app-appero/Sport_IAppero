@@ -16,7 +16,11 @@ MARKET_NOTE = (
 )
 
 
-def group_by_fixture(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def group_by_fixture(
+    rows: list[dict[str, Any]], *, hit_field: str = "scored", out_field: str = "scored"
+) -> list[dict[str, Any]]:
+    """`hit_field`: colonna dell'engine con l'esito a partita finita; `out_field`: nome nella risposta
+    ("scored" per i marcatori, "booked" per i gialli)."""
     fixtures: dict[int, dict[str, Any]] = {}
     for r in rows:
         f = fixtures.setdefault(int(r["fixture_id"]), {
@@ -27,7 +31,7 @@ def group_by_fixture(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         f["players"].append({
             "player_id": r["player_id"], "name": r.get("player_name"), "team_id": r.get("team_id"),
             "team": r.get("team_name"), "position": r.get("position"),
-            "probability": round(float(r["probability"]), 4), "scored": r.get("scored"),
+            "probability": round(float(r["probability"]), 4), out_field: r.get(hit_field),
         })
     out = sorted(fixtures.values(), key=lambda f: (f["kickoff"] or "", f["event_id"]))
     for f in out:
