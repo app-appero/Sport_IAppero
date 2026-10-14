@@ -17,6 +17,16 @@ export interface EventScore {
   display?: string | null;
 }
 
+/** In-progress snapshot of a match (tennis): games per set, current game and server. */
+export interface LiveState {
+  is_live: boolean;
+  /** Games per set as [home, away], in play order. */
+  sets: number[][];
+  current_game: string | null;
+  server: 'home' | 'away' | null;
+  status_detail: string | null;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -26,6 +36,7 @@ export interface Event {
   participants: Participant[];
   status: string | null;
   score?: EventScore | null;
+  live?: LiveState | null;
   actual_totals?: Record<string, number | string | null> | null;
 }
 
@@ -266,9 +277,13 @@ export interface ScorerTeam {
   players: ScorerPlayer[];
 }
 
+export type ScorersStatus = 'ready' | 'lineup_pending' | 'unsupported';
+
 export interface EventScorersResponse {
   event_id: string;
   available: boolean;
+  /** `unsupported` = competizione fuori dal mercato marcatori: la sezione non va mostrata. */
+  status?: ScorersStatus;
   note: string;
   kickoff: string | null;
   model_version: string | null;

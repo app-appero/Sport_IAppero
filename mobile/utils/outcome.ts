@@ -89,6 +89,8 @@ export function scoreForMarket(event: Event, marketType: string): string | null 
 
 function deriveCorrect(pred: UnifiedPrediction): boolean | null {
   const event = pred.event;
+  // A match in progress has partial scores: no hit/miss until it is over.
+  if (event.live?.is_live || (event.status ?? '').trim().toLowerCase() === 'live') return null;
   if (!isFinished(event.status) && !event.score && !event.actual_totals) return null;
 
   const market = pred.prediction.type;

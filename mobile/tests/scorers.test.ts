@@ -3,6 +3,8 @@ import { test } from 'node:test';
 
 import {
   MIN_BAR_RATIO,
+  isScorersUnsupported,
+  shouldPollScorers,
   formatScorerPct,
   maxProbability,
   positionLong,
@@ -56,4 +58,15 @@ test('scorerA11yLabel reads name, role and percent', () => {
     'M. Rossi, attaccante, 31 percento, ha segnato',
   );
   assert.equal(scorerA11yLabel({ ...rossi, scored: false }), 'M. Rossi, attaccante, 31 percento');
+});
+
+test('competizione non coperta: sezione nascosta e nessun polling', () => {
+  assert.equal(isScorersUnsupported({ status: 'unsupported' }), true);
+  assert.equal(isScorersUnsupported({ status: 'lineup_pending' }), false);
+  assert.equal(isScorersUnsupported(undefined), false);
+  assert.equal(shouldPollScorers({ available: false, status: 'unsupported' }), false);
+  assert.equal(shouldPollScorers({ available: false, status: 'lineup_pending' }), true);
+  assert.equal(shouldPollScorers({ available: false }), true); // BFF vecchio senza status
+  assert.equal(shouldPollScorers({ available: true, status: 'ready' }), false);
+  assert.equal(shouldPollScorers(undefined), false);
 });

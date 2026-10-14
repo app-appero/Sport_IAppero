@@ -27,7 +27,9 @@ import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
 import { fonts, fs, paletteFor, radii, spacing } from '@/constants/theme';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
+import { usePersistedBoolean } from '@/hooks/usePersistedBoolean';
 import type { FeedItem } from '@/types/api';
+import { buildDayRows, type DayRow } from '@/utils/dayOrder';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
 import { formatApiError } from '@/utils/formatApiError';
@@ -57,6 +59,9 @@ export function SportScreen({
   const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
+
+  // Statistica giornata: visible by default, the choice is remembered on this device.
+  const [statsVisible, toggleStats] = usePersistedBoolean('ui.dayStats.visible', true);
 
   const health = useProviderHealth();
   // Day feed without market/competition filters — chips and hero picks filter client-side
@@ -140,6 +145,9 @@ export function SportScreen({
     });
   }, [dayEvents, competitionId, market]);
 
+  // Open and live matches by kickoff time, then a "Finite" divider and the finished ones, also by time.
+  const rows: DayRow[] = useMemo(() => buildDayRows(events, todayKey()), [events]);
+
   const filtersActive = Boolean(market || competitionId || date !== todayKey());
 
   const clearFilters = () => {
@@ -202,7 +210,23 @@ export function SportScreen({
             />
           ) : null}
           <DayScroller value={date} onChange={onDateChange} />
-          {!query.isLoading && !query.isError ? <DayStatsPanel stats={dayStats} sport={sport} /> : null}
+          {!query.isLoading && !query.isError && dayStats.events > 0 ? (
+            <Pressable
+              onPress={toggleStats}
+              style={styles.statsToggle}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: statsVisible }}
+              accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
+            >
+              <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
+                Statistica giornata {statsVisible ? '▴' : '▾'}
+              </Text>
+            </Pressable>
+          ) : null}
+          {statsVisible && !query.isLoading && !query.isError ? (
+            <DayStatsPanel stats={dayStats} sport={sport} />
+          ) : null}
           {competitionOptions.length > 1 ? (
             <FilterChips
               options={competitionOptions}
@@ -248,8 +272,8 @@ export function SportScreen({
           </View>
         ) : (
           <FlatList
-            data={events}
-            keyExtractor={(item) => item.event.id}
+            data={rows}
+            keyExtractor={(row) => (row.kind === 'divider' ? 'divider-finished' : row.item.event.id)}
             contentContainerStyle={[styles.list, showingPrevious && styles.dimmed]}
             refreshControl={
               <RefreshControl
@@ -273,15 +297,25 @@ export function SportScreen({
                 onAction={filtersActive ? clearFilters : undefined}
               />
             }
-            renderItem={({ item, index }) => (
-              <EventCard
-                item={item}
-                index={index}
-                preferredMarket={market}
-                selectedDate={date}
-                onPress={() => openEvent(item)}
-              />
-            )}
+            renderItem={({ item: row, index }) =>
+              row.kind === 'divider' ? (
+                <Text
+                  style={[styles.finishedDivider, { color: colors.inkMuted, borderTopColor: colors.line }]}
+                  accessibilityRole="header"
+                  maxFontSizeMultiplier={1.2}
+                >
+                  Finite · {row.count}
+                </Text>
+              ) : (
+                <EventCard
+                  item={row.item}
+                  index={index}
+                  preferredMarket={market}
+                  selectedDate={date}
+                  onPress={() => openEvent(row.item)}
+                />
+              )
+            }
           />
         )}
 
@@ -337,6 +371,16 @@ const styles = StyleSheet.create({
   },
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
+  statsToggle: { alignSelf: 'flex-end', minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
+  statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
+  finishedDivider: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fs(12),
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   progress: { height: 3, overflow: 'hidden' },
   progressFill: { height: 3, width: '40%' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },

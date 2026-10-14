@@ -172,6 +172,7 @@ class SoccerProvider(SportProvider):
             fixture = load_fixture("soccer", "scorers_day.json")
             wanted = path.rsplit("/", 1)[-1]
             fixture["rows"] = [r for r in fixture["rows"] if str(r["fixture_id"]) == wanted]
+            fixture["supported"] = wanted != "9002"  # 9002 = fixture di una competizione non coperta
             return fixture
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path} params={params}")
 
@@ -214,11 +215,14 @@ class SoccerProvider(SportProvider):
                 out.append(row)
         return out
 
-    async def get_scorers_for_fixture(self, fixture_id: str) -> list[dict[str, Any]]:
-        """Probabilita' marcatori (ultima revisione) di una partita. Lista vuota se la formazione ufficiale
-        non e' ancora stata pubblicata."""
+    async def get_scorers_for_fixture(self, fixture_id: str) -> dict[str, Any]:
+        """Probabilita' marcatori (ultima revisione) di una partita: {"rows": [...], "supported": bool}.
+        `rows` vuoto con `supported=True` = formazione ufficiale non ancora pubblicata; `supported=False` =
+        competizione non coperta dal mercato. Un motore piu' vecchio senza `supported` conta come supportato."""
         payload = await self._get(f"/scorers/fixture/{fixture_id}")
-        return list(payload.get("rows") or []) if isinstance(payload, dict) else []
+        if not isinstance(payload, dict):
+            return {"rows": [], "supported": True}
+        return {"rows": list(payload.get("rows") or []), "supported": payload.get("supported", True) is not False}
 
     async def healthcheck(self) -> dict[str, Any]:
         try:

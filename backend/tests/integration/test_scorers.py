@@ -36,7 +36,7 @@ def test_group_by_fixture_empty():
 def test_event_scorers_returns_top3_per_team_and_all_players():
     with TestClient(app) as client:
         data = client.get("/api/v1/events/9001/scorers").json()
-    assert data["available"] is True
+    assert data["available"] is True and data["status"] == "ready"
     home = next(t for t in data["teams"] if t["team"] == "Casa FC")
     assert [p["name"] for p in home["top"]] == ["M. Rossi", "L. Bianchi", "A. Verdi"]
     assert len(home["players"]) == 3 and home["expected_scorers"] == 0.47
@@ -45,4 +45,10 @@ def test_event_scorers_returns_top3_per_team_and_all_players():
 def test_event_scorers_unavailable_before_official_lineup():
     with TestClient(app) as client:
         data = client.get("/api/v1/events/123456/scorers").json()
-    assert data["available"] is False and data["teams"] == []
+    assert data["available"] is False and data["teams"] == [] and data["status"] == "lineup_pending"
+
+
+def test_event_scorers_unsupported_competition():
+    with TestClient(app) as client:
+        data = client.get("/api/v1/events/9002/scorers").json()
+    assert data["available"] is False and data["status"] == "unsupported"
