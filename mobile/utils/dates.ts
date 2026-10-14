@@ -77,8 +77,9 @@ export function buildDayWindow(now = new Date()): DayOption[] {
   return out;
 }
 
-export function formatEventTime(iso: string | null | undefined): string {
-  if (!iso) return 'Orario n/d';
+export function formatEventTime(iso: string | null | undefined, localTime?: string | null): string {
+  // Tennis: the engine gives a wall-clock time without timezone, shown as is when there is no instant.
+  if (!iso) return localTime && /^\d{2}:\d{2}/.test(localTime) ? localTime.slice(0, 5) : 'Orario n/d';
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return 'Orario n/d';
   return new Intl.DateTimeFormat('it-IT', {
