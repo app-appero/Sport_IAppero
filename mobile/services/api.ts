@@ -9,6 +9,7 @@ import type {
   AdminUserList,
   CompetitionListResponse,
   EventListResponse,
+  EventBookingsResponse,
   EventScorersResponse,
   FeedItem,
   AuthSession,
@@ -330,6 +331,13 @@ export async function getEventPredictions(
 export function getEventScorers(eventId: string) {
   return getJson<EventScorersResponse>(
     `/api/v1/events/${encodeURIComponent(eventId)}/scorers`,
+  );
+}
+
+/** Yellow cards (beta). The BFF route is not live yet: see BOOKINGS_API_READY. */
+export function getEventBookings(eventId: string) {
+  return getJson<EventBookingsResponse>(
+    `/api/v1/events/${encodeURIComponent(eventId)}/bookings`,
   );
 }
 

@@ -106,6 +106,14 @@ export function paletteFor(sport?: string | null): Palette {
   return (sport && sportPalettes[sport]) || defaultPalette;
 }
 
+/** Yellow-card marker, fixed across sports (it is the colour of the card itself). */
+export const yellowCard = {
+  fill: '#FFD60A',
+  border: '#8A7300',
+  bg: 'rgba(255,214,10,0.10)',
+  onFill: '#2A2000',
+};
+
 /** Native splash background; BootSplash must match it so the hand-off is seamless. */
 export const splashBackground = '#000000';
 

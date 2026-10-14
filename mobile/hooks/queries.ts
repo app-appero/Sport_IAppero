@@ -3,6 +3,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@t
 import {
   getCompetitions,
   getEventPredictions,
+  getEventBookings,
   getEventScorers,
   getEvents,
   getFeedWithFallback,
@@ -175,6 +176,24 @@ export function useEventScorers(eventId: string, enabled = true, opts: { poll?: 
     placeholderData: keepPreviousData,
     // Only polls while data says "not available yet"; React Query pauses it in
     // background and offline. Errors stop the polling and the section hides.
+    refetchInterval: (query) =>
+      poll && shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false,
+  });
+}
+
+/**
+ * Probable yellow cards (football, beta). Same life cycle as the scorers: polls only while the
+ * line-up is pending. Gate the call with BOOKINGS_API_READY until the BFF route exists.
+ */
+export function useEventBookings(eventId: string, enabled = true, opts: { poll?: boolean } = {}) {
+  const poll = opts.poll ?? true;
+  return useQuery({
+    queryKey: ['event-bookings', eventId],
+    queryFn: () => getEventBookings(eventId),
+    enabled: enabled && Boolean(eventId),
+    staleTime: SCORERS_STALE_MS,
+    placeholderData: keepPreviousData,
+    retry: false,
     refetchInterval: (query) =>
       poll && shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false,
   });

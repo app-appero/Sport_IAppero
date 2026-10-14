@@ -5,10 +5,11 @@ import { BrandHeader } from '@/components/BrandHeader';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { MarketBoard } from '@/components/MarketBoard';
-import { ScorersSection } from '@/components/ScorersSection';
+import { BookingsComingSoon, ScorersSection } from '@/components/ScorersSection';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, spacing, type Palette, fs } from '@/constants/theme';
-import { useEventPredictions, useEventScorers } from '@/hooks/queries';
+import { BOOKINGS_API_READY } from '@/constants/features';
+import { useEventBookings, useEventPredictions, useEventScorers } from '@/hooks/queries';
 import type { UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
@@ -68,6 +69,7 @@ function EventDetail() {
 
   const isFootball = (query.data?.items[0]?.sport ?? sport) === 'football';
   const scorers = useEventScorers(String(id ?? ''), isFootball);
+  const bookings = useEventBookings(String(id ?? ''), isFootball && BOOKINGS_API_READY);
 
   const header = (
     <Stack.Screen
@@ -153,11 +155,26 @@ function EventDetail() {
         renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
         ListFooterComponent={
           isFootball && items.length > 0 ? (
-            <ScorersSection
-              data={scorers.data}
-              isLoading={scorers.isLoading}
-              isError={scorers.isError && !scorers.data}
-            />
+            <View style={styles.players}>
+              <ScorersSection
+                data={scorers.data}
+                isLoading={scorers.isLoading}
+                isError={scorers.isError && !scorers.data}
+              />
+              {/* Competitions without the scorers market have no yellow cards either. */}
+              {scorers.data && scorers.data.status !== 'unsupported' ? (
+                BOOKINGS_API_READY ? (
+                  <ScorersSection
+                    variant="bookings"
+                    data={bookings.data}
+                    isLoading={bookings.isLoading}
+                    isError={bookings.isError && !bookings.data}
+                  />
+                ) : (
+                  <BookingsComingSoon />
+                )
+              ) : null}
+            </View>
           ) : null
         }
       />
@@ -180,6 +197,7 @@ const makeStyles = (colors: Palette) =>
       padding: spacing.lg,
     },
     list: { flex: 1, backgroundColor: colors.surface },
+    players: { gap: spacing.sm },
     content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
     header: { gap: 4, marginBottom: spacing.sm },
     title: { fontFamily: fonts.bodyBold, fontSize: fs(22), color: colors.ink },

@@ -77,22 +77,26 @@ export function initials(name: string | null | undefined): string {
   return `${first}${last}`.toUpperCase();
 }
 
-type ScorersLike = {
+type ScorersLike<P extends { probability: number } = ScorerPlayer> = {
   available: boolean;
   status?: string;
   lineup_type?: string | null;
-  teams: { top: ScorerPlayer[]; players: ScorerPlayer[] }[];
+  teams: { top: P[]; players: P[] }[];
 };
 
 /**
  * The few players a match card shows: the best of each team, then the next most
  * likely overall, at most `limit`, strongest first. Empty unless the data is ready.
+ * Works for scorers and for yellow cards (same shape).
  */
-export function pickCardScorers(data: ScorersLike | undefined, limit = 2): ScorerPlayer[] {
+export function pickCardScorers<P extends { probability: number }>(
+  data: ScorersLike<P> | undefined,
+  limit = 2,
+): P[] {
   if (!data || !data.available || data.status === 'unsupported') return [];
-  const byProb = (a: ScorerPlayer, b: ScorerPlayer) => b.probability - a.probability;
+  const byProb = (a: P, b: P) => b.probability - a.probability;
   const pool = data.teams.map((t) => [...(t.top.length ? t.top : t.players)].sort(byProb));
-  const chosen: ScorerPlayer[] = [];
+  const chosen: P[] = [];
   for (const team of pool) {
     if (team[0] && chosen.length < limit) chosen.push(team[0]);
   }
@@ -105,7 +109,10 @@ export function pickCardScorers(data: ScorersLike | undefined, limit = 2): Score
 }
 
 /** Players not shown on the card, for the "+ altri N" line. */
-export function otherScorersCount(data: ScorersLike | undefined, shown: number): number {
+export function otherScorersCount<P extends { probability: number }>(
+  data: ScorersLike<P> | undefined,
+  shown: number,
+): number {
   if (!data) return 0;
   const total = data.teams.reduce((n, t) => n + (t.players.length || t.top.length), 0);
   return Math.max(0, total - shown);
@@ -114,11 +121,27 @@ export function otherScorersCount(data: ScorersLike | undefined, shown: number):
 export type LineupChip = { kind: 'official' | 'estimate' | 'waiting'; label: string };
 
 /** State chip next to the scorers title; null when the block must not be shown at all. */
-export function lineupChip(data: ScorersLike | undefined): LineupChip | null {
+export function lineupChip(
+  data:
+    | { available: boolean; status?: string; lineup_type?: string | null; teams: unknown[] }
+    | undefined,
+): LineupChip | null {
   if (!data || data.status === 'unsupported') return null;
   if (!data.available || data.teams.length === 0) return { kind: 'waiting', label: 'In attesa' };
   const type = (data.lineup_type ?? 'official').toLowerCase();
   return type === 'official'
     ? { kind: 'official', label: 'Ufficiali' }
     : { kind: 'estimate', label: 'Stima' };
+}
+
+/** Spoken label for a yellow-card row. */
+export function bookingA11yLabel(player: {
+  name: string;
+  position: string | null | undefined;
+  probability: number;
+  booked: boolean | null;
+}): string {
+  const pct = Math.round(Math.max(0, Math.min(1, player.probability)) * 100);
+  const booked = player.booked === true ? ', è stato ammonito' : '';
+  return `${player.name}, ${positionLong(player.position)}, ${pct} percento di essere ammonito${booked}`;
 }

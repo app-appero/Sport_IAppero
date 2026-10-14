@@ -343,3 +343,34 @@ export interface EventScorersResponse {
   lineup_type: string | null;
   teams: ScorerTeam[];
 }
+
+/** Yellow-card ("gialli") market: same shape as scorers, `booked` instead of `scored`. */
+export interface BookingPlayer {
+  player_id: number | string;
+  name: string;
+  team_id: number;
+  team: string;
+  position: ScorerPosition;
+  /** Probability of getting at least one yellow card, 0..1. */
+  probability: number;
+  /** Final result: true/false once the match is over, null before. */
+  booked: boolean | null;
+}
+
+export interface BookingTeam {
+  team_id: number;
+  team: string;
+  top: BookingPlayer[];
+  players: BookingPlayer[];
+}
+
+export interface EventBookingsResponse {
+  event_id: string;
+  available: boolean;
+  status?: ScorersStatus;
+  note: string;
+  kickoff: string | null;
+  model_version: string | null;
+  lineup_type: string | null;
+  teams: BookingTeam[];
+}
