@@ -11,7 +11,9 @@ import {
   hasPermission,
   isAdminUser,
   permissionLabel,
+  overallProgress,
   refreshStateLabel,
+  sportProgress,
   roleLabel,
   shouldKeepPolling,
 } from '../utils/admin.ts';
@@ -102,4 +104,13 @@ test('only a super admin edits others, never super admins or themselves', () => 
   assert.equal(canEditUser(me, { id: 'c', role: 'super_admin' }), false);
   assert.equal(canEditUser(me, { id: 'a', role: 'user' }), false);
   assert.equal(canEditUser({ id: 'a', role: 'admin' }, { id: 'b', role: 'user' }), false);
+});
+
+test('progress: finished runs count 100, others use the engine number', () => {
+  assert.equal(sportProgress('running', 40.4), 40);
+  assert.equal(sportProgress('queued', null), 0);
+  assert.equal(sportProgress('success', null), 100);
+  assert.equal(sportProgress('running', 250), 100);
+  assert.equal(overallProgress({ football: 'running', tennis: 'success' }, { football: 50 }), 75);
+  assert.equal(overallProgress({}, {}), null);
 });

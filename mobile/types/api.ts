@@ -298,7 +298,7 @@ export interface AdminRefreshResponse {
 export type RefreshRunState = 'queued' | 'running' | 'success' | 'failed' | 'unknown';
 
 export type AdminRefreshStatus = Partial<
-  Record<SportId, { state: RefreshRunState; detail: string | null }>
+  Record<SportId, { state: RefreshRunState; detail: string | null; progress?: number | null }>
 >;
 
 export interface AuthSession {

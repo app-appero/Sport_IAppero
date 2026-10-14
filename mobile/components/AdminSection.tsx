@@ -11,9 +11,11 @@ import {
   REFRESH_POLL_MS,
   adminErrorMessage,
   hasPermission,
+  overallProgress,
   refreshStateLabel,
   roleLabel,
   shouldKeepPolling,
+  sportProgress,
   sportLabel,
 } from '@/utils/admin';
 
@@ -71,8 +73,8 @@ function RefreshBlock({ token }: { token: string }) {
   const [running, setRunning] = useState(false);
   const [states, setStates] = useState<States | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Record<string, number | null>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
-  const [canForceTennis, setCanForceTennis] = useState(false);
   const alive = useRef(true);
   const runId = useRef(0);
 
@@ -92,8 +94,8 @@ function RefreshBlock({ token }: { token: string }) {
     setRunning(true);
     setMessage(null);
     setStates(null);
+    setProgress({});
     setReasons({});
-    setCanForceTennis(false);
     try {
       const res = await adminRefresh(token, [...sportsToRun], { forceOutsideHours: opts?.force === true });
       if (!current()) return;
@@ -105,7 +107,6 @@ function RefreshBlock({ token }: { token: string }) {
         if (!r || r.state === 'error' || !r.ref) {
           next[sport] = 'error';
           if (r?.message) why[sport] = r.message;
-          if (sport === 'tennis' && r?.code === 'window_closed') setCanForceTennis(true);
         } else {
           next[sport] = 'queued';
           refs[sport] = r.ref;
@@ -113,6 +114,7 @@ function RefreshBlock({ token }: { token: string }) {
       }
       setReasons(why);
       setStates({ ...next });
+      const prog: Record<string, number | null> = {};
       const startedAt = Date.now();
       let failures = 0;
       while (Object.keys(refs).length > 0 && current()) {
@@ -133,8 +135,10 @@ function RefreshBlock({ token }: { token: string }) {
           for (const sport of Object.keys(pending)) {
             const s = status[sport as (typeof SPORTS)[number]];
             if (s?.state) next[sport] = s.state;
+            if (s) prog[sport] = s.progress ?? prog[sport] ?? null;
           }
           setStates({ ...next });
+          setProgress({ ...prog });
         } catch (err) {
           const status = (err as { status?: number })?.status;
           // Auth errors will not heal by retrying; a flaky network might.
@@ -151,6 +155,8 @@ function RefreshBlock({ token }: { token: string }) {
     }
   }, [token]);
 
+  const overall = states ? overallProgress(states, progress) : null;
+
   return (
     <View style={styles.block}>
       <Pressable
@@ -165,26 +171,37 @@ function RefreshBlock({ token }: { token: string }) {
           {running ? 'Aggiornamento in corso…' : 'Aggiorna tutto (Calcio + Tennis)'}
         </Text>
       </Pressable>
+      {states && overall != null ? (
+        <View>
+          <Text style={styles.stateRow}>{`Avanzamento totale · ${overall}%`}</Text>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${overall}%` }]} />
+          </View>
+        </View>
+      ) : null}
       {states
         ? SPORTS.filter((sport) => states[sport] != null).map((sport) => (
             <View key={sport}>
               <Text style={styles.stateRow}>
-                {`${sportLabel(sport)} · ${refreshStateLabel(states[sport] as never)}`}
+                {`${sportLabel(sport)} · ${refreshStateLabel(states[sport] as never)} · ${sportProgress(states[sport], progress[sport])}%`}
               </Text>
               {reasons[sport] ? <Text style={styles.reason}>{reasons[sport]}</Text> : null}
             </View>
           ))
         : null}
-      {canForceTennis && !running ? (
-        <Pressable
-          onPress={() => start({ sports: ['tennis'], force: true })}
-          style={styles.secondary}
-          accessibilityRole="button"
-          accessibilityLabel="Forza aggiornamento Tennis fuori orario"
-        >
-          <Text style={styles.secondaryText}>Forza Tennis fuori orario</Text>
-        </Pressable>
-      ) : null}
+      <Pressable
+        onPress={() => start({ sports: ['tennis'], force: true })}
+        disabled={running}
+        style={[styles.secondary, running && styles.disabled]}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: running }}
+        accessibilityLabel="Forza le schedine Tennis anche dopo le 10"
+      >
+        <Text style={styles.secondaryText}>Forza schedine Tennis (dopo le 10)</Text>
+      </Pressable>
+      <Text style={styles.reason}>
+        Aggiorna il tennis e rigenera le schedine anche a pool chiuso. «Aggiorna tutto» dopo le 10 lascia le schedine come sono.
+      </Text>
       {message ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
@@ -227,6 +244,8 @@ const makeStyles = (colors: Palette) =>
     },
     primaryText: { fontFamily: fonts.bodyBold, fontSize: fs(15), color: colors.onAccent },
     disabled: { opacity: 0.5 },
+    barTrack: { height: 8, borderRadius: 4, backgroundColor: colors.line, overflow: 'hidden', marginTop: 4 },
+    barFill: { height: 8, borderRadius: 4, backgroundColor: colors.accent },
     stateRow: { fontFamily: fonts.bodyMedium, fontSize: fs(14), color: colors.ink },
     error: { fontFamily: fonts.bodyMedium, fontSize: fs(13), color: colors.miss },
     reason: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
