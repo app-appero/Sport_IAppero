@@ -1,120 +1,172 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { CardScorers } from '@/components/CardScorers';
 import { ConfidenceBar } from '@/components/ConfidenceBar';
-import { marketLabel, predictionMatchesMarket } from '@/constants/markets';
-import { useThemedStyles } from '@/components/SportTheme';
+import { OutcomeDot } from '@/components/OutcomeDot';
+import { ProbabilityRing } from '@/components/ProbabilityRing';
+import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
+import { marketLabel } from '@/constants/markets';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
+import { topMarkets, marketFamily } from '@/utils/cardMarkets';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
-import { isLiveEvent, liveLine } from '@/utils/liveScore';
-import { outcomeTone, pickBestPrediction, scoreForMarket } from '@/utils/outcome';
+import { formatSets, isLiveEvent, liveLine } from '@/utils/liveScore';
+import { outcomeTone, scoreForMarket, type OutcomeTone } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
+import { resolveTennisWinner, setPills } from '@/utils/tennisCard';
 
 type Props = {
   item: FeedItem;
   index?: number;
   onPress?: () => void;
-  /** When filtering by a single market, prefer that prediction as hero. */
+  /** When filtering by a single market, prefer that prediction as the first circle. */
   preferredMarket?: string;
   /** Selected calendar day (YYYY-MM-DD) for past-day status heuristics. */
   selectedDate?: string | null;
 };
 
-export function EventCard({
-  item,
-  index = 0,
-  onPress,
-  preferredMarket,
-  selectedDate,
-}: Props) {
+/** Football: three circles + likely scorers. Tennis: winner split + three circles. */
+export function EventCard(props: Props) {
+  return props.item.sport === 'tennis' ? <TennisCard {...props} /> : <FootballCard {...props} />;
+}
+
+function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate }: Props) {
   const styles = useThemedStyles(makeStyles);
-  const preferred =
-    preferredMarket
-      ? item.predictions.filter((p) => predictionMatchesMarket(p.prediction.type, preferredMarket))
-      : [];
-  const best =
-    (preferred.length ? pickBestPrediction(preferred) : null) ??
-    pickBestPrediction(item.predictions);
+  const picks = topMarkets(item.predictions, { preferredMarket });
+  if (picks.length === 0) return null;
 
-  if (!best) return null;
+  const tone = outcomeTone(picks[0]);
+  const score = item.event.score;
+  const scoreText =
+    score?.home != null && score?.away != null ? `${score.home} – ${score.away}` : null;
+  const live = isLiveEvent(item.event);
+  const statusText = scoreText || live ? null : cardStatusText(item, selectedDate);
 
-  const tone = outcomeTone(best);
-  const scoreLine = scoreForMarket(item.event, best.prediction.type);
-  const timeLabel = formatEventTime(item.event.start_time, item.event.local_time);
+  return (
+    <CardShell item={item} index={index} onPress={onPress} tone={tone}>
+      <CardTop item={item} tone={tone} live={live} />
+      <View style={styles.nameRow}>
+        <Text style={styles.name}>{item.event.name}</Text>
+        {scoreText ? <Text style={styles.score}>{scoreText}</Text> : null}
+      </View>
+      {statusText ? <Text style={styles.muted}>{statusText}</Text> : null}
+      <Rings picks={picks} />
+      <CardScorers eventId={item.event.id} />
+      <MoreLine item={item} onPress={onPress} />
+    </CardShell>
+  );
+}
+
+function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const colors = useSportPalette();
+  const winnerPred = item.predictions.find(
+    (p) => p.prediction.type === 'match_winner' || p.prediction.type === 'h2h',
+  );
+  const winner = winnerPred ? resolveTennisWinner(winnerPred, item.event.participants) : null;
+  const picks = topMarkets(item.predictions, {
+    preferredMarket,
+    exclude: winner && winnerPred ? [marketFamily(winnerPred.prediction.type)] : [],
+  });
+  if (!winner && picks.length === 0) return null;
+
+  const tone = winner && winnerPred ? outcomeTone(winnerPred) : outcomeTone(picks[0]);
   const live = isLiveEvent(item.event);
   const liveInfo = live ? liveLine(item.event) : null;
-  const marketsCount = new Set(item.predictions.map((p) => p.prediction.type)).size;
+  const finishedSets = !live
+    ? setPills(formatSets(item.event.live?.sets) || item.event.score?.display || '')
+    : [];
+  const statusText = live || finishedSets.length ? null : cardStatusText(item, selectedDate);
+
+  return (
+    <CardShell item={item} index={index} onPress={onPress} tone={tone}>
+      <CardTop item={item} tone={tone} live={live} />
+      {winner ? (
+        <View style={styles.winner}>
+          <View style={styles.winnerRow}>
+            <View style={styles.winnerName}>
+              <Text style={styles.player} numberOfLines={1}>
+                {winner.names[0]}
+              </Text>
+              <OutcomeDot tone={tone} size={9} />
+            </View>
+            <Text style={[styles.winnerPct, { color: colors.accentText }]}>
+              {Math.round(winner.probs[0] * 100)}%
+            </Text>
+          </View>
+          <View style={styles.split}>
+            <View style={[styles.splitFill, { flex: winner.probs[0] }]} />
+            <View style={[styles.splitRest, { flex: Math.max(winner.probs[1], 0.0001) }]} />
+          </View>
+          <View style={styles.winnerRow}>
+            <Text style={[styles.player, styles.playerDim]} numberOfLines={1}>
+              {winner.names[1]}
+            </Text>
+            <Text style={[styles.winnerPct, styles.winnerPctDim]}>
+              {Math.round(winner.probs[1] * 100)}%
+            </Text>
+          </View>
+          <Text style={styles.cap}>Vincitore</Text>
+        </View>
+      ) : (
+        <Text style={styles.name}>{item.event.name}</Text>
+      )}
+
+      {liveInfo ? (
+        <View style={styles.liveBlock} accessibilityLabel="Punteggio in diretta">
+          {liveInfo.sets ? <Text style={styles.liveLine}>Set · {liveInfo.sets}</Text> : null}
+          {liveInfo.game ? <Text style={styles.muted}>Game · {liveInfo.game}</Text> : null}
+          {liveInfo.server ? <Text style={styles.muted}>Al servizio · {liveInfo.server}</Text> : null}
+        </View>
+      ) : live ? (
+        <Text style={styles.muted}>In corso</Text>
+      ) : finishedSets.length ? (
+        <View style={styles.sets}>
+          <Text style={styles.cap}>Set</Text>
+          {finishedSets.map((s, i) => (
+            <View key={`${s}-${i}`} style={styles.setPill}>
+              <Text style={styles.setText}>{s}</Text>
+            </View>
+          ))}
+        </View>
+      ) : statusText ? (
+        <Text style={styles.muted}>{statusText}</Text>
+      ) : null}
+
+      {picks.length ? <Rings picks={picks} /> : null}
+      <MoreLine item={item} onPress={onPress} />
+    </CardShell>
+  );
+}
+
+function cardStatusText(item: FeedItem, selectedDate?: string | null): string {
+  const label = eventStatusLabel(item.event, { selectedDate });
+  if (!label || label === 'Pre-match') return 'Pre-match';
+  return `Stato · ${label}`;
+}
+
+function CardShell({
+  item,
+  index,
+  onPress,
+  tone,
+  children,
+}: {
+  item: FeedItem;
+  index: number;
+  onPress?: () => void;
+  tone: OutcomeTone;
+  children: ReactNode;
+}) {
+  const styles = useThemedStyles(makeStyles);
   const cardStyle = [
     styles.card,
     tone === 'hit' && styles.cardHit,
     tone === 'miss' && styles.cardMiss,
   ];
-
-  const body = (
-    <>
-      <View style={styles.top}>
-        <Text style={styles.badge}>
-          {(item.event.competition?.name || item.sport).toUpperCase()}
-        </Text>
-        <View style={styles.topRight}>
-          {tone ? (
-            <View
-              style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}
-              accessibilityLabel={tone === 'hit' ? 'Esito positivo' : 'Esito negativo'}
-            >
-              <Text style={styles.outcomeText}>{tone === 'hit' ? 'V' : 'X'}</Text>
-            </View>
-          ) : null}
-          {live ? (
-            <View style={styles.liveBadge} accessibilityLabel="Partita in corso">
-              <Text style={styles.liveBadgeText}>● LIVE</Text>
-            </View>
-          ) : null}
-          <Text style={styles.time}>{timeLabel}</Text>
-        </View>
-      </View>
-
-      <Text style={styles.event}>{item.event.name}</Text>
-
-      {liveInfo ? (
-        <View style={styles.liveBlock} accessibilityLabel="Punteggio in diretta">
-          {liveInfo.sets ? <Text style={styles.score}>Set · {liveInfo.sets}</Text> : null}
-          {liveInfo.game ? <Text style={styles.scoreMuted}>Game · {liveInfo.game}</Text> : null}
-          {liveInfo.server ? <Text style={styles.scoreMuted}>Al servizio · {liveInfo.server}</Text> : null}
-        </View>
-      ) : scoreLine && !live ? (
-        <Text style={styles.score}>Risultato · {scoreLine}</Text>
-      ) : live ? (
-        <Text style={styles.scoreMuted}>In corso</Text>
-      ) : scoreLine ? (
-        <Text style={styles.score}>Risultato · {scoreLine}</Text>
-      ) : (
-        <Text style={styles.scoreMuted}>
-          {(() => {
-            const label = eventStatusLabel(item.event, { selectedDate });
-            if (!label || label === 'Pre-match') return 'Pre-match';
-            return `Stato · ${label}`;
-          })()}
-        </Text>
-      )}
-
-      <View style={styles.bestBlock}>
-        <Text style={styles.pickLabel}>
-          Miglior mercato · {marketLabel(best.prediction.type)}
-        </Text>
-        <Text style={styles.pick}>{selectionLabel(best.prediction.selection.name)}</Text>
-        <ConfidenceBar value={best.prediction.confidence} />
-      </View>
-
-      <Text style={styles.more}>
-        {marketsCount} {marketsCount === 1 ? 'mercato' : 'mercati'}
-        {onPress ? ' · tocca per tutti' : ''}
-      </Text>
-    </>
-  );
-
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}>
       {onPress ? (
@@ -122,13 +174,79 @@ export function EventCard({
           onPress={onPress}
           style={({ pressed }) => [...cardStyle, pressed && styles.pressed]}
           accessibilityRole="button"
+          accessibilityLabel={item.event.name}
         >
-          {body}
+          {children}
         </Pressable>
       ) : (
-        <View style={cardStyle}>{body}</View>
+        <View style={cardStyle}>{children}</View>
       )}
     </Animated.View>
+  );
+}
+
+function CardTop({ item, tone, live }: { item: FeedItem; tone: OutcomeTone; live: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+  const timeLabel = formatEventTime(item.event.start_time, item.event.local_time);
+  return (
+    <View style={styles.top}>
+      <Text style={styles.badge} numberOfLines={1}>
+        {(item.event.competition?.name || item.sport).toUpperCase()}
+      </Text>
+      <View style={styles.topRight}>
+        {live ? (
+          <View style={styles.liveBadge} accessibilityLabel="Partita in corso">
+            <Text style={styles.liveBadgeText}>● LIVE</Text>
+          </View>
+        ) : null}
+        <OutcomeDot tone={tone} size={10} />
+        <Text style={styles.time}>{timeLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
+/** Up to three markets as circles: percentage inside, market name and pick underneath. */
+function Rings({ picks }: { picks: UnifiedPrediction[] }) {
+  const styles = useThemedStyles(makeStyles);
+  const colors = useSportPalette();
+  return (
+    <View style={styles.rings}>
+      {picks.map((pred) => {
+        const tone = outcomeTone(pred);
+        const arc = tone === 'hit' ? colors.hit : tone === 'miss' ? colors.missBadge : colors.accent;
+        return (
+          <View key={pred.id} style={styles.ringCol}>
+            <ProbabilityRing
+              value={pred.prediction.confidence}
+              color={arc}
+              trackColor={colors.line}
+              textColor={colors.ink}
+            />
+            <Text style={styles.ringMarket} numberOfLines={1}>
+              {marketLabel(pred.prediction.type)}
+            </Text>
+            <View style={styles.ringPickRow}>
+              <Text style={styles.ringPick} numberOfLines={1}>
+                {selectionLabel(pred.prediction.selection.name)}
+              </Text>
+              <OutcomeDot tone={tone} size={8} />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function MoreLine({ item, onPress }: { item: FeedItem; onPress?: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const count = new Set(item.predictions.map((p) => p.prediction.type)).size;
+  return (
+    <Text style={styles.more}>
+      {count} {count === 1 ? 'mercato' : 'mercati'}
+      {onPress ? ' · tocca per tutti' : ''}
+    </Text>
   );
 }
 
@@ -147,141 +265,124 @@ export function MarketRow({ item }: { item: UnifiedPrediction }) {
     >
       <View style={styles.marketTop}>
         <Text style={styles.marketName}>{marketLabel(item.prediction.type)}</Text>
-        {tone ? (
-          <View
-            style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}
-            accessibilityLabel={tone === 'hit' ? 'Esito positivo' : 'Esito negativo'}
-          >
-            <Text style={styles.outcomeText}>{tone === 'hit' ? 'V' : 'X'}</Text>
-          </View>
-        ) : null}
+        <OutcomeDot tone={tone} size={10} />
       </View>
       <Text style={styles.marketPick}>{selectionLabel(item.prediction.selection.name)}</Text>
-      {scoreLine ? <Text style={styles.score}>Risultato · {scoreLine}</Text> : null}
+      {scoreLine ? <Text style={styles.liveLine}>Risultato · {scoreLine}</Text> : null}
       <ConfidenceBar value={item.prediction.confidence} />
     </View>
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
-  card: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    gap: spacing.sm,
-    minHeight: 44,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-  },
-  cardHit: { borderColor: colors.hit, backgroundColor: colors.hitBg },
-  cardMiss: { borderColor: colors.miss, backgroundColor: colors.missBg },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
-  top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  topRight: { alignItems: 'flex-end', gap: 4 },
-  badge: {
-    color: colors.onAccent,
-    backgroundColor: colors.accent,
-    alignSelf: 'flex-start',
-    overflow: 'hidden',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(11),
-    letterSpacing: 0.4,
-    maxWidth: '60%',
-  },
-  time: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(13),
-    color: colors.ink,
-  },
-  outcomeDot: {
-    borderRadius: 6,
-    minWidth: 20,
-    minHeight: 20,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hit: { backgroundColor: colors.hitBadge },
-  miss: { backgroundColor: colors.missBadge },
-  outcomeText: {
-    color: '#fff',
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(13),
-    lineHeight: fs(16),
-  },
-  event: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(17),
-    color: colors.ink,
-  },
-  score: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fs(14),
-    color: colors.ink,
-  },
-  liveBlock: { gap: 2 },
-  liveBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-  },
-  liveBadgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(11),
-    letterSpacing: 0.6,
-    color: colors.surface,
-  },
-  scoreMuted: {
-    fontFamily: fonts.body,
-    fontSize: fs(13),
-    color: colors.inkMuted,
-  },
-  bestBlock: { gap: 4, marginTop: 2 },
-  pickLabel: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    fontSize: fs(12),
-  },
-  pick: {
-    fontFamily: fonts.display,
-    fontSize: fs(28),
-    color: colors.accentText,
-    letterSpacing: 0.5,
-    lineHeight: fs(30),
-  },
-  more: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fs(12),
-    color: colors.inkMuted,
-    marginTop: 2,
-  },
-  marketRow: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    gap: 6,
-  },
-  marketTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  marketName: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fs(14),
-    color: colors.ink,
-  },
-  marketPick: {
-    fontFamily: fonts.display,
-    fontSize: fs(24),
-    color: colors.accentText,
-    lineHeight: fs(26),
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.line,
+      gap: spacing.sm,
+      minHeight: 44,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+    },
+    cardHit: { borderColor: colors.hit, backgroundColor: colors.hitBg },
+    cardMiss: { borderColor: colors.miss, backgroundColor: colors.missBg },
+    pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
+    top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+    topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    badge: {
+      color: colors.onAccent,
+      backgroundColor: colors.accent,
+      overflow: 'hidden',
+      borderRadius: 6,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      fontFamily: fonts.bodyBold,
+      fontSize: fs(10),
+      letterSpacing: 0.4,
+      flexShrink: 1,
+    },
+    time: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
+    liveBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: radii.pill,
+      backgroundColor: colors.accent,
+    },
+    liveBadgeText: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fs(11),
+      letterSpacing: 0.6,
+      color: colors.onAccent,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    name: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: fs(17), color: colors.ink },
+    score: { fontFamily: fonts.display, fontSize: fs(28), color: colors.ink, letterSpacing: 0.5 },
+    muted: { fontFamily: fonts.body, fontSize: fs(13), color: colors.inkMuted },
+    liveBlock: { gap: 2 },
+    liveLine: { fontFamily: fonts.bodyMedium, fontSize: fs(14), color: colors.ink },
+
+    rings: { flexDirection: 'row', gap: 6, paddingTop: 2 },
+    ringCol: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
+    ringMarket: { fontFamily: fonts.body, fontSize: fs(10), color: colors.inkMuted, textAlign: 'center' },
+    ringPickRow: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' },
+    ringPick: {
+      flexShrink: 1,
+      fontFamily: fonts.bodyBold,
+      fontSize: fs(12),
+      color: colors.ink,
+      textAlign: 'center',
+    },
+
+    winner: { gap: 6 },
+    winnerRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.sm },
+    winnerName: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+    player: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.ink },
+    playerDim: { fontFamily: fonts.bodyMedium, color: colors.inkMuted },
+    winnerPct: { fontFamily: fonts.display, fontSize: fs(30), letterSpacing: 0.5 },
+    winnerPctDim: { color: colors.inkMuted },
+    split: { flexDirection: 'row', height: 6, borderRadius: 6, overflow: 'hidden', gap: 2 },
+    splitFill: { backgroundColor: colors.accent, borderRadius: 6 },
+    splitRest: { backgroundColor: colors.line, borderRadius: 6 },
+    cap: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fs(10),
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      color: colors.inkMuted,
+    },
+    sets: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+    setPill: {
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.track,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    setText: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.ink },
+
+    more: { fontFamily: fonts.bodyMedium, fontSize: fs(12), color: colors.inkMuted, marginTop: 2 },
+    marketRow: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.line,
+      gap: 6,
+    },
+    marketTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    marketName: { fontFamily: fonts.bodyBold, fontSize: fs(14), color: colors.ink },
+    marketPick: {
+      fontFamily: fonts.display,
+      fontSize: fs(24),
+      color: colors.accentText,
+      lineHeight: fs(26),
+    },
+  });

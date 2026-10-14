@@ -160,8 +160,12 @@ export function useEventPredictions(
 export const SCORERS_STALE_MS = 2 * 60_000;
 export const SCORERS_PENDING_REFETCH_MS = 5 * 60_000;
 
-/** Possible scorers (football only). Until the official line-up is out, refetch every 5 min. */
-export function useEventScorers(eventId: string, enabled = true) {
+/**
+ * Possible scorers (football only). Until the official line-up is out, refetch every 5 min.
+ * Match cards pass `poll: false`: only the detail screen keeps polling.
+ */
+export function useEventScorers(eventId: string, enabled = true, opts: { poll?: boolean } = {}) {
+  const poll = opts.poll ?? true;
   return useQuery({
     queryKey: ['event-scorers', eventId],
     queryFn: () => getEventScorers(eventId),
@@ -171,7 +175,8 @@ export function useEventScorers(eventId: string, enabled = true) {
     placeholderData: keepPreviousData,
     // Only polls while data says "not available yet"; React Query pauses it in
     // background and offline. Errors stop the polling and the section hides.
-    refetchInterval: (query) => (shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false),
+    refetchInterval: (query) =>
+      poll && shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false,
   });
 }
 

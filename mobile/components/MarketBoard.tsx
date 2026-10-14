@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { OutcomeDot } from '@/components/OutcomeDot';
 import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel } from '@/constants/markets';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
@@ -58,14 +59,7 @@ export function MarketBoard({ item, date }: Props) {
     >
       <View style={styles.top}>
         <Text style={styles.marketName}>{marketLabel(item.prediction.type)}</Text>
-        {tone ? (
-          <View
-            style={[styles.outcomeDot, tone === 'hit' ? styles.hit : styles.miss]}
-            accessibilityLabel={tone === 'hit' ? 'Esito positivo' : 'Esito negativo'}
-          >
-            <Text style={styles.outcomeText}>{tone === 'hit' ? 'V' : 'X'}</Text>
-          </View>
-        ) : null}
+        <OutcomeDot tone={tone} size={12} />
       </View>
 
       {scoreLine ? <Text style={styles.score}>Risultato · {scoreLine}</Text> : null}
@@ -132,20 +126,6 @@ const makeStyles = (colors: Palette) =>
       fontSize: fs(15),
       color: colors.ink,
       flex: 1,
-    },
-    outcomeDot: {
-      width: 24,
-      height: 24,
-      borderRadius: 6,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    hit: { backgroundColor: colors.hit },
-    miss: { backgroundColor: colors.miss },
-    outcomeText: {
-      fontFamily: fonts.bodyBold,
-      fontSize: fs(12),
-      color: '#fff',
     },
     score: {
       fontFamily: fonts.body,

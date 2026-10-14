@@ -67,3 +67,58 @@ export function isScorersUnsupported(data: { status?: string } | undefined): boo
 export function shouldPollScorers(data: { available: boolean; status?: string } | undefined): boolean {
   return Boolean(data) && !data!.available && data!.status !== 'unsupported';
 }
+
+/** "A. Ferrero" -> "AF", "Lautaro Martinez" -> "LM", "Pelé" -> "P". */
+export function initials(name: string | null | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '—';
+  const first = parts[0][0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
+  return `${first}${last}`.toUpperCase();
+}
+
+type ScorersLike = {
+  available: boolean;
+  status?: string;
+  lineup_type?: string | null;
+  teams: { top: ScorerPlayer[]; players: ScorerPlayer[] }[];
+};
+
+/**
+ * The few players a match card shows: the best of each team, then the next most
+ * likely overall, at most `limit`, strongest first. Empty unless the data is ready.
+ */
+export function pickCardScorers(data: ScorersLike | undefined, limit = 2): ScorerPlayer[] {
+  if (!data || !data.available || data.status === 'unsupported') return [];
+  const byProb = (a: ScorerPlayer, b: ScorerPlayer) => b.probability - a.probability;
+  const pool = data.teams.map((t) => [...(t.top.length ? t.top : t.players)].sort(byProb));
+  const chosen: ScorerPlayer[] = [];
+  for (const team of pool) {
+    if (team[0] && chosen.length < limit) chosen.push(team[0]);
+  }
+  const rest = pool.flatMap((team) => team.slice(1)).sort(byProb);
+  for (const player of rest) {
+    if (chosen.length >= limit) break;
+    chosen.push(player);
+  }
+  return chosen.sort(byProb);
+}
+
+/** Players not shown on the card, for the "+ altri N" line. */
+export function otherScorersCount(data: ScorersLike | undefined, shown: number): number {
+  if (!data) return 0;
+  const total = data.teams.reduce((n, t) => n + (t.players.length || t.top.length), 0);
+  return Math.max(0, total - shown);
+}
+
+export type LineupChip = { kind: 'official' | 'estimate' | 'waiting'; label: string };
+
+/** State chip next to the scorers title; null when the block must not be shown at all. */
+export function lineupChip(data: ScorersLike | undefined): LineupChip | null {
+  if (!data || data.status === 'unsupported') return null;
+  if (!data.available || data.teams.length === 0) return { kind: 'waiting', label: 'In attesa' };
+  const type = (data.lineup_type ?? 'official').toLowerCase();
+  return type === 'official'
+    ? { kind: 'official', label: 'Ufficiali' }
+    : { kind: 'estimate', label: 'Stima' };
+}
