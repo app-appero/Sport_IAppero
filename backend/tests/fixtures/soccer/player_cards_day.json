@@ -1,0 +1,70 @@
+{
+ "date": "2026-10-13",
+ "rows": [
+  {
+   "fixture_id": 9001,
+   "player_id": 1101,
+   "revision": 1,
+   "player_name": "M. Rossi",
+   "team_id": 10,
+   "team_name": "Casa FC",
+   "position": "F",
+   "league": 135,
+   "kickoff": "2026-10-13T18:45:00+00:00",
+   "probability": 0.186,
+   "lineup_type": "official",
+   "model_version": "test",
+   "created_at": "2026-10-13T17:50:00+00:00",
+   "yellow": null
+  },
+  {
+   "fixture_id": 9001,
+   "player_id": 1102,
+   "revision": 1,
+   "player_name": "L. Bianchi",
+   "team_id": 10,
+   "team_name": "Casa FC",
+   "position": "M",
+   "league": 135,
+   "kickoff": "2026-10-13T18:45:00+00:00",
+   "probability": 0.072,
+   "lineup_type": "official",
+   "model_version": "test",
+   "created_at": "2026-10-13T17:50:00+00:00",
+   "yellow": null
+  },
+  {
+   "fixture_id": 9001,
+   "player_id": 1103,
+   "revision": 1,
+   "player_name": "A. Verdi",
+   "team_id": 10,
+   "team_name": "Casa FC",
+   "position": "D",
+   "league": 135,
+   "kickoff": "2026-10-13T18:45:00+00:00",
+   "probability": 0.024,
+   "lineup_type": "official",
+   "model_version": "test",
+   "created_at": "2026-10-13T17:50:00+00:00",
+   "yellow": null
+  },
+  {
+   "fixture_id": 9001,
+   "player_id": 2101,
+   "revision": 1,
+   "player_name": "G. Neri",
+   "team_id": 20,
+   "team_name": "Ospiti FC",
+   "position": "F",
+   "league": 135,
+   "kickoff": "2026-10-13T18:45:00+00:00",
+   "probability": 0.162,
+   "lineup_type": "official",
+   "model_version": "test",
+   "created_at": "2026-10-13T17:50:00+00:00",
+   "yellow": null
+  }
+ ],
+ "total": 4
+}
