@@ -75,7 +75,6 @@ function RefreshBlock({ token }: { token: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, number | null>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
-  const [canForceTennis, setCanForceTennis] = useState(false);
   const alive = useRef(true);
   const runId = useRef(0);
 
@@ -97,7 +96,6 @@ function RefreshBlock({ token }: { token: string }) {
     setStates(null);
     setProgress({});
     setReasons({});
-    setCanForceTennis(false);
     try {
       const res = await adminRefresh(token, [...sportsToRun], { forceOutsideHours: opts?.force === true });
       if (!current()) return;
@@ -109,7 +107,6 @@ function RefreshBlock({ token }: { token: string }) {
         if (!r || r.state === 'error' || !r.ref) {
           next[sport] = 'error';
           if (r?.message) why[sport] = r.message;
-          if (sport === 'tennis' && r?.code === 'window_closed') setCanForceTennis(true);
         } else {
           next[sport] = 'queued';
           refs[sport] = r.ref;
@@ -192,16 +189,6 @@ function RefreshBlock({ token }: { token: string }) {
             </View>
           ))
         : null}
-      {canForceTennis && !running ? (
-        <Pressable
-          onPress={() => start({ sports: ['tennis'], force: true })}
-          style={styles.secondary}
-          accessibilityRole="button"
-          accessibilityLabel="Forza aggiornamento Tennis fuori orario"
-        >
-          <Text style={styles.secondaryText}>Forza Tennis fuori orario</Text>
-        </Pressable>
-      ) : null}
       {message ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
