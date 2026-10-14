@@ -42,7 +42,7 @@ export function EventCard({
 
   const tone = outcomeTone(best);
   const scoreLine = scoreForMarket(item.event, best.prediction.type);
-  const timeLabel = formatEventTime(item.event.start_time);
+  const timeLabel = formatEventTime(item.event.start_time, item.event.local_time);
   const live = isLiveEvent(item.event);
   const liveInfo = live ? liveLine(item.event) : null;
   const marketsCount = new Set(item.predictions.map((p) => p.prediction.type)).size;

@@ -109,7 +109,7 @@ function EventDetail() {
   const items = sortMarkets(query.data?.items ?? []);
   const event = items[0]?.event;
   const title = event?.name ?? `Evento ${id}`;
-  const timeLabel = formatEventTime(event?.start_time ?? null);
+  const timeLabel = formatEventTime(event?.start_time ?? null, event?.local_time);
   const scoreSample = event
     ? scoreForMarket(event, items[0]?.prediction.type || 'h2h')
     : null;
