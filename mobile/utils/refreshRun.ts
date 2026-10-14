@@ -73,7 +73,7 @@ export function createRefreshStore(deps: RefreshDeps) {
         );
         if (Object.keys(pending).length === 0) break;
         if (!shouldKeepPolling(states, startedAt, now())) {
-          publish({ message: 'Controllo interrotto dopo 10 minuti: lo stato potrebbe non essere aggiornato.' });
+          publish({ message: 'Controllo interrotto dopo 20 minuti: lo stato potrebbe non essere aggiornato.' });
           break;
         }
         await sleep(pollMs);
