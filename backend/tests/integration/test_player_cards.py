@@ -10,7 +10,7 @@ from app.services.scorers_service import group_by_fixture  # noqa: E402
 
 def test_event_player_cards_top3_per_team_and_all_players():
     with TestClient(app) as client:
-        data = client.get("/api/v1/events/9001/player-cards").json()
+        data = client.get("/api/v1/events/9001/bookings").json()
     assert data["available"] is True and data["status"] == "ready"
     assert "ammonito" in data["note"] and "Non e' una quota" in data["note"]
     home = next(t for t in data["teams"] if t["team"] == "Casa FC")
@@ -21,13 +21,13 @@ def test_event_player_cards_top3_per_team_and_all_players():
 
 def test_event_player_cards_unavailable_before_official_lineup():
     with TestClient(app) as client:
-        data = client.get("/api/v1/events/123456/player-cards").json()
+        data = client.get("/api/v1/events/123456/bookings").json()
     assert data["available"] is False and data["teams"] == [] and data["status"] == "lineup_pending"
 
 
 def test_event_player_cards_unsupported_competition():
     with TestClient(app) as client:
-        data = client.get("/api/v1/events/9002/player-cards").json()
+        data = client.get("/api/v1/events/9002/bookings").json()
     assert data["available"] is False and data["status"] == "unsupported"
 
 

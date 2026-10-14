@@ -3,7 +3,6 @@ import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@t
 import {
   getCompetitions,
   getEventPredictions,
-  getEventPlayerCards,
   getEventScorers,
   getEvents,
   getFeedWithFallback,
@@ -178,18 +177,6 @@ export function useEventScorers(eventId: string, enabled = true, opts: { poll?: 
     // background and offline. Errors stop the polling and the section hides.
     refetchInterval: (query) =>
       poll && shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false,
-  });
-}
-
-/** Probable yellow cards (football only): same polling rules as the scorers. */
-export function useEventPlayerCards(eventId: string, enabled = true) {
-  return useQuery({
-    queryKey: ['event-player-cards', eventId],
-    queryFn: () => getEventPlayerCards(eventId),
-    enabled: enabled && Boolean(eventId),
-    staleTime: SCORERS_STALE_MS,
-    placeholderData: keepPreviousData,
-    refetchInterval: (query) => (shouldPollScorers(query.state.data) ? SCORERS_PENDING_REFETCH_MS : false),
   });
 }
 

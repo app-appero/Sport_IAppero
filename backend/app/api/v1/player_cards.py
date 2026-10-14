@@ -6,8 +6,8 @@ from app.services import player_cards_service
 router = APIRouter(tags=["player-cards"])
 
 
-@router.get("/events/{event_id}/player-cards")
-async def event_player_cards(event_id: str) -> dict:
+@router.get("/events/{event_id}/bookings")
+async def event_bookings(event_id: str) -> dict:
     try:
         return await player_cards_service.get_event_player_cards(event_id)
     except ProviderError as exc:

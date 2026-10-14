@@ -8,7 +8,7 @@ import { MarketBoard } from '@/components/MarketBoard';
 import { ScorersSection } from '@/components/ScorersSection';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, spacing, type Palette, fs } from '@/constants/theme';
-import { useEventPlayerCards, useEventPredictions, useEventScorers } from '@/hooks/queries';
+import { useEventPredictions, useEventScorers } from '@/hooks/queries';
 import type { UnifiedPrediction } from '@/types/api';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
@@ -68,7 +68,6 @@ function EventDetail() {
 
   const isFootball = (query.data?.items[0]?.sport ?? sport) === 'football';
   const scorers = useEventScorers(String(id ?? ''), isFootball);
-  const playerCards = useEventPlayerCards(String(id ?? ''), isFootball);
 
   const header = (
     <Stack.Screen
@@ -154,19 +153,11 @@ function EventDetail() {
         renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
         ListFooterComponent={
           isFootball && items.length > 0 ? (
-            <>
-              <ScorersSection
-                data={scorers.data}
-                isLoading={scorers.isLoading}
-                isError={scorers.isError && !scorers.data}
-              />
-              <ScorersSection
-                variant="cards"
-                data={playerCards.data}
-                isLoading={playerCards.isLoading}
-                isError={playerCards.isError && !playerCards.data}
-              />
-            </>
+            <ScorersSection
+              data={scorers.data}
+              isLoading={scorers.isLoading}
+              isError={scorers.isError && !scorers.data}
+            />
           ) : null
         }
       />

@@ -52,17 +52,10 @@ export function maxProbability(players: Pick<ScorerPlayer, 'probability'>[]): nu
   return players.reduce((m, p) => (p.probability > m ? p.probability : m), 0);
 }
 
-export function scorerA11yLabel(player: ScorerPlayer, variant: 'scorers' | 'cards' = 'scorers'): string {
+export function scorerA11yLabel(player: ScorerPlayer): string {
   const pct = Math.round(Math.max(0, Math.min(1, player.probability)) * 100);
-  const hit =
-    variant === 'cards'
-      ? player.booked === true
-        ? ', ammonito'
-        : ''
-      : player.scored === true
-        ? ', ha segnato'
-        : '';
-  return `${player.name}, ${positionLong(player.position)}, ${pct} percento${hit}`;
+  const scored = player.scored === true ? ', ha segnato' : '';
+  return `${player.name}, ${positionLong(player.position)}, ${pct} percento${scored}`;
 }
 
 /** La sezione sparisce per le competizioni fuori dal mercato (es. Champions League). */

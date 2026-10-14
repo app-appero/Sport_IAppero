@@ -319,16 +319,13 @@ export interface ScorerPlayer {
   /** Probability of scoring at least one goal, 0..1. */
   probability: number;
   /** Final result: true/false once the match is over, null before. */
-  scored?: boolean | null;
-  /** Yellow-card market: true/false once the match is over, null before. */
-  booked?: boolean | null;
+  scored: boolean | null;
 }
 
 export interface ScorerTeam {
   team_id: number;
   team: string;
-  expected_scorers?: number;
-  expected_yellows?: number;
+  expected_scorers: number;
   top: ScorerPlayer[];
   players: ScorerPlayer[];
 }
@@ -346,6 +343,3 @@ export interface EventScorersResponse {
   lineup_type: string | null;
   teams: ScorerTeam[];
 }
-
-/** Same shape as the scorers: probability of a yellow card for each starter. */
-export type EventPlayerCardsResponse = EventScorersResponse;

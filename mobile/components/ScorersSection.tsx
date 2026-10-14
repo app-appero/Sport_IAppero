@@ -25,28 +25,6 @@ import {
 export const SCORERS_PENDING_TEXT =
   'Formazione non ancora ufficiale. I possibili marcatori compaiono circa un’ora prima del calcio d’inizio.';
 
-export const CARDS_PENDING_TEXT =
-  'Formazione non ancora ufficiale. I cartellini probabili compaiono circa un’ora prima del calcio d’inizio.';
-
-export type SectionVariant = 'scorers' | 'cards';
-
-const COPY: Record<SectionVariant, { title: string; label: string; pending: string; hit: string; note: string }> = {
-  scorers: {
-    title: 'Marcatori probabili',
-    label: 'Marcatori probabili',
-    pending: SCORERS_PENDING_TEXT,
-    hit: ' · ha segnato',
-    note: 'Ogni giocatore ha la sua probabilità di segnare almeno un gol: le percentuali non si sommano a 100%.',
-  },
-  cards: {
-    title: 'Gialli probabili',
-    label: 'Gialli probabili',
-    pending: CARDS_PENDING_TEXT,
-    hit: ' · ammonito',
-    note: 'Ogni giocatore ha la sua probabilità di essere ammonito: le percentuali non si sommano a 100%.',
-  },
-};
-
 const FALLBACK_NOTE =
   'Ogni giocatore ha la sua probabilità di segnare almeno un gol: le percentuali non si sommano a 100%.';
 const PAGE = 8;
@@ -55,16 +33,14 @@ type Props = {
   data: EventScorersResponse | undefined;
   isLoading: boolean;
   isError: boolean;
-  variant?: SectionVariant;
 };
 
 /**
  * Event detail: state banner, Tutti / team switch, ranked list. Hidden on errors and
  * for competitions without the market.
  */
-export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }: Props) {
+export function ScorersSection({ data, isLoading, isError }: Props) {
   const styles = useThemedStyles(makeStyles);
-  const copy = COPY[variant];
   const [tab, setTab] = useState<'all' | number>('all');
   const [expanded, setExpanded] = useState(false);
 
@@ -86,9 +62,9 @@ export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }
   const hidden = ranked.length - shown.length;
 
   return (
-    <View style={styles.wrap} accessibilityLabel={copy.label}>
+    <View style={styles.wrap} accessibilityLabel="Marcatori probabili">
       <Text style={styles.cap} accessibilityRole="header">
-        {copy.title}
+        Marcatori probabili
       </Text>
 
       <View style={[styles.banner, waiting && styles.bannerWait, chip.kind === 'estimate' && styles.bannerEst]}>
@@ -101,7 +77,7 @@ export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }
                 ? 'Formazioni probabili (stima)'
                 : 'Formazioni ufficiali'}
           </Text>
-          {waiting ? <Text style={styles.bannerSub}>{copy.pending}</Text> : null}
+          {waiting ? <Text style={styles.bannerSub}>{SCORERS_PENDING_TEXT}</Text> : null}
         </View>
       </View>
 
@@ -118,7 +94,7 @@ export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }
 
           <View style={styles.list}>
             {shown.map((player, i) => (
-              <PlayerRow key={String(player.player_id)} player={player} rank={i + 1} estimate={chip.kind === 'estimate'} variant={variant} />
+              <PlayerRow key={String(player.player_id)} player={player} rank={i + 1} estimate={chip.kind === 'estimate'} />
             ))}
           </View>
 
@@ -128,7 +104,7 @@ export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }
             </Pressable>
           ) : null}
 
-          <Text style={styles.note}>{data.note || copy.note}</Text>
+          <Text style={styles.note}>{data.note || FALLBACK_NOTE}</Text>
         </>
       )}
     </View>
@@ -151,22 +127,12 @@ function SegButton({ label, active, onPress }: { label: string; active: boolean;
   );
 }
 
-function PlayerRow({
-  player,
-  rank,
-  estimate,
-  variant,
-}: {
-  player: ScorerPlayer;
-  rank: number;
-  estimate: boolean;
-  variant: SectionVariant;
-}) {
+function PlayerRow({ player, rank, estimate }: { player: ScorerPlayer; rank: number; estimate: boolean }) {
   const styles = useThemedStyles(makeStyles);
-  const scored = variant === 'cards' ? player.booked === true : player.scored === true;
+  const scored = player.scored === true;
   const ratio = scorerBarRatio(player.probability, 1);
   return (
-    <View style={styles.row} accessible accessibilityLabel={scorerA11yLabel(player, variant)}>
+    <View style={styles.row} accessible accessibilityLabel={scorerA11yLabel(player)}>
       <Text style={styles.rank}>{rank}</Text>
       <View style={[styles.avatar, scored && styles.avatarScored]}>
         <Text style={[styles.avatarText, scored && styles.avatarTextScored]}>{initials(player.name)}</Text>
@@ -182,7 +148,7 @@ function PlayerRow({
         </View>
         <Text style={styles.team} numberOfLines={1}>
           {player.team}
-          {scored ? COPY[variant].hit : ''}
+          {scored ? ' · ha segnato' : ''}
         </Text>
         <View style={styles.track}>
           <View style={[styles.fill, estimate && styles.fillEst, { width: `${Math.round(ratio * 100)}%` }]} />

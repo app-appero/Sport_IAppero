@@ -9,7 +9,6 @@ import type {
   AdminUserList,
   CompetitionListResponse,
   EventListResponse,
-  EventPlayerCardsResponse,
   EventScorersResponse,
   FeedItem,
   AuthSession,
@@ -331,12 +330,6 @@ export async function getEventPredictions(
 export function getEventScorers(eventId: string) {
   return getJson<EventScorersResponse>(
     `/api/v1/events/${encodeURIComponent(eventId)}/scorers`,
-  );
-}
-
-export function getEventPlayerCards(eventId: string) {
-  return getJson<EventPlayerCardsResponse>(
-    `/api/v1/events/${encodeURIComponent(eventId)}/player-cards`,
   );
 }
 
