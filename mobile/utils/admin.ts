@@ -1,7 +1,7 @@
 import type { RefreshRunState, UserRole } from '../types/api.ts';
 
 export const REFRESH_POLL_MS = 5_000;
-export const REFRESH_MAX_WAIT_MS = 10 * 60_000;
+export const REFRESH_MAX_WAIT_MS = 20 * 60_000;
 
 type Roled = { role?: UserRole | string | null; permissions?: readonly string[] | null };
 

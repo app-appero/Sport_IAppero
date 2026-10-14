@@ -60,11 +60,11 @@ test('final state: only success/failed/unknown/error stop the polling', () => {
   assert.equal(allRefreshFinal({}), false);
 });
 
-test('polling stops when final or after 10 minutes', () => {
+test('polling stops when final or after 20 minutes', () => {
   const running = { football: 'running', tennis: 'queued' };
   assert.equal(shouldKeepPolling(running, 0, 5_000), true);
-  assert.equal(shouldKeepPolling(running, 0, 599_999), true);
-  assert.equal(shouldKeepPolling(running, 0, 600_000), false);
+  assert.equal(shouldKeepPolling(running, 0, 1_199_999), true);
+  assert.equal(shouldKeepPolling(running, 0, 1_200_000), false);
   assert.equal(shouldKeepPolling({ football: 'success', tennis: 'failed' }, 0, 1_000), false);
 });
 
