@@ -340,6 +340,11 @@ def map_event(raw: dict[str, Any]) -> Event:
     if isinstance(raw_date, str) and len(raw_date) >= 10:
         calendar_date = raw_date[:10]
 
+    local_time = None
+    raw_time = _dig(raw, "event_time")
+    if isinstance(raw_time, str) and len(raw_time) >= 5 and raw_time[2] == ":":
+        local_time = raw_time[:5]
+
     score_obj = None
     actual_totals: dict[str, Any] | None = None
     live = _dig(raw, "live_score", "score")
@@ -383,6 +388,7 @@ def map_event(raw: dict[str, Any]) -> Event:
         competition=competition,
         start_time=start,
         calendar_date=calendar_date,
+        local_time=local_time,
         participants=participants,
         status=status,
         score=score_obj,

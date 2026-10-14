@@ -132,3 +132,10 @@ def test_not_live_match_keeps_provider_status_and_has_no_live_state():
     event = mapper.map_event(_live_raw(event_live="0", event_status="Finished"))
     assert event.live is None
     assert event.status == "Finished"
+
+
+def test_tennis_local_time_is_kept_for_ordering_without_inventing_a_timezone():
+    event = mapper.map_event(_live_raw(event_time="04:00:00", event_live="0"))
+    assert event.local_time == "04:00"
+    assert event.start_time is None  # still no confirmed timezone upstream
+    assert mapper.map_event(_live_raw(event_live="0")).local_time is None

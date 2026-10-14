@@ -33,6 +33,8 @@ export interface Event {
   competition: Competition | null;
   start_time: string | null;
   calendar_date?: string | null;
+  /** Provider clock "HH:MM", no timezone: only for ordering matches of the same day. */
+  local_time?: string | null;
   participants: Participant[];
   status: string | null;
   score?: EventScore | null;
