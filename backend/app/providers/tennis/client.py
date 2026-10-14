@@ -153,10 +153,13 @@ class TennisProvider(SportProvider):
     async def start_refresh(self, *, force_outside_hours: bool = False) -> dict[str, Any]:
         """"Aggiorna tutto" of the Tennis engine: the global update run (fixtures, predictions, slips).
 
-        The engine refuses (423) once today's slip pool window is closed; `force_outside_hours` is the
-        explicit override it offers, used only when the admin asks for it."""
+        `force` re-runs the update even if one already completed today (otherwise the engine answers
+        409 "already completed today"): "Aggiorna tutto" is an explicit manual request, like the engine's
+        own web button. Slips stay frozen after the pool cutoff unless `force_outside_hours` is set."""
         payload = await self._get(
-            "/api/global-update", method="POST", json={"force_outside_hours": force_outside_hours}
+            "/api/global-update",
+            method="POST",
+            json={"force": True, "force_outside_hours": force_outside_hours},
         )
         payload = payload if isinstance(payload, dict) else {}
         run_id = payload.get("run_id")
