@@ -111,6 +111,13 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="admin/users"
+          options={{
+            title: 'Utenti',
+            headerBackTitle: 'Indietro',
+          }}
+        />
+        <Stack.Screen
           name="event/[id]"
           options={{
             title: 'Evento',

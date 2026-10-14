@@ -60,6 +60,8 @@ L'app e il server non contengono pubblicità, strumenti di analisi statistica (a
 - **Google**: fornisce l'accesso con Google. Google agisce come titolare autonomo per i dati del tuo account Google, secondo la propria informativa: https://policies.google.com/privacy
 - **Railway**: fornitore di hosting su cui girano il nostro server e il database che contiene i dati dell'account. Agisce per nostro conto come responsabile del trattamento.
 
+- **Amministratori dell'app**: il titolare e le persone che designa come amministratori possono consultare l'elenco degli account (nome, email, data di registrazione e ultimo accesso) per gestire il servizio. Ogni modifica ai ruoli viene registrata.
+
 Non vendiamo i tuoi dati e non li condividiamo con terzi per finalità di marketing.
 
 ## 6. Trasferimenti extra UE

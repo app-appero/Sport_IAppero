@@ -51,9 +51,15 @@ class Settings(BaseSettings):
     # HS256 secret for the BFF's own session tokens. Use a long random value; rotating it
     # signs everybody out.
     session_secret: str | None = None
+    # Comma-separated Google emails with full control (promote admins, see audit). Never stored in the DB.
+    super_admin_emails: str | None = None
     session_ttl_days: int = 30
 
     log_level: str = "INFO"
+
+    @property
+    def super_admin_email_set(self) -> set[str]:
+        return {e.strip().lower() for e in (self.super_admin_emails or '').split(',') if e.strip()}
 
     @property
     def google_audiences(self) -> list[str]:

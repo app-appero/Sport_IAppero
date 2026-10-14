@@ -242,13 +242,61 @@ export interface HistoryPredictionList {
   count: number;
 }
 
+export type UserRole = 'user' | 'admin' | 'super_admin';
+export type AdminPermission = 'view_users' | 'refresh_data' | 'free_access';
+
 export interface AuthUser {
   id: string;
   display_name: string | null;
   email: string | null;
   avatar_url: string | null;
   created_at: string;
+  /** Absent on sessions saved by older app versions: treated as "user". */
+  role?: UserRole;
+  permissions?: AdminPermission[];
 }
+
+export interface AdminUser {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  last_login_at: string | null;
+  role: UserRole;
+  permissions: AdminPermission[];
+}
+
+export interface AdminUserList {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AdminUser[];
+}
+
+export interface AdminPermissionInfo {
+  key: AdminPermission;
+  label: string;
+}
+
+export interface AdminPermissionList {
+  permissions: AdminPermissionInfo[];
+}
+
+export type RefreshStartState = 'started' | 'error';
+
+export interface AdminRefreshResponse {
+  started_at: string;
+  results: Partial<
+    Record<SportId, { state: RefreshStartState; ref: string | null; message: string | null }>
+  >;
+}
+
+export type RefreshRunState = 'queued' | 'running' | 'success' | 'failed' | 'unknown';
+
+export type AdminRefreshStatus = Partial<
+  Record<SportId, { state: RefreshRunState; detail: string | null }>
+>;
 
 export interface AuthSession {
   access_token: string;

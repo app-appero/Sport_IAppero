@@ -100,7 +100,9 @@ class TennisProvider(SportProvider):
         self._client.headers["Authorization"] = f"Bearer {token}"
         logger.info("Authenticated against tennis-oracle as %s", username)
 
-    async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    async def _get(
+        self, path: str, params: dict[str, Any] | None = None, *, method: str = "GET", json: Any = None
+    ) -> Any:
         if self._settings.use_provider_fixtures:
             return self._fixture_for(path)
         await self._ensure_auth()
@@ -108,9 +110,10 @@ class TennisProvider(SportProvider):
             return await request_json(
                 self._client,
                 provider=self.provider_name,
-                method="GET",
+                method=method,
                 path=path,
                 params=params,
+                json=json,
             )
         except ProviderResponseError as exc:
             # refresh token once on 401
@@ -121,15 +124,20 @@ class TennisProvider(SportProvider):
                 return await request_json(
                     self._client,
                     provider=self.provider_name,
-                    method="GET",
+                    method=method,
                     path=path,
                     params=params,
+                    json=json,
                 )
             raise
 
     def _fixture_for(self, path: str) -> Any:
         if path == "/health":
             return {"status": "ok"}
+        if path == "/api/global-update":
+            return {"run_id": 42, "status": "running", "message": "started"}
+        if path == "/api/global-update/status":
+            return {"id": 42, "status": "completed", "progress_pct": 100.0}
         if path == "/api/ops/checks":
             return {"status": "ok", "checks": []}
         if path == "/api/published-predictions":
@@ -141,6 +149,26 @@ class TennisProvider(SportProvider):
         if path.startswith("/api/next-fixtures"):
             return load_fixture("tennis", "fixtures.json")
         raise ProviderUnavailable(self.provider_name, f"No fixture for {path}")
+
+    async def start_refresh(self) -> dict[str, Any]:
+        """"Aggiorna tutto" of the Tennis engine: the global update run (fixtures, predictions, slips)."""
+        payload = await self._get("/api/global-update", method="POST", json={})
+        payload = payload if isinstance(payload, dict) else {}
+        run_id = payload.get("run_id")
+        return {"ref": str(run_id) if run_id is not None else None, "message": payload.get("message")}
+
+    async def refresh_status(self, ref: str) -> dict[str, Any]:
+        payload = await self._get("/api/global-update/status")
+        payload = payload if isinstance(payload, dict) else {}
+        if ref and str(payload.get("id")) != str(ref):
+            return {"state": "unknown", "detail": None}  # a newer run replaced it: state not known
+        status = str(payload.get("status") or "unknown").lower()
+        state = {
+            "pending": "queued", "running": "running", "completed": "success",
+            "completed_with_errors": "success", "failed": "failed", "cancelled": "failed",
+            "interrupted": "failed",
+        }.get(status, "unknown")
+        return {"state": state, "detail": payload.get("current_phase")}
 
     async def get_official_plays(self, *, page_size: int = 200) -> list[LedgerRecord]:
         """Published official plays (latest versions) with the provider's own settlement.
