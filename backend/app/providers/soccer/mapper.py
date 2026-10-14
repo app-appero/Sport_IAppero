@@ -750,12 +750,22 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     return []
 
 
+# Raw multi-class models of the engine ("cards"/"corners": a bucket number, not a line). They have no
+# readable label and, when the engine lists them, usually no promoted model: the app shows the explicit
+# line markets (cards_line_X, ...) instead, so these are dropped here for every route that maps predictions.
+HIDDEN_MARKETS = frozenset({"cards", "corners"})
+
+
+def is_displayable(prediction: UnifiedPrediction) -> bool:
+    return prediction.prediction.type not in HIDDEN_MARKETS
+
+
 def map_day_payload(payload: Any) -> list[UnifiedPrediction]:
     predictions: list[UnifiedPrediction] = []
     for raw in _as_list(payload):
         if not isinstance(raw, dict):
             continue
-        predictions.extend(map_row_predictions(raw))
+        predictions.extend(p for p in map_row_predictions(raw) if is_displayable(p))
     return predictions
 
 
