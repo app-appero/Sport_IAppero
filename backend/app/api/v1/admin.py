@@ -163,7 +163,15 @@ def _engine_error(exc: ProviderError) -> dict:
     if status and status >= 500:
         return {"code": "engine_error", "message": f"Errore interno del motore ({status})"}
     if status:
-        return {"code": "rejected", "message": f"Il motore ha rifiutato la richiesta ({status})"}
+        reason = None
+        start = raw.find("{")
+        if start >= 0:
+            try:
+                reason = json.loads(raw[start:]).get("detail")
+            except (ValueError, AttributeError):
+                reason = None
+        base = f"Il motore ha rifiutato la richiesta ({status})"
+        return {"code": "rejected", "message": f"{base}: {reason}" if isinstance(reason, str) and reason else base}
     return {"code": "unreachable", "message": "Il motore non è raggiungibile"}
 
 
