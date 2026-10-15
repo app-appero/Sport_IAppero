@@ -183,7 +183,7 @@ export function useEventScorers(eventId: string, enabled = true, opts: { poll?: 
 
 /**
  * Probable yellow cards (football, beta). Same life cycle as the scorers: polls only while the
- * line-up is pending. Gate the call with BOOKINGS_API_READY until the BFF route exists.
+ * line-up is pending. Gate the call with BOOKINGS_API_READY (on by default).
  */
 export function useEventBookings(eventId: string, enabled = true, opts: { poll?: boolean } = {}) {
   const poll = opts.poll ?? true;

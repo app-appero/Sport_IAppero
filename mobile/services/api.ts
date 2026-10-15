@@ -334,7 +334,7 @@ export function getEventScorers(eventId: string) {
   );
 }
 
-/** Yellow cards (beta). The BFF route is not live yet: see BOOKINGS_API_READY. */
+/** Yellow cards: BFF route GET /events/{id}/bookings (switch: BOOKINGS_API_READY). */
 export function getEventBookings(eventId: string) {
   return getJson<EventBookingsResponse>(
     `/api/v1/events/${encodeURIComponent(eventId)}/bookings`,
