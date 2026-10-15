@@ -35,6 +35,20 @@ con `booked` al posto di `scored`). L'interruttore `BOOKINGS_API_READY` (`consta
 è acceso di default; con `EXPO_PUBLIC_BOOKINGS_API=0` la colonna torna a "Modello in addestramento"
 e l'app non fa richieste.
 
+## Card partita: mercati scorrevoli e live
+
+Ogni card mostra tutti i mercati su una fila di cerchi scorrevole (dal più probabile, `MarketsStrip`);
+marcatori e gialli restano sotto, uguali. Il live è già previsto nella card e si accende da solo quando
+`Event.live` arriva dal feed (`LiveState` in `types/api.ts`, tutti i campi oltre `is_live` opzionali):
+
+- calcio: `minute` (es. 63) o un breve `status_detail` nel badge "LIVE 63'" e il punteggio in `Event.score`;
+- tennis: `sets` (game per set `[casa, ospite]`), `current_game` ("30 - 15") e `server` ("home"/"away")
+  nel tabellone `LiveBoard`.
+
+Finché una partita è live i mercati restano neutri (nessun verde/rosso): l'esito si colora a partita finita.
+Per collegare il feed live basta riempire `Event.live`; le funzioni `liveBoard` e `liveMinuteLabel`
+(`utils/liveScore.ts`) sono testate.
+
 ## Navigazione
 
 - Nessuna tab bar in basso (tema scuro)

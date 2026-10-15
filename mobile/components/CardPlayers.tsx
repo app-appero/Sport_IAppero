@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
@@ -29,11 +30,11 @@ type ColumnState =
   | { kind: 'hidden' };
 
 /**
- * Football card, bottom block: scorers on the left, yellow cards (beta) on the right,
+ * Football card, bottom block: scorers on the left, yellow cards on the right,
  * two rows each. Without the market for the competition (or on errors) the whole block
  * disappears; the yellow column shows "In arrivo" until the BFF route is live.
  */
-export function CardPlayers({ eventId }: { eventId: string }) {
+export function CardPlayers({ eventId, fallback = null }: { eventId: string; fallback?: ReactNode }) {
   const styles = useThemedStyles(makeStyles);
   const scorers = useEventScorers(eventId, true, { poll: false });
   const bookings = useEventBookings(eventId, BOOKINGS_API_READY, { poll: false });
@@ -64,7 +65,7 @@ export function CardPlayers({ eventId }: { eventId: string }) {
   }
 
   // Competition without scorers (e.g. Champions League): nothing to add here either.
-  if (left.kind === 'hidden') return null;
+  if (left.kind === 'hidden') return <>{fallback}</>;
 
   let right: ColumnState;
   const bData = bookings.data;
@@ -110,9 +111,6 @@ export function CardPlayers({ eventId }: { eventId: string }) {
           <View style={[styles.col, styles.colRight]}>
             <View style={styles.head}>
               <Text style={styles.cap}>Gialli</Text>
-              <View style={styles.beta}>
-                <Text style={styles.betaText}>Beta</Text>
-              </View>
             </View>
             <Body state={right} kind="yellow" />
           </View>
@@ -209,15 +207,6 @@ const makeStyles = (colors: Palette) =>
     chipText: { fontFamily: fonts.bodyBold, fontSize: fs(9) },
     chipTextOk: { color: colors.accentText },
     chipTextEst: { color: colors.warning },
-    beta: {
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: yellowCard.border,
-      backgroundColor: yellowCard.bg,
-      paddingHorizontal: 7,
-      paddingVertical: 1,
-    },
-    betaText: { fontFamily: fonts.bodyBold, fontSize: fs(9), color: yellowCard.fill },
     placeholder: { height: 40, borderRadius: radii.sm, backgroundColor: colors.track, opacity: 0.6 },
     wait: { fontFamily: fonts.body, fontSize: fs(11), lineHeight: fs(15), color: colors.inkMuted },
     rows: { gap: 2 },

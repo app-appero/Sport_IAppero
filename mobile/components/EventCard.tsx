@@ -3,9 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { CardPlayers } from '@/components/CardPlayers';
+import { LiveBoard } from '@/components/LiveBoard';
+import { MarketsStrip } from '@/components/MarketsStrip';
 import { ConfidenceBar } from '@/components/ConfidenceBar';
 import { OutcomeDot } from '@/components/OutcomeDot';
-import { ProbabilityRing } from '@/components/ProbabilityRing';
 import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel } from '@/constants/markets';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
@@ -13,7 +14,7 @@ import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { topMarkets, marketFamily } from '@/utils/cardMarkets';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
-import { formatSets, isLiveEvent, liveLine } from '@/utils/liveScore';
+import { formatSets, isLiveEvent, liveBoard, liveMinuteLabel } from '@/utils/liveScore';
 import { outcomeTone, scoreForMarket, type OutcomeTone } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
 import { resolveTennisWinner, setPills } from '@/utils/tennisCard';
@@ -35,7 +36,8 @@ export function EventCard(props: Props) {
 
 function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate }: Props) {
   const styles = useThemedStyles(makeStyles);
-  const picks = topMarkets(item.predictions, { preferredMarket });
+  // Every market of the match, strongest first, scrolling on one row.
+  const picks = topMarkets(item.predictions, { preferredMarket, limit: 99, byFamily: false });
   if (picks.length === 0) return null;
 
   const tone = outcomeTone(picks[0]);
@@ -53,9 +55,9 @@ function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate 
         {scoreText ? <Text style={styles.score}>{scoreText}</Text> : null}
       </View>
       {statusText ? <Text style={styles.muted}>{statusText}</Text> : null}
-      <Rings picks={picks} />
-      <CardPlayers eventId={item.event.id} />
-      <MoreLine item={item} onPress={onPress} />
+      <MarketsStrip picks={picks} cardTone={tone} />
+      {/* Without the players block (competition without the market) keep the tap hint. */}
+      <CardPlayers eventId={item.event.id} fallback={<MoreLine item={item} onPress={onPress} />} />
     </CardShell>
   );
 }
@@ -69,13 +71,15 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }:
   const winner = winnerPred ? resolveTennisWinner(winnerPred, item.event.participants) : null;
   const picks = topMarkets(item.predictions, {
     preferredMarket,
+    limit: 99,
+    byFamily: false,
     exclude: winner && winnerPred ? [marketFamily(winnerPred.prediction.type)] : [],
   });
   if (!winner && picks.length === 0) return null;
 
   const tone = winner && winnerPred ? outcomeTone(winnerPred) : outcomeTone(picks[0]);
   const live = isLiveEvent(item.event);
-  const liveInfo = live ? liveLine(item.event) : null;
+  const board = live ? liveBoard(item.event) : null;
   const finishedSets = !live
     ? setPills(formatSets(item.event.live?.sets) || item.event.score?.display || '')
     : [];
@@ -115,12 +119,8 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }:
         <Text style={styles.name}>{item.event.name}</Text>
       )}
 
-      {liveInfo ? (
-        <View style={styles.liveBlock} accessibilityLabel="Punteggio in diretta">
-          {liveInfo.sets ? <Text style={styles.liveLine}>Set · {liveInfo.sets}</Text> : null}
-          {liveInfo.game ? <Text style={styles.muted}>Game · {liveInfo.game}</Text> : null}
-          {liveInfo.server ? <Text style={styles.muted}>Al servizio · {liveInfo.server}</Text> : null}
-        </View>
+      {board ? (
+        <LiveBoard board={board} />
       ) : live ? (
         <Text style={styles.muted}>In corso</Text>
       ) : finishedSets.length ? (
@@ -136,7 +136,7 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }:
         <Text style={styles.muted}>{statusText}</Text>
       ) : null}
 
-      {picks.length ? <Rings picks={picks} /> : null}
+      {picks.length ? <MarketsStrip picks={picks} cardTone={tone} /> : null}
       <MoreLine item={item} onPress={onPress} />
     </CardShell>
   );
@@ -187,6 +187,7 @@ function CardShell({
 
 function CardTop({ item, tone, live }: { item: FeedItem; tone: OutcomeTone; live: boolean }) {
   const styles = useThemedStyles(makeStyles);
+  const minute = live ? liveMinuteLabel(item.event) : null;
   const timeLabel = formatEventTime(item.event.start_time, item.event.local_time);
   return (
     <View style={styles.top}>
@@ -196,45 +197,12 @@ function CardTop({ item, tone, live }: { item: FeedItem; tone: OutcomeTone; live
       <View style={styles.topRight}>
         {live ? (
           <View style={styles.liveBadge} accessibilityLabel="Partita in corso">
-            <Text style={styles.liveBadgeText}>● LIVE</Text>
+            <Text style={styles.liveBadgeText}>{minute ? `● LIVE ${minute}` : '● LIVE'}</Text>
           </View>
         ) : null}
         <OutcomeDot tone={tone} size={10} />
         <Text style={styles.time}>{timeLabel}</Text>
       </View>
-    </View>
-  );
-}
-
-/** Up to three markets as circles: percentage inside, market name and pick underneath. */
-function Rings({ picks }: { picks: UnifiedPrediction[] }) {
-  const styles = useThemedStyles(makeStyles);
-  const colors = useSportPalette();
-  return (
-    <View style={styles.rings}>
-      {picks.map((pred) => {
-        const tone = outcomeTone(pred);
-        const arc = tone === 'hit' ? colors.hit : tone === 'miss' ? colors.missBadge : colors.accent;
-        return (
-          <View key={pred.id} style={styles.ringCol}>
-            <ProbabilityRing
-              value={pred.prediction.confidence}
-              color={arc}
-              trackColor={colors.line}
-              textColor={colors.ink}
-            />
-            <Text style={styles.ringMarket} numberOfLines={1}>
-              {marketLabel(pred.prediction.type)}
-            </Text>
-            <View style={styles.ringPickRow}>
-              <Text style={styles.ringPick} numberOfLines={1}>
-                {selectionLabel(pred.prediction.selection.name)}
-              </Text>
-              <OutcomeDot tone={tone} size={8} />
-            </View>
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -325,20 +293,8 @@ const makeStyles = (colors: Palette) =>
     name: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: fs(17), color: colors.ink },
     score: { fontFamily: fonts.display, fontSize: fs(28), color: colors.ink, letterSpacing: 0.5 },
     muted: { fontFamily: fonts.body, fontSize: fs(13), color: colors.inkMuted },
-    liveBlock: { gap: 2 },
     liveLine: { fontFamily: fonts.bodyMedium, fontSize: fs(14), color: colors.ink },
 
-    rings: { flexDirection: 'row', gap: 6, paddingTop: 2 },
-    ringCol: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
-    ringMarket: { fontFamily: fonts.body, fontSize: fs(10), color: colors.inkMuted, textAlign: 'center' },
-    ringPickRow: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' },
-    ringPick: {
-      flexShrink: 1,
-      fontFamily: fonts.bodyBold,
-      fontSize: fs(12),
-      color: colors.ink,
-      textAlign: 'center',
-    },
 
     winner: { gap: 6 },
     winnerRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.sm },

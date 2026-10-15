@@ -161,11 +161,6 @@ function SectionTitle({ yellow }: { yellow: boolean }) {
       <Text style={styles.cap} accessibilityRole="header">
         {yellow ? 'Gialli probabili' : 'Marcatori probabili'}
       </Text>
-      {yellow ? (
-        <View style={styles.beta}>
-          <Text style={styles.betaText}>Beta</Text>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -340,15 +335,6 @@ const makeStyles = (colors: Palette) =>
       textTransform: 'uppercase',
       color: colors.inkMuted,
     },
-    beta: {
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: yellowCard.border,
-      backgroundColor: yellowCard.bg,
-      paddingHorizontal: 8,
-      paddingVertical: 1,
-    },
-    betaText: { fontFamily: fonts.bodyBold, fontSize: fs(10), color: yellowCard.fill },
     banner: {
       flexDirection: 'row',
       alignItems: 'center',
