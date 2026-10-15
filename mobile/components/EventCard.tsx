@@ -48,17 +48,27 @@ function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate 
   const statusText = scoreText || live ? null : cardStatusText(item, selectedDate);
 
   return (
-    <CardShell item={item} index={index} onPress={onPress} tone={tone}>
-      <CardTop item={item} tone={tone} live={live} />
-      <View style={styles.nameRow}>
-        <Text style={styles.name}>{item.event.name}</Text>
-        {scoreText ? <Text style={styles.score}>{scoreText}</Text> : null}
-      </View>
-      {statusText ? <Text style={styles.muted}>{statusText}</Text> : null}
-      <MarketsStrip picks={picks} cardTone={tone} />
-      {/* Without the players block (competition without the market) keep the tap hint. */}
-      <CardPlayers eventId={item.event.id} fallback={<MoreLine item={item} onPress={onPress} />} />
-    </CardShell>
+    <CardShell
+      item={item}
+      index={index}
+      onPress={onPress}
+      tone={tone}
+      before={
+        <>
+          <CardTop item={item} tone={tone} live={live} />
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{item.event.name}</Text>
+            {scoreText ? <Text style={styles.score}>{scoreText}</Text> : null}
+          </View>
+          {statusText ? <Text style={styles.muted}>{statusText}</Text> : null}
+        </>
+      }
+      strip={<MarketsStrip picks={picks} cardTone={tone} />}
+      after={
+        /* Without the players block (competition without the market) keep the tap hint. */
+        <CardPlayers eventId={item.event.id} fallback={<MoreLine item={item} onPress={onPress} />} />
+      }
+    />
   );
 }
 
@@ -86,7 +96,13 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }:
   const statusText = live || finishedSets.length ? null : cardStatusText(item, selectedDate);
 
   return (
-    <CardShell item={item} index={index} onPress={onPress} tone={tone}>
+    <CardShell
+      item={item}
+      index={index}
+      onPress={onPress}
+      tone={tone}
+      before={
+        <>
       <CardTop item={item} tone={tone} live={live} />
       {winner ? (
         <View style={styles.winner}>
@@ -135,10 +151,11 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }:
       ) : statusText ? (
         <Text style={styles.muted}>{statusText}</Text>
       ) : null}
-
-      {picks.length ? <MarketsStrip picks={picks} cardTone={tone} /> : null}
-      <MoreLine item={item} onPress={onPress} />
-    </CardShell>
+        </>
+      }
+      strip={picks.length ? <MarketsStrip picks={picks} cardTone={tone} /> : null}
+      after={<MoreLine item={item} onPress={onPress} />}
+    />
   );
 }
 
@@ -153,13 +170,17 @@ function CardShell({
   index,
   onPress,
   tone,
-  children,
+  before,
+  strip,
+  after,
 }: {
   item: FeedItem;
   index: number;
   onPress?: () => void;
   tone: OutcomeTone;
-  children: ReactNode;
+  before: ReactNode;
+  strip?: ReactNode;
+  after?: ReactNode;
 }) {
   const styles = useThemedStyles(makeStyles);
   const cardStyle = [
@@ -167,21 +188,38 @@ function CardShell({
     tone === 'hit' && styles.cardHit,
     tone === 'miss' && styles.cardMiss,
   ];
+  // The horizontal strip must not sit inside a Pressable (the card tap would steal its drags),
+  // so the card is a plain View and the tappable parts around the strip are Pressables.
+  const label = item.event.name;
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}>
-      {onPress ? (
-        <Pressable
-          onPress={onPress}
-          style={({ pressed }) => [...cardStyle, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel={item.event.name}
-        >
-          {children}
-        </Pressable>
-      ) : (
-        <View style={cardStyle}>{children}</View>
-      )}
+      <View style={cardStyle}>
+        <Tap onPress={onPress} label={label}>
+          {before}
+        </Tap>
+        {strip}
+        {after ? (
+          <Tap onPress={onPress} label={label}>
+            {after}
+          </Tap>
+        ) : null}
+      </View>
     </Animated.View>
+  );
+}
+
+function Tap({ onPress, label, children }: { onPress?: () => void; label: string; children: ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+  if (!onPress) return <View style={styles.tap}>{children}</View>;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.tap, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -256,6 +294,7 @@ const makeStyles = (colors: Palette) =>
     },
     cardHit: { borderColor: colors.hit, backgroundColor: colors.hitBg },
     cardMiss: { borderColor: colors.miss, backgroundColor: colors.missBg },
+    tap: { gap: spacing.sm },
     pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
     top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
     topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },

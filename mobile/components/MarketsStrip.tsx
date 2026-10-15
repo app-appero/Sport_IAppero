@@ -59,9 +59,7 @@ export function MarketsStrip({ picks, cardTone }: Props) {
         {scrollable ? <Text style={styles.hint}>scorri ›</Text> : null}
       </View>
 
-      {/* The card is a Pressable: claim the touch here so a horizontal drag scrolls the strip
-          instead of being taken by the card (which would open the event). */}
-      <View style={styles.stripWrap} onLayout={onLayout} onStartShouldSetResponder={() => true}>
+      <View style={styles.stripWrap} onLayout={onLayout}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -70,6 +68,7 @@ export function MarketsStrip({ picks, cardTone }: Props) {
           onScroll={onScroll}
           onContentSizeChange={(w) => setContentW(w)}
           contentContainerStyle={styles.row}
+          keyboardShouldPersistTaps="handled"
           accessibilityLabel={`Tutti i mercati, ${picks.length}`}
         >
           {picks.map((pred) => (
