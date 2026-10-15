@@ -24,9 +24,11 @@ class EventScore(BaseModel):
 
 
 class LiveState(BaseModel):
-    """In-progress snapshot of a match (tennis): games per set, the current game and who serves."""
+    """In-progress snapshot. Tennis fills sets, the current game and the server; football fills the minute."""
 
     is_live: bool = True
+    # Football: elapsed minute (e.g. 63). Empty at the break, when stoppage time is shown in status_detail.
+    minute: int | None = None
     # Games per set as [home, away], in play order, e.g. [[6, 4], [3, 2]].
     sets: list[list[int]] = Field(default_factory=list)
     # Points in the current game as shown by the provider, e.g. "30 - 15".

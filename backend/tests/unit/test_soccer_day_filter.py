@@ -1,5 +1,8 @@
 """Soccer day window: Rome calendar filter + neighbour UTC fetch."""
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import httpx
 import pytest
 import respx
@@ -168,5 +171,80 @@ async def test_past_day_event_uses_day_feed_not_match_detail():
         assert single is not None
         assert single.id == items[0].id
         assert match_route.call_count == 0
+    finally:
+        await provider.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_today_feed_merges_live_fixtures_and_leaves_markets_open():
+    settings = Settings(
+        soccer_oracle_base_url="https://soccer.test",
+        soccer_oracle_username="admin",
+        soccer_oracle_password="secret",
+        use_provider_fixtures=False,
+    )
+    today = datetime.now(ZoneInfo("Europe/Rome")).date().isoformat()
+    respx.post("https://soccer.test/auth/login").mock(
+        return_value=httpx.Response(200, json={"access_token": "tok"})
+    )
+    respx.get("https://soccer.test/live/fixtures").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "total": 1,
+                "rows": [
+                    {
+                        "fixture_id": 77,
+                        "status": "2H",
+                        "elapsed_minute": 63,
+                        "home_goals": 1,
+                        "away_goals": 0,
+                    }
+                ],
+            },
+        )
+    )
+
+    def day_response(request: httpx.Request) -> httpx.Response:
+        target = request.url.params.get("target_date")
+        if target != today:
+            return httpx.Response(200, json={"total": 0, "returned": 0, "rows": []})
+        return httpx.Response(
+            200,
+            json={
+                "total": 1,
+                "returned": 1,
+                "rows": [
+                    {
+                        "fixture_id": 77,
+                        "date": today,
+                        "datetime": f"{today}T16:00:00+00:00",
+                        "home": "Milan",
+                        "away": "Inter",
+                        "league": "Serie A",
+                        "status": "NS",
+                        "phase": "to_play",
+                        "score": {"home": None, "away": None},
+                        "predictions": {
+                            "h2h": {"prediction": 1, "probability": 0.64, "correct": True}
+                        },
+                    }
+                ],
+            },
+        )
+
+    respx.get("https://soccer.test/dashboard/day").mock(side_effect=day_response)
+
+    provider = SoccerProvider(settings)
+    try:
+        items = await provider.get_predictions(date=today)
+        assert len(items) == 1
+        event = items[0].event
+        assert event.status == "live"
+        assert event.live is not None
+        assert event.live.minute == 63
+        assert event.score is not None and event.score.home == 1 and event.score.away == 0
+        assert items[0].correct is None
     finally:
         await provider.aclose()

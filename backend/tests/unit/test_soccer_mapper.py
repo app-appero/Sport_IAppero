@@ -185,6 +185,110 @@ def test_settle_soccer_market_helpers():
     )
 
 
+def _live_row() -> dict:
+    return {
+        "fixture_id": 42,
+        "date": "2026-10-15",
+        "datetime": "2026-10-15T18:00:00+00:00",
+        "home": "Milan",
+        "away": "Inter",
+        "league": "Serie A",
+        "status": "1H",
+        "phase": "live",
+        "score": {"home": 0, "away": 0},
+        "predictions": {
+            "h2h": {"prediction": 1, "probability": 0.62, "correct": True},
+            "under_over_2_5": {"prediction": 0, "probability": 0.58, "correct": True},
+        },
+    }
+
+
+def test_live_snapshot_sets_minute_score_and_does_not_settle():
+    row = mapper.attach_live_row(
+        _live_row(),
+        {
+            "fixture_id": 42,
+            "status": "2H",
+            "elapsed_minute": 63,
+            "elapsed_extra": None,
+            "home_goals": 1,
+            "away_goals": 0,
+        },
+    )
+    preds = mapper.map_day_payload({"rows": [row]})
+    assert preds
+    event = preds[0].event
+    assert event.status == "live"
+    assert event.live is not None and event.live.is_live
+    assert event.live.minute == 63
+    assert event.score is not None and event.score.display == "1-0"
+    assert all(p.correct is None for p in preds)
+
+
+def test_halftime_and_stoppage_use_a_short_label_instead_of_a_misleading_minute():
+    half = mapper.attach_live_row(
+        _live_row(),
+        {"fixture_id": 42, "status": "HT", "elapsed_minute": 45, "home_goals": 1, "away_goals": 1},
+    )
+    event = mapper.map_event(half)
+    assert event.live is not None
+    assert event.live.minute is None
+    assert event.live.status_detail == "Intervallo"
+
+    added = mapper.attach_live_row(
+        _live_row(),
+        {"fixture_id": 42, "status": "2H", "elapsed_minute": 90, "elapsed_extra": 3, "home_goals": 2, "away_goals": 2},
+    )
+    event = mapper.map_event(added)
+    assert event.live is not None
+    assert event.live.minute is None
+    assert event.live.status_detail == "90+3'"
+
+
+def test_in_play_status_without_a_snapshot_stays_open():
+    preds = mapper.map_day_payload({"rows": [mapper.attach_live_row(_live_row(), None)]})
+    assert preds[0].event.status == "live"
+    assert preds[0].event.live is not None and preds[0].event.live.minute is None
+    assert preds[0].correct is None
+
+
+def test_kickoff_window_phase_live_is_not_enough_to_mark_a_match_live():
+    row = _live_row()
+    row["status"] = "NS"
+    row["score"] = None
+    untouched = mapper.attach_live_row(row, None)
+    assert "_live" not in untouched
+    event = mapper.map_event(untouched)
+    assert event.live is None
+    assert event.status == "NS"
+
+
+def test_finished_match_still_settles_when_a_live_index_has_no_snapshot():
+    indexed = mapper.index_live_fixtures(
+        {
+            "total": 1,
+            "rows": [
+                {
+                    "fixture_id": 99,
+                    "status": "1H",
+                    "elapsed_minute": 10,
+                    "home_goals": 1,
+                    "away_goals": 0,
+                }
+            ],
+        }
+    )
+    finished = _live_row()
+    finished["status"] = "FT"
+    finished["phase"] = "finished"
+    finished["score"] = {"home": 2, "away": 0}
+    payload = mapper.enrich_day_payload({"rows": [finished]}, indexed)
+    preds = mapper.map_day_payload(payload)
+    h2h = next(p for p in preds if p.prediction.type == "h2h")
+    assert h2h.event.live is None
+    assert h2h.correct is True
+
+
 def test_raw_cards_and_corners_models_are_not_shown():
     event = {"fixture_id": 77, "home": "A", "away": "B"}
     row = {**event, "predictions": [

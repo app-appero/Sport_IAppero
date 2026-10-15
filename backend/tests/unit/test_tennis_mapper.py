@@ -128,6 +128,28 @@ def test_tiebreak_tokens_count_games_and_placeholder_game_is_dropped():
     assert event.live.server == "away"
 
 
+def test_live_match_does_not_settle_from_the_partial_score():
+    """1-0 in sets at 3-2 in the second set is not a result, even if the provider says is_correct."""
+    raw = _live_raw()
+    raw["prediction"] = {
+        "prob_player_1_win": 0.7,
+        "predicted_winner": "First Player",
+        "confidence": 0.7,
+        "is_correct": True,
+        "model_version": "v4",
+    }
+    raw["extra_markets"] = [
+        {"market": "first_set_winner", "selection": "First Player", "probability": 0.6},
+        {"market": "over_under_games", "selection": "Under 22.5", "probability": 0.55},
+    ]
+    by_type = {p.prediction.type: p for p in mapper.map_predictions_payload({"items": [raw]})}
+    assert by_type["match_winner"].event.status == "live"
+    assert by_type["match_winner"].event.live is not None
+    assert by_type["match_winner"].correct is None
+    assert by_type["first_set_winner"].correct is None
+    assert by_type["over_under_games"].correct is None
+
+
 def test_not_live_match_keeps_provider_status_and_has_no_live_state():
     event = mapper.map_event(_live_raw(event_live="0", event_status="Finished"))
     assert event.live is None

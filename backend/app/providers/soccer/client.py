@@ -178,6 +178,8 @@ class SoccerProvider(SportProvider):
             return load_fixture("soccer", "day.json")
         if path == "/dashboard/available-dates":
             return load_fixture("soccer", "available_dates.json")
+        if path == "/live/fixtures":
+            return {"total": 0, "rows": []}
         if path == "/predictions/official/plays":
             return load_fixture("soccer", "official_plays.json")
         if path == "/jobs/daily-refresh":
@@ -422,24 +424,37 @@ class SoccerProvider(SportProvider):
                 logger.info("Soccer finished-phase fallback for %s failed: %s", day, exc)
         return payloads
 
+    async def _live_index(self, day: str | None) -> dict[str, dict[str, Any]]:
+        """Current in-play fixtures. Past days have no live score to merge."""
+        if day and self._is_past_rome_day(day):
+            return {}
+        try:
+            payload = await self._get("/live/fixtures")
+        except Exception as exc:  # noqa: BLE001 — the day feed still works without the live poll
+            logger.info("Soccer live fixtures unavailable: %s", exc)
+            return {}
+        return mapper.index_live_fixtures(payload)
+
     async def get_events(self, **filters: Any) -> list[Event]:
         day = filters.get("date")
         with_predictions = filters.get("with_predictions")
         wp = True if with_predictions is None else bool(with_predictions)
 
         if day:
+            live = await self._live_index(str(day))
             events: list[Event] = []
             seen: set[str] = set()
             for payload in await self._day_payloads_for_calendar_day(str(day), with_predictions=wp):
-                for event in mapper.map_events(payload):
+                for event in mapper.map_events(mapper.enrich_day_payload(payload, live)):
                     if event.id in seen:
                         continue
                     seen.add(event.id)
                     events.append(event)
             events = self._filter_events_by_day(events, str(day))
         else:
+            live = await self._live_index(None)
             payload = await self._day_payload(None, with_predictions=wp)
-            events = mapper.map_events(payload)
+            events = mapper.map_events(mapper.enrich_day_payload(payload, live))
 
         competition_id = filters.get("competition_id")
         if competition_id:
@@ -483,11 +498,11 @@ class SoccerProvider(SportProvider):
         # Today / unknown day: prefer match detail (1x2 board + decision_cards).
         # Past calendar days: day feed first — match detail often 404s/times out
         # on finished fixtures and made event/prediction detail feel broken + slow.
-        prefer_match = bool(event_id) and not self._is_past_rome_day(
-            str(day) if day else None
-        )
+        day_text = str(day) if day else None
+        live = await self._live_index(day_text)
+        prefer_match = bool(event_id) and not self._is_past_rome_day(day_text)
         if prefer_match:
-            detail_preds = await self._predictions_from_match(str(event_id))
+            detail_preds = await self._predictions_from_match(str(event_id), live)
             if detail_preds:
                 if market:
                     detail_preds = [
@@ -501,7 +516,7 @@ class SoccerProvider(SportProvider):
             for payload in await self._day_payloads_for_calendar_day(
                 str(day), with_predictions=True
             ):
-                for pred in mapper.map_day_payload(payload):
+                for pred in mapper.map_day_payload(mapper.enrich_day_payload(payload, live)):
                     if pred.id in seen:
                         continue
                     seen.add(pred.id)
@@ -511,7 +526,7 @@ class SoccerProvider(SportProvider):
             predictions = self._filter_predictions_by_day(predictions, str(day))
         else:
             payload = await self._day_payload(None, with_predictions=True)
-            predictions = mapper.map_day_payload(payload)
+            predictions = mapper.map_day_payload(mapper.enrich_day_payload(payload, live))
 
         competition_id = filters.get("competition_id")
         min_confidence = filters.get("min_confidence")
@@ -560,7 +575,7 @@ class SoccerProvider(SportProvider):
             and not predictions
             and self._is_past_rome_day(str(day) if day else None)
         ):
-            detail_preds = await self._predictions_from_match(str(event_id))
+            detail_preds = await self._predictions_from_match(str(event_id), live)
             if market:
                 detail_preds = [
                     p for p in detail_preds if p.prediction.type == market
@@ -569,7 +584,9 @@ class SoccerProvider(SportProvider):
 
         return predictions
 
-    async def _predictions_from_match(self, fixture_id: str) -> list[UnifiedPrediction]:
+    async def _predictions_from_match(
+        self, fixture_id: str, live: dict[str, dict[str, Any]] | None = None
+    ) -> list[UnifiedPrediction]:
         detail: Any = None
         try:
             detail = await self._get(f"/dashboard/match/{fixture_id}/oracle-detail")
@@ -580,7 +597,9 @@ class SoccerProvider(SportProvider):
                 return []
         if not isinstance(detail, dict):
             return []
-        return mapper.map_day_payload({"rows": [detail]})
+        return mapper.map_day_payload(
+            mapper.enrich_day_payload({"rows": [detail]}, live or {})
+        )
 
     async def get_prediction(
         self, prediction_id: str, **filters: Any
