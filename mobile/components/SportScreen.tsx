@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -29,11 +29,17 @@ import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
 import { usePersistedBoolean } from '@/hooks/usePersistedBoolean';
 import type { FeedItem } from '@/types/api';
-import { buildDayRows, type DayRow } from '@/utils/dayOrder';
+import { buildDayRows, eventMatchesPhase, type DayRow, type ListPhase } from '@/utils/dayOrder';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
 import { formatApiError } from '@/utils/formatApiError';
 import { offlineBannerText } from '@/utils/staleness';
+
+const PHASE_OPTIONS: { label: string; value: ListPhase }[] = [
+  { label: 'Tutte', value: 'all' },
+  { label: 'Live', value: 'live' },
+  { label: 'Concluse', value: 'done' },
+];
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
   football: {
@@ -59,6 +65,7 @@ export function SportScreen({
   const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
+  const [phase, setPhase] = useState<ListPhase>('all');
 
   // Statistica giornata: visible by default, the choice is remembered on this device.
   const [statsVisible, toggleStats] = usePersistedBoolean('ui.dayStats.visible', true);
@@ -141,19 +148,20 @@ export function SportScreen({
       if (market && !item.predictions.some((p) => predictionMatchesMarket(p.prediction.type, market))) {
         return false;
       }
-      return true;
+      return eventMatchesPhase(item.event, phase, todayKey());
     });
-  }, [dayEvents, competitionId, market]);
+  }, [dayEvents, competitionId, market, phase]);
 
   // Open and live matches by kickoff time, then a "Finite" divider and the finished ones, also by time.
   const rows: DayRow[] = useMemo(() => buildDayRows(events, todayKey()), [events]);
 
-  const filtersActive = Boolean(market || competitionId || date !== todayKey());
+  const filtersActive = Boolean(market || competitionId || phase !== 'all' || date !== todayKey());
 
   const clearFilters = () => {
     setDate(todayKey());
     setMarket(undefined);
     setCompetitionId(undefined);
+    setPhase('all');
   };
 
   const onDateChange = (next: string) => {
@@ -206,24 +214,35 @@ export function SportScreen({
                 setSport(next);
                 setMarket(undefined);
                 setCompetitionId(undefined);
+                setPhase('all');
               }}
             />
           ) : null}
           <DayScroller value={date} onChange={onDateChange} />
           <View style={styles.metaRow}>
             {!query.isLoading && !query.isError && dayStats.events > 0 ? (
-              <Pressable
-                onPress={toggleStats}
-                style={styles.statsToggle}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: statsVisible }}
-                accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
-              >
-                <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
-                  Statistica giornata {statsVisible ? '▴' : '▾'}
-                </Text>
-              </Pressable>
+              <Fragment>
+                <View style={styles.phaseSlot}>
+                  <FilterChips
+                    options={PHASE_OPTIONS}
+                    value={phase}
+                    onChange={setPhase}
+                    accessibilityLabel="Filtro partite live e concluse"
+                  />
+                </View>
+                <Pressable
+                  onPress={toggleStats}
+                  style={styles.statsToggle}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: statsVisible }}
+                  accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
+                >
+                  <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
+                    Statistica giornata {statsVisible ? '▴' : '▾'}
+                  </Text>
+                </Pressable>
+              </Fragment>
             ) : null}
           </View>
           {statsVisible && !query.isLoading && !query.isError ? (
@@ -292,7 +311,7 @@ export function SportScreen({
                 title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
                 subtitle={
                   filtersActive
-                    ? 'Prova a cambiare mercato, competizione o giorno.'
+                    ? 'Prova a cambiare stato, mercato, competizione o giorno.'
                     : copy.emptyHint
                 }
                 actionLabel={filtersActive ? 'Azzera filtri' : undefined}
@@ -373,8 +392,9 @@ const styles = StyleSheet.create({
   },
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28 },
-  statsToggle: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28, gap: 8 },
+  phaseSlot: { flexShrink: 1, minWidth: 0, marginBottom: -spacing.sm },
+  statsToggle: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 4, flexShrink: 0 },
   statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
   finishedDivider: {
     fontFamily: fonts.bodyBold,
