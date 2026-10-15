@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandHeader } from '@/components/BrandHeader';
 import { DayScroller } from '@/components/DayScroller';
 import { DayStatsPanel } from '@/components/DayStatsPanel';
+import { DecisionFilterButton } from '@/components/DecisionFilterButton';
 import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
@@ -29,6 +30,7 @@ import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
 import { usePersistedBoolean } from '@/hooks/usePersistedBoolean';
 import type { FeedItem } from '@/types/api';
+import { predictionMatchesDecision, type DecisionFilter } from '@/utils/decisionFilter';
 import { buildDayRows, eventMatchesPhase, type DayRow, type ListPhase } from '@/utils/dayOrder';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
@@ -66,6 +68,7 @@ export function SportScreen({
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
   const [phase, setPhase] = useState<ListPhase>('all');
+  const [decision, setDecision] = useState<DecisionFilter>('all');
 
   // Statistica giornata: visible by default, the choice is remembered on this device.
   const [statsVisible, toggleStats] = usePersistedBoolean('ui.dayStats.visible', true);
@@ -134,7 +137,8 @@ export function SportScreen({
   }, [competitionId, competitionOptions]);
 
   const events: FeedItem[] = useMemo(() => {
-    return dayEvents.filter((item) => {
+    const out: FeedItem[] = [];
+    for (const item of dayEvents) {
       if (
         competitionId &&
         !(
@@ -143,25 +147,40 @@ export function SportScreen({
             item.event.competition.name === competitionId)
         )
       ) {
-        return false;
+        continue;
       }
-      if (market && !item.predictions.some((p) => predictionMatchesMarket(p.prediction.type, market))) {
-        return false;
+      if (!eventMatchesPhase(item.event, phase, todayKey())) continue;
+      // Tutti keeps every prediction, including the market chip only as a match gate.
+      if (decision === 'all') {
+        if (market && !item.predictions.some((p) => predictionMatchesMarket(p.prediction.type, market))) {
+          continue;
+        }
+        out.push(item);
+        continue;
       }
-      return eventMatchesPhase(item.event, phase, todayKey());
-    });
-  }, [dayEvents, competitionId, market, phase]);
+      const predictions = item.predictions.filter((p) => {
+        if (!predictionMatchesDecision(p, decision)) return false;
+        return !market || predictionMatchesMarket(p.prediction.type, market);
+      });
+      if (predictions.length === 0) continue;
+      out.push({ ...item, predictions });
+    }
+    return out;
+  }, [dayEvents, competitionId, market, phase, decision]);
 
   // Open and live matches by kickoff time, then a "Finite" divider and the finished ones, also by time.
   const rows: DayRow[] = useMemo(() => buildDayRows(events, todayKey()), [events]);
 
-  const filtersActive = Boolean(market || competitionId || phase !== 'all' || date !== todayKey());
+  const filtersActive = Boolean(
+    market || competitionId || phase !== 'all' || decision !== 'all' || date !== todayKey(),
+  );
 
   const clearFilters = () => {
     setDate(todayKey());
     setMarket(undefined);
     setCompetitionId(undefined);
     setPhase('all');
+    setDecision('all');
   };
 
   const onDateChange = (next: string) => {
@@ -175,7 +194,12 @@ export function SportScreen({
     // boards (1x2 / both OU sides) + EV from the provider.
     router.push({
       pathname: '/event/[id]',
-      params: { id: item.event.id, sport, date },
+      params: {
+        id: item.event.id,
+        sport,
+        date,
+        ...(decision === 'all' ? {} : { decision }),
+      },
     });
   };
 
@@ -215,6 +239,7 @@ export function SportScreen({
                 setMarket(undefined);
                 setCompetitionId(undefined);
                 setPhase('all');
+                setDecision('all');
               }}
             />
           ) : null}
@@ -354,6 +379,7 @@ export function SportScreen({
             accessibilityLabel="Filtro mercato"
           />
         </View>
+        <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
       </SafeAreaView>
     </View>
     </SportThemeProvider>
@@ -371,7 +397,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: 72,
     gap: spacing.md,
   },
   brandActions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },

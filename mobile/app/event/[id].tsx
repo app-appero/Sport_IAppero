@@ -11,6 +11,7 @@ import { fonts, spacing, type Palette, fs } from '@/constants/theme';
 import { BOOKINGS_API_READY } from '@/constants/features';
 import { useEventBookings, useEventPredictions, useEventScorers } from '@/hooks/queries';
 import type { UnifiedPrediction } from '@/types/api';
+import { parseDecisionFilter, predictionMatchesDecision } from '@/utils/decisionFilter';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
 import { formatApiError } from '@/utils/formatApiError';
@@ -54,11 +55,13 @@ export default function EventDetailScreen() {
 }
 
 function EventDetail() {
-  const { id, sport, date } = useLocalSearchParams<{
+  const { id, sport, date, decision: decisionParam } = useLocalSearchParams<{
     id: string;
     sport?: string;
     date?: string;
+    decision?: string;
   }>();
+  const decision = parseDecisionFilter(decisionParam);
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
   const selectedDate = date ? String(date) : undefined;
@@ -108,7 +111,9 @@ function EventDetail() {
     );
   }
 
-  const items = sortMarkets(query.data?.items ?? []);
+  const items = sortMarkets(query.data?.items ?? []).filter((item) =>
+    predictionMatchesDecision(item, decision),
+  );
   const event = items[0]?.event;
   const title = event?.name ?? `Evento ${id}`;
   const timeLabel = formatEventTime(event?.start_time ?? null, event?.local_time);
