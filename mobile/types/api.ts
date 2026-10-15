@@ -17,9 +17,14 @@ export interface EventScore {
   display?: string | null;
 }
 
-/** In-progress snapshot of a match (tennis): games per set, current game and server. */
+/**
+ * In-progress snapshot of a match: tennis fills games per set, current game and server;
+ * football can fill `minute`. Every field beyond `is_live` is optional for the live feed.
+ */
 export interface LiveState {
   is_live: boolean;
+  /** Football: elapsed minute (e.g. 63). */
+  minute?: number | null;
   /** Games per set as [home, away], in play order. */
   sets: number[][];
   current_game: string | null;

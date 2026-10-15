@@ -150,3 +150,12 @@ test('bookingA11yLabel says booked only once it happened', () => {
   assert.match(bookingA11yLabel({ ...base, booked: null }), /38 percento di essere ammonito$/);
   assert.match(bookingA11yLabel({ ...base, booked: true }), /è stato ammonito$/);
 });
+
+test('topMarkets with byFamily=false keeps every cards line', () => {
+  const list = [pred('cards_line_4_5', 0.9), pred('cards_line_5_5', 0.8), pred('h2h', 0.5)];
+  assert.deepEqual(
+    topMarkets(list, { limit: 99, byFamily: false }).map((p) => p.prediction.type),
+    ['cards_line_4_5', 'cards_line_5_5', 'h2h'],
+  );
+  assert.equal(topMarkets(list, { limit: 99 }).length, 2);
+});

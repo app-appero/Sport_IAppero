@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
@@ -33,7 +34,7 @@ type ColumnState =
  * two rows each. Without the market for the competition (or on errors) the whole block
  * disappears; the yellow column shows "In arrivo" until the BFF route is live.
  */
-export function CardPlayers({ eventId }: { eventId: string }) {
+export function CardPlayers({ eventId, fallback = null }: { eventId: string; fallback?: ReactNode }) {
   const styles = useThemedStyles(makeStyles);
   const scorers = useEventScorers(eventId, true, { poll: false });
   const bookings = useEventBookings(eventId, BOOKINGS_API_READY, { poll: false });
@@ -64,7 +65,7 @@ export function CardPlayers({ eventId }: { eventId: string }) {
   }
 
   // Competition without scorers (e.g. Champions League): nothing to add here either.
-  if (left.kind === 'hidden') return null;
+  if (left.kind === 'hidden') return <>{fallback}</>;
 
   let right: ColumnState;
   const bData = bookings.data;
