@@ -156,6 +156,16 @@ def _participants(raw: dict[str, Any]) -> list[Participant]:
     return out
 
 
+def _stat_count(value: Any) -> int | None:
+    """Card and corner counts. Accepts 2, 2.0 and "2"; never treats a blank as zero."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
 def _as_int(value: Any) -> int | None:
     if value is None or isinstance(value, bool):
         return None
@@ -220,7 +230,53 @@ def attach_live_row(row: dict[str, Any], snapshot: dict[str, Any] | None) -> dic
         away = _as_int(snapshot.get("away_goals"))
         if home is not None and away is not None:
             updated["score"] = {"home": home, "away": away}
+        cards = _as_int(snapshot.get("_cards"))
+        corners = _as_int(snapshot.get("_corners"))
+        if cards is not None or corners is not None:
+            totals = dict(updated.get("actual_totals") or {})
+            if cards is not None:
+                totals["cards"] = cards
+            if corners is not None:
+                totals["corners"] = corners
+            updated["actual_totals"] = totals
     return updated
+
+
+def totals_from_live_statistics(payload: Any) -> tuple[int | None, int | None]:
+    """Yellow+red and corners from `/live/fixtures/{id}/statistics`.
+
+    None when that stat was not in the payload, so a missing feed is not
+    treated as zero. The card total is the same sum the finished match uses.
+    """
+    rows: list[Any] = []
+    if isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+        rows = payload["rows"]
+    elif isinstance(payload, list):
+        rows = payload
+    cards = 0
+    corners = 0
+    saw_cards = False
+    saw_corners = False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        stats = row.get("stats")
+        if not isinstance(stats, list):
+            continue
+        for entry in stats:
+            if not isinstance(entry, dict):
+                continue
+            kind = str(entry.get("type") or "").strip().lower()
+            value = _stat_count(entry.get("value"))
+            if value is None:
+                continue
+            if kind in {"yellow cards", "red cards"}:
+                cards += value
+                saw_cards = True
+            elif kind == "corner kicks":
+                corners += value
+                saw_corners = True
+    return (cards if saw_cards else None, corners if saw_corners else None)
 
 
 def index_live_fixtures(payload: Any) -> dict[str, dict[str, Any]]:
@@ -463,6 +519,58 @@ def _settle_soccer_market(market: str, selection: Selection, event: Event) -> bo
     return None
 
 
+def _line_side(selection: Selection) -> str | None:
+    sel = (selection.id or "").strip().lower()
+    name = (selection.name or "").strip().lower()
+    if sel == "over" or name.startswith("over"):
+        return "over"
+    if sel == "under" or name.startswith("under"):
+        return "under"
+    return None
+
+
+def _running_line_total(market: str, event: Event) -> tuple[float, float] | None:
+    """(total so far, line) for a totals market. None when the total is unknown."""
+    if market.startswith("under_over_"):
+        score = event.score
+        if score is None or score.home is None or score.away is None:
+            return None
+        line = _line_from_market(market, "under_over_")
+        if line is None:
+            return None
+        return float(int(score.home) + int(score.away)), line
+    totals = event.actual_totals or {}
+    if market.startswith("cards_line_"):
+        raw_total, prefix = totals.get("cards"), "cards_line_"
+    elif market.startswith("corners_line_"):
+        raw_total, prefix = totals.get("corners"), "corners_line_"
+    else:
+        return None
+    line = _line_from_market(market, prefix)
+    if line is None or raw_total is None:
+        return None
+    try:
+        return float(raw_total), line
+    except (TypeError, ValueError):
+        return None
+
+
+def _live_line_locked(market: str, selection: Selection, event: Event) -> bool | None:
+    """Color only what can no longer change.
+
+    An Over is already won once the total is past the line. An Under is already
+    lost at the same moment. Until then the market stays open.
+    """
+    side = _line_side(selection)
+    running = _running_line_total(market, event)
+    if side is None or running is None:
+        return None
+    total, line = running
+    if total > line:
+        return side == "over"
+    return None
+
+
 def _is_binary_soccer_market(market: str) -> bool:
     return (
         market.startswith("under_over_")
@@ -682,10 +790,10 @@ def _resolve_correct(
     event: Event,
     market_payload: dict[str, Any],
 ) -> bool | None:
-    # A live score is partial: 1-0 at 63' is not a home win yet, and an Under
-    # can still lose. Leave the market open until the match is over.
+    # While the match is on, 1X2 and the lines still in range stay open.
+    # An Over already past its line, or an Under already busted, is final.
     if _event_in_play(event):
-        return None
+        return _live_line_locked(market, selection, event)
     settled = _settle_soccer_market(market, selection, event)
     if settled is not None:
         return settled

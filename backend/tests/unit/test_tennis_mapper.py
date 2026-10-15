@@ -147,7 +147,28 @@ def test_live_match_does_not_settle_from_the_partial_score():
     assert by_type["match_winner"].event.live is not None
     assert by_type["match_winner"].correct is None
     assert by_type["first_set_winner"].correct is None
-    assert by_type["over_under_games"].correct is None
+    assert by_type["over_under_games"].correct is None  # 15 games, Under 22.5 still open
+
+
+def test_live_games_line_locks_only_when_the_total_is_already_past_it():
+    raw = _live_raw()
+    raw["prediction"] = {
+        "prob_player_1_win": 0.7,
+        "predicted_winner": "First Player",
+        "confidence": 0.7,
+        "model_version": "v4",
+    }
+    raw["extra_markets"] = [
+        {"market": "over_under_games", "selection": "Over 12.5", "probability": 0.6},
+        {"market": "over_under_games", "selection": "Under 12.5", "probability": 0.4},
+    ]
+    preds = mapper.map_predictions_payload({"items": [raw]})
+    # Both rows share the market key; the payload keeps them in order.
+    over, under = preds[1], preds[2]
+    assert over.prediction.selection.name == "Over 12.5"
+    assert over.correct is True  # 6-4 3-2 is already 15 games
+    assert under.correct is False
+    assert preds[0].correct is None
 
 
 def test_not_live_match_keeps_provider_status_and_has_no_live_state():

@@ -188,6 +188,18 @@ async def test_today_feed_merges_live_fixtures_and_leaves_markets_open():
     respx.post("https://soccer.test/auth/login").mock(
         return_value=httpx.Response(200, json={"access_token": "tok"})
     )
+    respx.get(url__regex=r"https://soccer\.test/live/fixtures/\d+/statistics").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "fixture_id": 77,
+                "rows": [
+                    {"team_id": 1, "stats": [{"type": "Yellow Cards", "value": 3}, {"type": "Red Cards", "value": 1}]},
+                    {"team_id": 2, "stats": [{"type": "Yellow Cards", "value": 1}, {"type": "Red Cards", "value": 0}]},
+                ],
+            },
+        )
+    )
     respx.get("https://soccer.test/live/fixtures").mock(
         return_value=httpx.Response(
             200,
@@ -245,6 +257,7 @@ async def test_today_feed_merges_live_fixtures_and_leaves_markets_open():
         assert event.live is not None
         assert event.live.minute == 63
         assert event.score is not None and event.score.home == 1 and event.score.away == 0
+        assert event.actual_totals is not None and event.actual_totals.get("cards") == 5
         assert items[0].correct is None
     finally:
         await provider.aclose()

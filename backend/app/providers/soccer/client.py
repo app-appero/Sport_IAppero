@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -433,7 +434,36 @@ class SoccerProvider(SportProvider):
         except Exception as exc:  # noqa: BLE001 — the day feed still works without the live poll
             logger.info("Soccer live fixtures unavailable: %s", exc)
             return {}
-        return mapper.index_live_fixtures(payload)
+        indexed = mapper.index_live_fixtures(payload)
+        if not indexed:
+            return {}
+        return await self._with_live_totals(indexed)
+
+    async def _with_live_totals(
+        self, indexed: dict[str, dict[str, Any]]
+    ) -> dict[str, dict[str, Any]]:
+        """Attach the running card and corner totals from the live statistics."""
+
+        async def one(fixture_id: str) -> tuple[str, Any]:
+            try:
+                payload = await self._get(f"/live/fixtures/{fixture_id}/statistics")
+            except Exception as exc:  # noqa: BLE001 — goals still color without the card count
+                logger.info("Soccer live statistics %s unavailable: %s", fixture_id, exc)
+                return fixture_id, None
+            return fixture_id, payload
+
+        fetched = await asyncio.gather(*(one(fixture_id) for fixture_id in indexed))
+        enriched: dict[str, dict[str, Any]] = {}
+        for fixture_id, payload in fetched:
+            snapshot = dict(indexed[fixture_id])
+            if payload is not None:
+                cards, corners = mapper.totals_from_live_statistics(payload)
+                if cards is not None:
+                    snapshot["_cards"] = cards
+                if corners is not None:
+                    snapshot["_corners"] = corners
+            enriched[fixture_id] = snapshot
+        return enriched
 
     async def get_events(self, **filters: Any) -> list[Event]:
         day = filters.get("date")

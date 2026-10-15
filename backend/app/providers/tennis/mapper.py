@@ -412,15 +412,21 @@ def _player_selection(raw_event: dict[str, Any], winner_label: str | None) -> Se
 
 
 def _event_in_play(event: Event) -> bool:
-    """True while the provider still has the match on court.
-
-    Partial sets, the running game count and a 1-0 `final_result` are the live
-    scoreboard, not a result. Settling from them paints markets green or red
-    before the match is over.
-    """
+    """True while the provider still has the match on court."""
     if event.live is not None and event.live.is_live:
         return True
     return (event.status or "").strip().lower() == "live"
+
+
+def _locked_total_line(
+    direction: str | None, line: float | None, total: float | None
+) -> bool | None:
+    """Over already past the line is won; Under past the line is lost. Otherwise open."""
+    if direction not in {"over", "under"} or line is None or total is None:
+        return None
+    if float(total) > line:
+        return direction == "over"
+    return None
 
 
 def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | None:
@@ -500,13 +506,19 @@ def map_extra_market(
         probabilities = [
             Probability(key=selection.id or "sel", label=selection.name, value=confidence)
         ]
+    live = _dig(raw_event, "live_score", "score")
+    settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
+    if settlement is None and event.actual_totals:
+        settlement = event.actual_totals
     if _event_in_play(event):
-        correct: bool | None = None
+        if market in {"over_under_games", "total_games"} and settlement is not None:
+            direction, line = _parse_ou_line(selection.name or "")
+            correct: bool | None = _locked_total_line(
+                direction, line, settlement.get("total_games")
+            )
+        else:
+            correct = None
     else:
-        live = _dig(raw_event, "live_score", "score")
-        settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
-        if settlement is None and event.actual_totals:
-            settlement = event.actual_totals
         correct = _settle_tennis_market(market, selection, settlement)
 
     return UnifiedPrediction(

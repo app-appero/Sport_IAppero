@@ -245,6 +245,53 @@ def test_halftime_and_stoppage_use_a_short_label_instead_of_a_misleading_minute(
     assert event.live.status_detail == "90+3'"
 
 
+def test_live_over_already_hit_is_green_and_busted_under_is_red():
+    row = _live_row()
+    row["score"] = {"home": 2, "away": 1}
+    row["predictions"] = {
+        "h2h": {"prediction": 1, "probability": 0.62, "correct": True},
+        "under_over_2_5": {"prediction": 1, "probability": 0.7},
+        "under_over_3_5": {"prediction": 0, "probability": 0.55},
+        "cards_line_3_5": {"prediction": 1, "probability": 0.6},
+        "cards_line_4_5": {"prediction": 0, "probability": 0.52},
+    }
+    row["actual_totals"] = {"cards": 5}
+    preds = {p.prediction.type: p for p in mapper.map_day_payload({"rows": [mapper.attach_live_row(row, None)]})}
+    assert preds["h2h"].correct is None
+    assert preds["under_over_2_5"].correct is True  # 3 goals, Over 2.5 already won
+    assert preds["under_over_3_5"].correct is None  # Under 3.5 still alive at 3
+    assert preds["cards_line_3_5"].correct is True  # 5 cards, Over 3.5 already won
+    assert preds["cards_line_4_5"].correct is False  # Under 4.5 already busted
+
+
+def test_live_statistics_sum_yellow_and_red_cards():
+    cards, corners = mapper.totals_from_live_statistics(
+        {
+            "rows": [
+                {
+                    "team_id": 1,
+                    "stats": [
+                        {"type": "Yellow Cards", "value": "2"},
+                        {"type": "Red Cards", "value": 1},
+                        {"type": "Corner Kicks", "value": 4},
+                    ],
+                },
+                {
+                    "team_id": 2,
+                    "stats": [
+                        {"type": "Yellow Cards", "value": 1},
+                        {"type": "Red Cards", "value": None},
+                        {"type": "Corner Kicks", "value": 3},
+                    ],
+                },
+            ]
+        }
+    )
+    assert cards == 4
+    assert corners == 7
+    assert mapper.totals_from_live_statistics({"rows": []}) == (None, None)
+
+
 def test_in_play_status_without_a_snapshot_stays_open():
     preds = mapper.map_day_payload({"rows": [mapper.attach_live_row(_live_row(), None)]})
     assert preds[0].event.status == "live"
