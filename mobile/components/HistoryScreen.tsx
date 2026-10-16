@@ -21,6 +21,7 @@ import {
   excludedNote,
   formatKickoffDay,
   formatRate,
+  groupsByMarket,
   othersLine,
 } from '@/utils/history';
 import { PERIOD_OPTIONS, periodFrom, periodLabel, romeToday, type PeriodId } from '@/utils/period';
@@ -93,7 +94,7 @@ function HistoryBody({
         <>
           <Hero counts={stats.data.totals} sport={sport} period={period} />
           <Text style={styles.note}>
-            Storico delle sole giocate consigliate (PLAY): le predizioni che il modello scarta non sono contate. La percentuale conta solo prese e perse; annullate e in attesa non sono sconfitte.
+            Storico delle sole giocate consigliate (PLAY): le altre non sono contate. La percentuale conta solo prese e perse; annullate e in attesa non sono sconfitte.
             {excludedNote(stats.data.excluded_not_pre_match)
               ? ` ${excludedNote(stats.data.excluded_not_pre_match)}`
               : ''}
@@ -101,13 +102,8 @@ function HistoryBody({
           {stats.data.groups.length > 0 ? (
             <>
               <Text style={styles.section}>Per mercato</Text>
-              {stats.data.groups.map((g) => (
-                <GroupCard
-                  key={`${g.market}|${g.model_name}|${g.model_version}`}
-                  title={marketLabel(g.market)}
-                  subtitle={[g.model_name, g.model_version].filter(Boolean).join(' · ')}
-                  counts={g}
-                />
+              {groupsByMarket(stats.data.groups).map((g) => (
+                <GroupCard key={g.market} title={marketLabel(g.market)} counts={g} />
               ))}
             </>
           ) : null}
@@ -270,15 +266,7 @@ function Legend({ label, value, color }: { label: string; value: number; color: 
   );
 }
 
-function GroupCard({
-  title,
-  subtitle,
-  counts,
-}: {
-  title: string;
-  subtitle: string;
-  counts: HistoryCounts;
-}) {
+function GroupCard({ title, counts }: { title: string; counts: HistoryCounts }) {
   const styles = useThemedStyles(makeStyles);
   const others = othersLine(counts);
   return (
@@ -295,7 +283,6 @@ function GroupCard({
         {decidedLine(counts)}
         {others ? ` · ${others}` : ''}
       </Text>
-      {subtitle ? <Text style={styles.groupModel}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -392,7 +379,6 @@ const makeStyles = (colors: Palette) =>
     groupRate: { fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.accentText },
     groupRateNa: { color: colors.inkMuted, fontFamily: fonts.body, fontSize: fs(13) },
     groupSub: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
-    groupModel: { fontFamily: fonts.body, fontSize: fs(11), color: colors.inkMuted },
     row: {
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.line,

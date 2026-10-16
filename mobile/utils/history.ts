@@ -1,4 +1,4 @@
-import type { HistoryCounts, SettlementStatus } from '@/types/api';
+import type { HistoryCounts, HistoryGroup, SettlementStatus } from '@/types/api';
 
 export const STATUS_LABEL: Record<SettlementStatus, string> = {
   won: 'Presa',
@@ -8,6 +8,27 @@ export const STATUS_LABEL: Record<SettlementStatus, string> = {
   not_placed: 'Non piazzata',
   unknown: 'Da verificare',
 };
+
+const COUNT_KEYS = ['won', 'lost', 'void', 'pending', 'not_placed', 'unknown'] as const;
+
+/** One card per market. Model name and version stay out of the screen. */
+export function groupsByMarket(groups: HistoryGroup[]): HistoryGroup[] {
+  const order: string[] = [];
+  const merged = new Map<string, HistoryGroup>();
+  for (const group of groups) {
+    const current = merged.get(group.market);
+    if (!current) {
+      order.push(group.market);
+      merged.set(group.market, { ...group, model_name: null, model_version: null });
+      continue;
+    }
+    for (const key of COUNT_KEYS) current[key] += group[key];
+    current.total += group.total;
+    current.decided = current.won + current.lost;
+    current.win_rate = current.decided > 0 ? current.won / current.decided : null;
+  }
+  return order.map((market) => merged.get(market)!);
+}
 
 /** "55%" or "n.d." when nothing is decided yet. */
 export function formatRate(rate: number | null): string {
