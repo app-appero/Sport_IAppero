@@ -142,6 +142,19 @@ function EventDetail() {
             {visibleMarkets.length} mercati · {activeLabel} · il badge Consigliata è l’unica usata in statistica
           </Text>
         ) : null}
+        {active ? (
+          <View style={styles.typeFilters}>
+            <FilterChips
+              options={sections}
+              value={active}
+              onChange={setSection}
+              accessibilityLabel="Filtro tipologia"
+            />
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.stateSlot}>
+        <DecisionFilterButton value={decision} onChange={setDecision} />
       </View>
       <View style={styles.body}>
         {showingPlayers ? (
@@ -182,23 +195,6 @@ function EventDetail() {
             renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
           />
         )}
-      </View>
-      <View
-        style={[styles.marketBar, { borderTopColor: colors.line, backgroundColor: colors.surface }]}
-      >
-        <View style={styles.fabDock} pointerEvents="box-none">
-          <DecisionFilterButton value={decision} onChange={setDecision} />
-        </View>
-        {active ? (
-          <View style={styles.bottomFilters}>
-            <FilterChips
-              options={sections}
-              value={active}
-              onChange={setSection}
-              accessibilityLabel="Filtro tipologia"
-            />
-          </View>
-        ) : null}
       </View>
     </View>
   );
@@ -257,17 +253,11 @@ const makeStyles = (colors: Palette) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
     },
-    marketBar: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-    },
-    fabDock: {
-      paddingHorizontal: spacing.md,
-      paddingTop: 6,
-      alignItems: 'flex-end',
-    },
-    bottomFilters: {
-      paddingHorizontal: spacing.md,
-      paddingBottom: spacing.xs,
+    typeFilters: { marginTop: spacing.sm },
+    stateSlot: {
+      marginTop: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.sm,
     },
     title: { fontFamily: fonts.bodyBold, fontSize: fs(22), color: colors.ink },
     subtitle: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },

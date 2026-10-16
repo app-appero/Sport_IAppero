@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
@@ -12,8 +12,8 @@ type Props = {
 };
 
 /**
- * Round filter button. The screen puts it in the market-filter bar, just above the chips,
- * so it stays with that bar instead of floating over it. Closed until tapped.
+ * Funnel button. Closed until tapped, then Tutti / Play / Borderline / No bet
+ * open on a horizontal row underneath and push whatever follows downward.
  */
 export function DecisionFilterButton({ value, onChange }: Props) {
   const colors = useSportPalette();
@@ -22,28 +22,7 @@ export function DecisionFilterButton({ value, onChange }: Props) {
   const active = value !== 'all';
 
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
-      {open ? (
-        <View style={styles.panel}>
-          {DECISION_FILTERS.map((option) => {
-            const selected = value === option.value;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => onChange(option.value)}
-                style={[styles.chip, selected && styles.chipActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={option.label}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextActive]} allowFontScaling={false}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
+    <View style={styles.wrap}>
       <Pressable
         onPress={() => setOpen((current) => !current)}
         style={[styles.button, active && styles.buttonActive]}
@@ -61,6 +40,34 @@ export function DecisionFilterButton({ value, onChange }: Props) {
           />
         </Svg>
       </Pressable>
+      {open ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.scroller}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.row} collapsable={false}>
+            {DECISION_FILTERS.map((option) => {
+              const selected = value === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => onChange(option.value)}
+                  style={[styles.chip, selected && styles.chipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={option.label}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextActive]} allowFontScaling={false}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -68,17 +75,17 @@ export function DecisionFilterButton({ value, onChange }: Props) {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: {
-      alignItems: 'flex-end',
+      alignItems: 'flex-start',
+      alignSelf: 'stretch',
       gap: 8,
     },
-    panel: {
-      borderWidth: 1,
-      borderColor: colors.line,
-      backgroundColor: colors.surfaceElevated,
-      borderRadius: radii.md,
-      padding: spacing.sm,
-      gap: 6,
-      minWidth: 148,
+    scroller: { alignSelf: 'stretch', flexGrow: 0 },
+    scrollContent: { flexGrow: 0 },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingRight: spacing.sm,
     },
     chip: {
       borderWidth: 1,

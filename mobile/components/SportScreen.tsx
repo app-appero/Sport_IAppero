@@ -281,6 +281,7 @@ export function SportScreen({
               accessibilityLabel="Filtro competizione"
             />
           ) : null}
+          <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
           <ProviderWarning status={providerHealth?.status} provider={providerHealth?.provider} />
           <OfflineBanner text={offlineText} />
         </View>
@@ -370,22 +371,17 @@ export function SportScreen({
 
         <View
           style={[
-            styles.marketBar,
+            styles.bottomFilters,
             { borderTopColor: colors.line, backgroundColor: colors.surface },
           ]}
         >
-          <View style={styles.fabDock} pointerEvents="box-none">
-            <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
-          </View>
-          <View style={styles.bottomFilters}>
-            <FilterChips
-              size="large"
-              options={marketOptions}
-              value={market}
-              onChange={setMarket}
-              accessibilityLabel="Filtro mercato"
-            />
-          </View>
+          <FilterChips
+            size="large"
+            options={marketOptions}
+            value={market}
+            onChange={setMarket}
+            accessibilityLabel="Filtro mercato"
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -442,16 +438,10 @@ const styles = StyleSheet.create({
   progress: { height: 3, overflow: 'hidden' },
   progressFill: { height: 3, width: '40%' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  marketBar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  fabDock: {
-    paddingHorizontal: spacing.md,
-    paddingTop: 6,
-    alignItems: 'flex-end',
-  },
   bottomFilters: {
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });
