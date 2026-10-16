@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   applyDecisionFilter,
   decisionCode,
+  decisionHint,
   parseDecisionFilter,
   predictionMatchesDecision,
 } from '../utils/decisionFilter.ts';
@@ -11,6 +12,13 @@ import type { FeedItem } from '../types/api.ts';
 
 const pred = (id: string, code: string | null) =>
   ({ id, decision: code == null ? null : { code } }) as FeedItem['predictions'][number];
+
+test('each state has a plain explanation', () => {
+  assert.match(decisionHint('all'), /Play/);
+  assert.match(decisionHint('PLAY'), /conveniente/);
+  assert.match(decisionHint('BORDERLINE'), /margine/);
+  assert.match(decisionHint('NO BET'), /sotto/);
+});
 
 test('decision codes accept the provider labels and ignore anything else', () => {
   assert.equal(decisionCode('play'), 'PLAY');

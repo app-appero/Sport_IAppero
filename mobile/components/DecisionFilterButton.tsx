@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, fs, radii, spacing, type Palette } from '@/constants/theme';
-import { DECISION_FILTERS, type DecisionFilter } from '@/utils/decisionFilter';
+import { DECISION_FILTERS, decisionHint, type DecisionFilter } from '@/utils/decisionFilter';
 
 type Props = {
   value: DecisionFilter;
@@ -23,6 +23,7 @@ export function DecisionFilterButton({ value, onChange }: Props) {
 
   return (
     <View style={styles.wrap}>
+      <View style={styles.line}>
       <Pressable
         onPress={() => setOpen((current) => !current)}
         style={[styles.button, active && styles.buttonActive]}
@@ -68,6 +69,12 @@ export function DecisionFilterButton({ value, onChange }: Props) {
           </View>
         </ScrollView>
       ) : null}
+      </View>
+      {open ? (
+        <Text style={[styles.hint, { color: colors.inkMuted }]} allowFontScaling={false}>
+          {decisionHint(value)}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -75,10 +82,19 @@ export function DecisionFilterButton({ value, onChange }: Props) {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: {
+      alignSelf: 'stretch',
+      gap: 6,
+    },
+    line: {
       flexDirection: 'row',
       alignItems: 'center',
       alignSelf: 'stretch',
       gap: 8,
+    },
+    hint: {
+      fontFamily: fonts.body,
+      fontSize: fs(12),
+      lineHeight: fs(16),
     },
     scroller: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
     scrollContent: { flexGrow: 0 },

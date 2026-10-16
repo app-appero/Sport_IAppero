@@ -40,7 +40,7 @@ import { offlineBannerText } from '@/utils/staleness';
 const PHASE_OPTIONS: { label: string; value: ListPhase }[] = [
   { label: 'Tutte', value: 'all' },
   { label: 'Live', value: 'live' },
-  { label: 'Concluse', value: 'done' },
+  { label: 'Finite', value: 'done' },
 ];
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
@@ -249,10 +249,11 @@ export function SportScreen({
               <Fragment>
                 <View style={styles.phaseSlot}>
                   <FilterChips
+                    size="compact"
                     options={PHASE_OPTIONS}
                     value={phase}
                     onChange={setPhase}
-                    accessibilityLabel="Filtro partite live e concluse"
+                    accessibilityLabel="Filtro partite live e finite"
                   />
                 </View>
                 <Pressable
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28, gap: 8 },
-  phaseSlot: { flexShrink: 1, minWidth: 0, marginBottom: -spacing.sm },
+  phaseSlot: { flexShrink: 1, minWidth: 0, overflow: 'hidden' },
   statsToggle: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 4, flexShrink: 0 },
   statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
   finishedDivider: {

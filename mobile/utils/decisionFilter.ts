@@ -10,6 +10,14 @@ export const DECISION_FILTERS: { label: string; value: DecisionFilter }[] = [
   { label: 'No bet', value: 'NO BET' },
 ];
 
+/** One plain sentence for the open filter. Same rule the provider uses on the odds. */
+export function decisionHint(filter: DecisionFilter): string {
+  if (filter === 'PLAY') return 'Play: la quota supera il valore che il modello considera conveniente.';
+  if (filter === 'BORDERLINE') return 'Borderline: c’è valore, ma il margine di sicurezza è stretto.';
+  if (filter === 'NO BET') return 'No bet: la quota è sotto il valore del modello.';
+  return 'Play conviene, Borderline è sul filo, No bet è sotto il valore del modello.';
+}
+
 /** Canonical PLAY / BORDERLINE / NO BET, or null when the provider sent something else. */
 export function decisionCode(code: string | null | undefined): Exclude<DecisionFilter, 'all'> | null {
   if (!code) return null;
