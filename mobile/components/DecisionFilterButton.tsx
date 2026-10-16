@@ -9,19 +9,20 @@ import { DECISION_FILTERS, type DecisionFilter } from '@/utils/decisionFilter';
 type Props = {
   value: DecisionFilter;
   onChange: (value: DecisionFilter) => void;
-  /** In normal flow, so the screen can pin it. Closed until tapped. */
-  docked?: boolean;
 };
 
-/** Round filter button. On the home it floats above the market chips. */
-export function DecisionFilterButton({ value, onChange, docked = false }: Props) {
+/**
+ * Round filter button. The screen puts it in the market-filter bar, just above the chips,
+ * so it stays with that bar instead of floating over it. Closed until tapped.
+ */
+export function DecisionFilterButton({ value, onChange }: Props) {
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   const active = value !== 'all';
 
   return (
-    <View style={docked ? styles.wrapDocked : styles.wrap} pointerEvents="box-none">
+    <View style={styles.wrap} pointerEvents="box-none">
       {open ? (
         <View style={styles.panel}>
           {DECISION_FILTERS.map((option) => {
@@ -67,14 +68,6 @@ export function DecisionFilterButton({ value, onChange, docked = false }: Props)
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: {
-      position: 'absolute',
-      right: spacing.md,
-      bottom: 62,
-      alignItems: 'flex-end',
-      gap: 8,
-      zIndex: 2,
-    },
-    wrapDocked: {
       alignItems: 'flex-end',
       gap: 8,
     },

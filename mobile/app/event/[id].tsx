@@ -15,40 +15,18 @@ import { BOOKINGS_API_READY } from '@/constants/features';
 import { useEventBookings, useEventPredictions, useEventScorers } from '@/hooks/queries';
 import type { EventBookingsResponse, EventScorersResponse, UnifiedPrediction } from '@/types/api';
 import { parseDecisionFilter, predictionMatchesDecision, type DecisionFilter } from '@/utils/decisionFilter';
+import { compareMarketTypes, groupsFromTypes, marketGroup } from '@/utils/marketGroups';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
 import { formatApiError } from '@/utils/formatApiError';
 import { scoreForMarket } from '@/utils/outcome';
 import { isScorersUnsupported } from '@/utils/scorers';
 
-const MARKET_ORDER = [
-  'h2h',
-  'dc',
-  'under_over_1_5',
-  'under_over_2_5',
-  'under_over_3_5',
-  'goal_no_goal',
-  'cards_line_3_5',
-  'cards_line_4_5',
-  'cards_line_5_5',
-  'cards_line_6_5',
-  'match_winner',
-  'first_set_winner',
-  'over_under_games',
-  'total_games',
-];
-
-type DetailSection = 'markets' | 'scorers' | 'bookings';
+const PLAYERS = 'scorers';
+const BOOKINGS = 'bookings';
 
 function sortMarkets(items: UnifiedPrediction[]): UnifiedPrediction[] {
-  return [...items].sort((a, b) => {
-    const ia = MARKET_ORDER.indexOf(a.prediction.type);
-    const ib = MARKET_ORDER.indexOf(b.prediction.type);
-    const ra = ia === -1 ? 999 : ia;
-    const rb = ib === -1 ? 999 : ib;
-    if (ra !== rb) return ra - rb;
-    return a.prediction.type.localeCompare(b.prediction.type);
-  });
+  return [...items].sort((a, b) => compareMarketTypes(a.prediction.type, b.prediction.type));
 }
 
 export default function EventDetailScreen() {
@@ -68,7 +46,7 @@ function EventDetail() {
     decision?: string;
   }>();
   const [decision, setDecision] = useState<DecisionFilter>(() => parseDecisionFilter(decisionParam));
-  const [section, setSection] = useState<DetailSection>('markets');
+  const [section, setSection] = useState<string | null>(null);
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
   const selectedDate = date ? String(date) : undefined;
@@ -129,12 +107,21 @@ function EventDetail() {
   const statusLabel = event
     ? eventStatusLabel(event, { selectedDate })
     : null;
-  const active: DetailSection = isFootball ? section : 'markets';
-  const sections: { label: string; value: DetailSection }[] = [{ label: 'Mercati', value: 'markets' }];
+  const sections: { label: string; value: string }[] = groupsFromTypes(
+    items.map((item) => item.prediction.type),
+  ).map((group) => ({ label: group.label, value: group.id }));
   if (isFootball) {
-    sections.push({ label: 'Marcatori', value: 'scorers' });
-    if (BOOKINGS_API_READY) sections.push({ label: 'Ammoniti', value: 'bookings' });
+    sections.push({ label: 'Marcatori', value: PLAYERS });
+    if (BOOKINGS_API_READY) sections.push({ label: 'Ammoniti', value: BOOKINGS });
   }
+  const active =
+    section && sections.some((option) => option.value === section) ? section : sections[0]?.value;
+  const showingPlayers = active === PLAYERS || active === BOOKINGS;
+  const visibleMarkets =
+    active && !showingPlayers
+      ? items.filter((item) => marketGroup(item.prediction.type).id === active)
+      : [];
+  const activeLabel = sections.find((option) => option.value === active)?.label;
 
   return (
     <View style={styles.screen}>
@@ -150,26 +137,31 @@ function EventDetail() {
         ) : statusLabel ? (
           <Text style={styles.score}>Stato · {statusLabel}</Text>
         ) : null}
-        {sections.length > 1 ? (
-          <FilterChips
-            options={sections}
-            value={active}
-            onChange={setSection}
-            accessibilityLabel="Sezioni della partita"
-          />
-        ) : null}
-        {active === 'markets' ? (
+        {active && !showingPlayers ? (
           <Text style={styles.subtitle}>
-            {items.length} mercati · il badge Consigliata è l’unica usata in statistica
+            {visibleMarkets.length} mercati · {activeLabel} · il badge Consigliata è l’unica usata in statistica
           </Text>
         ) : null}
       </View>
       <View style={styles.body}>
-        {active === 'markets' ? (
+        {showingPlayers ? (
+          <ScrollView style={styles.list} contentContainerStyle={styles.content}>
+            <PlayersPane
+              variant={active === BOOKINGS ? 'bookings' : 'scorers'}
+              data={active === BOOKINGS ? bookings.data : scorers.data}
+              isLoading={active === BOOKINGS ? bookings.isLoading : scorers.isLoading}
+              isError={
+                active === BOOKINGS
+                  ? bookings.isError && !bookings.data
+                  : scorers.isError && !scorers.data
+              }
+            />
+          </ScrollView>
+        ) : (
           <FlatList
             style={styles.list}
             contentContainerStyle={styles.content}
-            data={items}
+            data={visibleMarkets}
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <EmptyState
@@ -189,23 +181,24 @@ function EventDetail() {
             }
             renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
           />
-        ) : (
-          <ScrollView style={styles.list} contentContainerStyle={styles.content}>
-            <PlayersPane
-              variant={active === 'bookings' ? 'bookings' : 'scorers'}
-              data={active === 'bookings' ? bookings.data : scorers.data}
-              isLoading={active === 'bookings' ? bookings.isLoading : scorers.isLoading}
-              isError={
-                active === 'bookings'
-                  ? bookings.isError && !bookings.data
-                  : scorers.isError && !scorers.data
-              }
-            />
-          </ScrollView>
         )}
       </View>
-      <View style={styles.fabDock} pointerEvents="box-none">
-        <DecisionFilterButton docked value={decision} onChange={setDecision} />
+      <View
+        style={[styles.marketBar, { borderTopColor: colors.line, backgroundColor: colors.surface }]}
+      >
+        <View style={styles.fabDock} pointerEvents="box-none">
+          <DecisionFilterButton value={decision} onChange={setDecision} />
+        </View>
+        {active ? (
+          <View style={styles.bottomFilters}>
+            <FilterChips
+              options={sections}
+              value={active}
+              onChange={setSection}
+              accessibilityLabel="Filtro tipologia"
+            />
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -264,11 +257,17 @@ const makeStyles = (colors: Palette) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
     },
+    marketBar: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+    },
     fabDock: {
       paddingHorizontal: spacing.md,
-      paddingTop: 2,
-      paddingBottom: 6,
+      paddingTop: 6,
       alignItems: 'flex-end',
+    },
+    bottomFilters: {
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.xs,
     },
     title: { fontFamily: fonts.bodyBold, fontSize: fs(22), color: colors.ink },
     subtitle: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },

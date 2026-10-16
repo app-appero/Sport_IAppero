@@ -294,6 +294,7 @@ export function SportScreen({
           </View>
         ) : null}
 
+        <View style={styles.body}>
         {query.isLoading ? (
           <EventCardSkeleton count={5} />
         ) : !query.data && !online ? (
@@ -318,6 +319,7 @@ export function SportScreen({
           </View>
         ) : (
           <FlatList
+            style={styles.fill}
             data={rows}
             keyExtractor={(row) => (row.kind === 'divider' ? 'divider-finished' : row.item.event.id)}
             contentContainerStyle={[styles.list, showingPrevious && styles.dimmed]}
@@ -364,22 +366,27 @@ export function SportScreen({
             }
           />
         )}
+        </View>
 
         <View
           style={[
-            styles.bottomFilters,
+            styles.marketBar,
             { borderTopColor: colors.line, backgroundColor: colors.surface },
           ]}
         >
-          <FilterChips
-            size="large"
-            options={marketOptions}
-            value={market}
-            onChange={setMarket}
-            accessibilityLabel="Filtro mercato"
-          />
+          <View style={styles.fabDock} pointerEvents="box-none">
+            <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
+          </View>
+          <View style={styles.bottomFilters}>
+            <FilterChips
+              size="large"
+              options={marketOptions}
+              value={market}
+              onChange={setMarket}
+              accessibilityLabel="Filtro mercato"
+            />
+          </View>
         </View>
-        <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
       </SafeAreaView>
     </View>
     </SportThemeProvider>
@@ -395,9 +402,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     gap: 6,
   },
+  body: { flex: 1, minHeight: 0 },
+  fill: { flex: 1 },
   list: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 72,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
   },
   brandActions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
@@ -433,10 +442,16 @@ const styles = StyleSheet.create({
   progress: { height: 3, overflow: 'hidden' },
   progressFill: { height: 3, width: '40%' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  marketBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  fabDock: {
+    paddingHorizontal: spacing.md,
+    paddingTop: 6,
+    alignItems: 'flex-end',
+  },
   bottomFilters: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });
