@@ -14,10 +14,10 @@ const pred = (id: string, code: string | null) =>
   ({ id, decision: code == null ? null : { code } }) as FeedItem['predictions'][number];
 
 test('each state has a plain explanation', () => {
-  assert.match(decisionHint('all'), /Play/);
-  assert.match(decisionHint('PLAY'), /conveniente/);
-  assert.match(decisionHint('BORDERLINE'), /margine/);
-  assert.match(decisionHint('NO BET'), /sotto/);
+  assert.match(decisionHint('all'), /paga di più/);
+  assert.match(decisionHint('PLAY'), /paga più/);
+  assert.match(decisionHint('BORDERLINE'), /poco di più/);
+  assert.match(decisionHint('NO BET'), /paga meno/);
 });
 
 test('decision codes accept the provider labels and ignore anything else', () => {
