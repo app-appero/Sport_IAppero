@@ -11,7 +11,7 @@ type Props = {
   onChange: (value: DecisionFilter) => void;
 };
 
-/** Round filter button, bottom-right above the market chips. Closed until tapped. */
+/** Round filter button. The screen docks it just above the market chips, fixed while the list scrolls. */
 export function DecisionFilterButton({ value, onChange }: Props) {
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
@@ -65,12 +65,8 @@ export function DecisionFilterButton({ value, onChange }: Props) {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: {
-      position: 'absolute',
-      right: spacing.md,
-      bottom: 62,
       alignItems: 'flex-end',
       gap: 8,
-      zIndex: 2,
     },
     panel: {
       borderWidth: 1,
