@@ -32,7 +32,7 @@ type ColumnState =
 /**
  * Football card, bottom block: scorers on the left, yellow cards on the right,
  * two rows each. Without the market for the competition (or on errors) the whole block
- * disappears; the yellow column shows "In arrivo" until the BFF route is live.
+ * disappears. With the bookings route switched off, the yellow column is omitted.
  */
 export function CardPlayers({ eventId, fallback = null }: { eventId: string; fallback?: ReactNode }) {
   const styles = useThemedStyles(makeStyles);
@@ -69,7 +69,7 @@ export function CardPlayers({ eventId, fallback = null }: { eventId: string; fal
 
   let right: ColumnState;
   const bData = bookings.data;
-  if (!BOOKINGS_API_READY) right = { kind: 'waiting', text: 'Modello in addestramento.' };
+  if (!BOOKINGS_API_READY) right = { kind: 'hidden' };
   else if (bookings.isError && !bData) right = { kind: 'waiting', text: 'Non disponibili al momento.' };
   else if (bookings.isLoading && !bData) right = { kind: 'loading' };
   else {
@@ -218,7 +218,7 @@ const makeStyles = (colors: Palette) =>
       paddingVertical: 4,
       borderRadius: radii.sm,
     },
-    rowGoal: {},
+    rowGoal: { backgroundColor: colors.accentSoft },
     rowYellow: { backgroundColor: yellowCard.bg },
     mini: {
       width: 22,

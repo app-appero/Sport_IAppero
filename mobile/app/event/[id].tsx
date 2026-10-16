@@ -5,7 +5,7 @@ import { BrandHeader } from '@/components/BrandHeader';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { MarketBoard } from '@/components/MarketBoard';
-import { BookingsComingSoon, ScorersSection } from '@/components/ScorersSection';
+import { ScorersSection } from '@/components/ScorersSection';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, spacing, type Palette, fs } from '@/constants/theme';
 import { BOOKINGS_API_READY } from '@/constants/features';
@@ -167,17 +167,13 @@ function EventDetail() {
                 isError={scorers.isError && !scorers.data}
               />
               {/* Competitions without the scorers market have no yellow cards either. */}
-              {scorers.data && scorers.data.status !== 'unsupported' ? (
-                BOOKINGS_API_READY ? (
-                  <ScorersSection
-                    variant="bookings"
-                    data={bookings.data}
-                    isLoading={bookings.isLoading}
-                    isError={bookings.isError && !bookings.data}
-                  />
-                ) : (
-                  <BookingsComingSoon />
-                )
+              {scorers.data && scorers.data.status !== 'unsupported' && BOOKINGS_API_READY ? (
+                <ScorersSection
+                  variant="bookings"
+                  data={bookings.data}
+                  isLoading={bookings.isLoading}
+                  isError={bookings.isError && !bookings.data}
+                />
               ) : null}
             </View>
           ) : null
