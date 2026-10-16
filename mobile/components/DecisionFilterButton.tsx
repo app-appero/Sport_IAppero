@@ -13,7 +13,7 @@ type Props = {
 
 /**
  * Funnel button. Closed until tapped, then Tutti / Play / Borderline / No bet
- * open on a horizontal row underneath and push whatever follows downward.
+ * open on the same line, to the right of the icon.
  */
 export function DecisionFilterButton({ value, onChange }: Props) {
   const colors = useSportPalette();
@@ -75,11 +75,12 @@ export function DecisionFilterButton({ value, onChange }: Props) {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     wrap: {
-      alignItems: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
       alignSelf: 'stretch',
       gap: 8,
     },
-    scroller: { alignSelf: 'stretch', flexGrow: 0 },
+    scroller: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
     scrollContent: { flexGrow: 0 },
     row: {
       flexDirection: 'row',
@@ -113,6 +114,7 @@ const makeStyles = (colors: Palette) =>
       backgroundColor: colors.surfaceElevated,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     buttonActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   });
