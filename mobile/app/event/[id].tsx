@@ -1,21 +1,25 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BrandHeader } from '@/components/BrandHeader';
+import { DecisionFilterButton } from '@/components/DecisionFilterButton';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { FilterChips } from '@/components/FilterChips';
 import { MarketBoard } from '@/components/MarketBoard';
 import { ScorersSection } from '@/components/ScorersSection';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { fonts, spacing, type Palette, fs } from '@/constants/theme';
 import { BOOKINGS_API_READY } from '@/constants/features';
 import { useEventBookings, useEventPredictions, useEventScorers } from '@/hooks/queries';
-import type { UnifiedPrediction } from '@/types/api';
-import { parseDecisionFilter, predictionMatchesDecision } from '@/utils/decisionFilter';
+import type { EventBookingsResponse, EventScorersResponse, UnifiedPrediction } from '@/types/api';
+import { parseDecisionFilter, predictionMatchesDecision, type DecisionFilter } from '@/utils/decisionFilter';
 import { formatEventTime } from '@/utils/dates';
 import { eventStatusLabel } from '@/utils/eventStatus';
 import { formatApiError } from '@/utils/formatApiError';
 import { scoreForMarket } from '@/utils/outcome';
+import { isScorersUnsupported } from '@/utils/scorers';
 
 const MARKET_ORDER = [
   'h2h',
@@ -33,6 +37,8 @@ const MARKET_ORDER = [
   'over_under_games',
   'total_games',
 ];
+
+type DetailSection = 'markets' | 'scorers' | 'bookings';
 
 function sortMarkets(items: UnifiedPrediction[]): UnifiedPrediction[] {
   return [...items].sort((a, b) => {
@@ -61,7 +67,8 @@ function EventDetail() {
     date?: string;
     decision?: string;
   }>();
-  const decision = parseDecisionFilter(decisionParam);
+  const [decision, setDecision] = useState<DecisionFilter>(() => parseDecisionFilter(decisionParam));
+  const [section, setSection] = useState<DetailSection>('markets');
   const colors = useSportPalette();
   const styles = useThemedStyles(makeStyles);
   const selectedDate = date ? String(date) : undefined;
@@ -111,75 +118,126 @@ function EventDetail() {
     );
   }
 
-  const items = sortMarkets(query.data?.items ?? []).filter((item) =>
-    predictionMatchesDecision(item, decision),
-  );
-  const event = items[0]?.event;
+  const allItems = sortMarkets(query.data?.items ?? []);
+  const items = allItems.filter((item) => predictionMatchesDecision(item, decision));
+  const event = allItems[0]?.event;
   const title = event?.name ?? `Evento ${id}`;
   const timeLabel = formatEventTime(event?.start_time ?? null, event?.local_time);
   const scoreSample = event
-    ? scoreForMarket(event, items[0]?.prediction.type || 'h2h')
+    ? scoreForMarket(event, allItems[0]?.prediction.type || 'h2h')
     : null;
   const statusLabel = event
     ? eventStatusLabel(event, { selectedDate })
     : null;
+  const active: DetailSection = isFootball ? section : 'markets';
+  const sections: { label: string; value: DetailSection }[] = [{ label: 'Mercati', value: 'markets' }];
+  if (isFootball) {
+    sections.push({ label: 'Marcatori', value: 'scorers' });
+    if (BOOKINGS_API_READY) sections.push({ label: 'Ammoniti', value: 'bookings' });
+  }
 
   return (
-    <>
+    <View style={styles.screen}>
       {header}
-      <FlatList
-        style={styles.list}
-        contentContainerStyle={styles.content}
-        data={items}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <BrandHeader size="sm" />
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>
-              {event?.competition?.name ?? 'Competizione'} · {timeLabel}
-            </Text>
-            {scoreSample ? (
-              <Text style={styles.score}>Risultato · {scoreSample}</Text>
-            ) : statusLabel ? (
-              <Text style={styles.score}>Stato · {statusLabel}</Text>
-            ) : null}
-            <Text style={styles.subtitle}>
-              {items.length} mercati · il badge Consigliata è l’unica usata in statistica
-            </Text>
-          </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title="Nessun mercato per questo evento"
-            subtitle="Prova a tornare indietro e riaprire la card, oppure cambia giorno."
-            actionLabel="Riprova"
-            onAction={() => query.refetch()}
+      <View style={styles.header}>
+        <BrandHeader size="sm" />
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.subtitle}>
+          {event?.competition?.name ?? 'Competizione'} · {timeLabel}
+        </Text>
+        {scoreSample ? (
+          <Text style={styles.score}>Risultato · {scoreSample}</Text>
+        ) : statusLabel ? (
+          <Text style={styles.score}>Stato · {statusLabel}</Text>
+        ) : null}
+        {sections.length > 1 ? (
+          <FilterChips
+            options={sections}
+            value={active}
+            onChange={setSection}
+            accessibilityLabel="Sezioni della partita"
           />
-        }
-        renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
-        ListFooterComponent={
-          isFootball && items.length > 0 ? (
-            <View style={styles.players}>
-              <ScorersSection
-                data={scorers.data}
-                isLoading={scorers.isLoading}
-                isError={scorers.isError && !scorers.data}
+        ) : null}
+        {active === 'markets' ? (
+          <Text style={styles.subtitle}>
+            {items.length} mercati · il badge Consigliata è l’unica usata in statistica
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.body}>
+        {active === 'markets' ? (
+          <FlatList
+            style={styles.list}
+            contentContainerStyle={styles.content}
+            data={items}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={
+              <EmptyState
+                title={
+                  decision === 'all'
+                    ? 'Nessun mercato per questo evento'
+                    : 'Nessun mercato in questo stato'
+                }
+                subtitle={
+                  decision === 'all'
+                    ? 'Prova a tornare indietro e riaprire la card, oppure cambia giorno.'
+                    : 'Questo stato non ha previsioni su questa partita.'
+                }
+                actionLabel={decision === 'all' ? 'Riprova' : undefined}
+                onAction={decision === 'all' ? () => query.refetch() : undefined}
               />
-              {/* Competitions without the scorers market have no yellow cards either. */}
-              {scorers.data && scorers.data.status !== 'unsupported' && BOOKINGS_API_READY ? (
-                <ScorersSection
-                  variant="bookings"
-                  data={bookings.data}
-                  isLoading={bookings.isLoading}
-                  isError={bookings.isError && !bookings.data}
-                />
-              ) : null}
-            </View>
-          ) : null
-        }
+            }
+            renderItem={({ item }) => <MarketBoard item={item} date={selectedDate} />}
+          />
+        ) : (
+          <ScrollView style={styles.list} contentContainerStyle={styles.content}>
+            <PlayersPane
+              variant={active === 'bookings' ? 'bookings' : 'scorers'}
+              data={active === 'bookings' ? bookings.data : scorers.data}
+              isLoading={active === 'bookings' ? bookings.isLoading : scorers.isLoading}
+              isError={
+                active === 'bookings'
+                  ? bookings.isError && !bookings.data
+                  : scorers.isError && !scorers.data
+              }
+            />
+          </ScrollView>
+        )}
+      </View>
+      <View style={styles.fabDock} pointerEvents="box-none">
+        <DecisionFilterButton docked value={decision} onChange={setDecision} />
+      </View>
+    </View>
+  );
+}
+
+function PlayersPane({
+  variant,
+  data,
+  isLoading,
+  isError,
+}: {
+  variant: 'scorers' | 'bookings';
+  data: EventScorersResponse | EventBookingsResponse | undefined;
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  const unavailable = !isLoading && (isError || !data || isScorersUnsupported(data));
+  if (unavailable) {
+    return (
+      <EmptyState
+        title={variant === 'bookings' ? 'Ammoniti non disponibili' : 'Marcatori non disponibili'}
+        subtitle="Per questa partita il provider non ha la lista."
       />
-    </>
+    );
+  }
+  return (
+    <ScorersSection
+      variant={variant}
+      data={data}
+      isLoading={isLoading}
+      isError={isError}
+    />
   );
 }
 
@@ -197,10 +255,21 @@ const makeStyles = (colors: Palette) =>
       justifyContent: 'center',
       padding: spacing.lg,
     },
+    screen: { flex: 1, backgroundColor: colors.surface },
+    body: { flex: 1, minHeight: 0 },
     list: { flex: 1, backgroundColor: colors.surface },
-    players: { gap: spacing.sm },
-    content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
-    header: { gap: 4, marginBottom: spacing.sm },
+    content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.lg },
+    header: {
+      gap: 4,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+    },
+    fabDock: {
+      paddingHorizontal: spacing.md,
+      paddingTop: 2,
+      paddingBottom: 6,
+      alignItems: 'flex-end',
+    },
     title: { fontFamily: fonts.bodyBold, fontSize: fs(22), color: colors.ink },
     subtitle: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
     score: { fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.ink, marginTop: 4 },

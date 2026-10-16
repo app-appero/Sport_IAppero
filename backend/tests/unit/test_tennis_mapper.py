@@ -2,6 +2,79 @@ from app.providers.http_utils import load_fixture
 from app.providers.tennis import mapper
 
 
+def test_day_feed_recovers_play_borderline_and_no_bet():
+    """The tennis day route has no value_decision. Odds + model probability are enough."""
+    payload = load_fixture("tennis", "predictions.json")
+    predictions = mapper.map_predictions_payload(payload)
+    first = [p for p in predictions if p.event.id == "12168292"]
+    by_type = {p.prediction.type: p.decision.code if p.decision else None for p in first}
+    assert by_type["match_winner"] == "PLAY"
+    assert by_type["first_set_winner"] == "PLAY"
+    assert by_type["over_under_games"] == "NO BET"
+
+    # Quote below void odds (second fixture, match winner) is No bet, not missing.
+    second = next(
+        p for p in predictions if p.event.id == "12169224" and p.prediction.type == "match_winner"
+    )
+    assert second.decision is not None
+    assert second.decision.code == "NO BET"
+
+
+def test_value_decision_label_wins_over_the_odds_rule():
+    event_row = {
+        "event_key": 1,
+        "event_first_player": "A",
+        "event_second_player": "B",
+        "value_decision": "BORDERLINE",
+        "prediction": {
+            "prob_player_1_win": 0.6,
+            "predicted_winner": "First Player",
+            "predicted_winner_odds": 3.0,
+            "confidence": 0.6,
+        },
+        "extra_markets": [
+            {
+                "market": "over_under_games",
+                "selection": "Over 22.5",
+                "probability": 0.55,
+                "odds": 1.2,
+                "void_odds": 1.8,
+                "value_decision": "PLAY",
+            }
+        ],
+    }
+    predictions = mapper.map_predictions_payload([event_row])
+    by_type = {p.prediction.type: p.decision.code for p in predictions}
+    assert by_type["match_winner"] == "BORDERLINE"
+    assert by_type["over_under_games"] == "PLAY"
+
+
+def test_missing_odds_leave_the_decision_empty():
+    predictions = mapper.map_predictions_payload(
+        [
+            {
+                "event_key": 2,
+                "event_first_player": "A",
+                "event_second_player": "B",
+                "prediction": {
+                    "prob_player_1_win": 0.6,
+                    "predicted_winner": "First Player",
+                    "confidence": 0.6,
+                },
+            }
+        ]
+    )
+    assert len(predictions) == 1
+    assert predictions[0].decision is None
+
+
+def test_borderline_sits_between_void_odds_and_the_play_threshold():
+    # void 2.00, play threshold 2.04: 2.02 is value, but not enough margin.
+    decision = mapper._classify_value_decision(2.02, 2.0)
+    assert decision is not None
+    assert decision.code == "BORDERLINE"
+
+
 def test_map_predictions_payload():
     payload = load_fixture("tennis", "predictions.json")
     predictions = mapper.map_predictions_payload(payload)

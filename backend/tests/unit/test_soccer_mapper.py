@@ -118,6 +118,17 @@ def test_match_detail_1x2_board_enriches_h2h_and_dc():
     assert ou.decision.code == "BORDERLINE"
 
 
+def test_day_feed_keeps_provider_decision_labels():
+    """Football already sends PLAY / BORDERLINE / NO BET on decision_cards.
+    SENZA QUOTA is a real provider label and stays out of those three."""
+    preds = mapper.map_day_payload(load_fixture("soccer", "day.json"))
+    codes = {p.decision.code for p in preds if p.decision and p.decision.code}
+    assert "BORDERLINE" in codes
+    assert "NO BET" in codes
+    assert "SENZA QUOTA" in codes
+    assert all(p.decision is not None and p.decision.code for p in preds)
+
+
 def test_day_feed_without_1x2_keeps_legacy_h2h_dc():
     """Day list still binary — no invented 3-way board."""
     payload = load_fixture("soccer", "day.json")
