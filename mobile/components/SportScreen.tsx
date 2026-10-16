@@ -40,7 +40,7 @@ import { offlineBannerText } from '@/utils/staleness';
 const PHASE_OPTIONS: { label: string; value: ListPhase }[] = [
   { label: 'Tutte', value: 'all' },
   { label: 'Live', value: 'live' },
-  { label: 'Concluse', value: 'done' },
+  { label: 'Finite', value: 'done' },
 ];
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
@@ -249,10 +249,11 @@ export function SportScreen({
               <Fragment>
                 <View style={styles.phaseSlot}>
                   <FilterChips
+                    size="compact"
                     options={PHASE_OPTIONS}
                     value={phase}
                     onChange={setPhase}
-                    accessibilityLabel="Filtro partite live e concluse"
+                    accessibilityLabel="Filtro partite live e finite"
                   />
                 </View>
                 <Pressable
@@ -294,77 +295,83 @@ export function SportScreen({
           </View>
         ) : null}
 
-        {query.isLoading ? (
-          <EventCardSkeleton count={5} />
-        ) : !query.data && !online ? (
-          <View style={styles.emptyPad}>
-            <EmptyState
-              tone="error"
-              title="Sei offline"
-              subtitle="Nessun dato salvato per questo giorno. Riconnettiti e riprova."
-              actionLabel="Riprova"
-              onAction={() => query.refetch()}
-            />
-          </View>
-        ) : query.isError && !query.data ? (
-          <View style={styles.emptyPad}>
-            <EmptyState
-              tone="error"
-              title="Impossibile caricare le predizioni"
-              subtitle={formatApiError(query.error)}
-              actionLabel="Riprova"
-              onAction={() => query.refetch()}
-            />
-          </View>
-        ) : (
-          <FlatList
-            data={rows}
-            keyExtractor={(row) => (row.kind === 'divider' ? 'divider-finished' : row.item.event.id)}
-            contentContainerStyle={[styles.list, showingPrevious && styles.dimmed]}
-            refreshControl={
-              <RefreshControl
-                refreshing={query.isRefetching}
-                onRefresh={() => query.refetch()}
-                tintColor={colors.accent}
-              />
-            }
-            ListEmptyComponent={
+        <View style={styles.body}>
+          {query.isLoading ? (
+            <EventCardSkeleton count={5} />
+          ) : !query.data && !online ? (
+            <View style={styles.emptyPad}>
               <EmptyState
-                tone={
-                  providerHealth?.status && providerHealth.status !== 'ok' ? 'degraded' : 'empty'
-                }
-                title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
-                subtitle={
-                  filtersActive
-                    ? 'Prova a cambiare stato, mercato, competizione o giorno.'
-                    : copy.emptyHint
-                }
-                actionLabel={filtersActive ? 'Azzera filtri' : undefined}
-                onAction={filtersActive ? clearFilters : undefined}
+                tone="error"
+                title="Sei offline"
+                subtitle="Nessun dato salvato per questo giorno. Riconnettiti e riprova."
+                actionLabel="Riprova"
+                onAction={() => query.refetch()}
               />
-            }
-            renderItem={({ item: row, index }) =>
-              row.kind === 'divider' ? (
-                <Text
-                  style={[styles.finishedDivider, { color: colors.inkMuted, borderTopColor: colors.line }]}
-                  accessibilityRole="header"
-                  maxFontSizeMultiplier={1.2}
-                >
-                  Finite · {row.count}
-                </Text>
-              ) : (
-                <EventCard
-                  item={row.item}
-                  index={index}
-                  preferredMarket={market}
-                  selectedDate={date}
-                  onPress={() => openEvent(row.item)}
+            </View>
+          ) : query.isError && !query.data ? (
+            <View style={styles.emptyPad}>
+              <EmptyState
+                tone="error"
+                title="Impossibile caricare le predizioni"
+                subtitle={formatApiError(query.error)}
+                actionLabel="Riprova"
+                onAction={() => query.refetch()}
+              />
+            </View>
+          ) : (
+            <FlatList
+              style={styles.fill}
+              data={rows}
+              keyExtractor={(row) => (row.kind === 'divider' ? 'divider-finished' : row.item.event.id)}
+              contentContainerStyle={[styles.list, showingPrevious && styles.dimmed]}
+              refreshControl={
+                <RefreshControl
+                  refreshing={query.isRefetching}
+                  onRefresh={() => query.refetch()}
+                  tintColor={colors.accent}
                 />
-              )
-            }
-          />
-        )}
+              }
+              ListEmptyComponent={
+                <EmptyState
+                  tone={
+                    providerHealth?.status && providerHealth.status !== 'ok' ? 'degraded' : 'empty'
+                  }
+                  title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
+                  subtitle={
+                    filtersActive
+                      ? 'Prova a cambiare stato, mercato, competizione o giorno.'
+                      : copy.emptyHint
+                  }
+                  actionLabel={filtersActive ? 'Azzera filtri' : undefined}
+                  onAction={filtersActive ? clearFilters : undefined}
+                />
+              }
+              renderItem={({ item: row, index }) =>
+                row.kind === 'divider' ? (
+                  <Text
+                    style={[styles.finishedDivider, { color: colors.inkMuted, borderTopColor: colors.line }]}
+                    accessibilityRole="header"
+                    maxFontSizeMultiplier={1.2}
+                  >
+                    Finite · {row.count}
+                  </Text>
+                ) : (
+                  <EventCard
+                    item={row.item}
+                    index={index}
+                    preferredMarket={market}
+                    selectedDate={date}
+                    onPress={() => openEvent(row.item)}
+                  />
+                )
+              }
+            />
+          )}
+        </View>
 
+        <View style={styles.fabDock} pointerEvents="box-none">
+          <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
+        </View>
         <View
           style={[
             styles.bottomFilters,
@@ -379,7 +386,6 @@ export function SportScreen({
             accessibilityLabel="Filtro mercato"
           />
         </View>
-        <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
       </SafeAreaView>
     </View>
     </SportThemeProvider>
@@ -395,9 +401,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     gap: 6,
   },
+  body: { flex: 1, minHeight: 0 },
+  fill: { flex: 1 },
   list: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 72,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
   },
   brandActions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
@@ -419,7 +427,7 @@ const styles = StyleSheet.create({
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28, gap: 8 },
-  phaseSlot: { flexShrink: 1, minWidth: 0, marginBottom: -spacing.sm },
+  phaseSlot: { flexShrink: 1, minWidth: 0, overflow: 'hidden' },
   statsToggle: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 4, flexShrink: 0 },
   statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
   finishedDivider: {
@@ -433,6 +441,12 @@ const styles = StyleSheet.create({
   progress: { height: 3, overflow: 'hidden' },
   progressFill: { height: 3, width: '40%' },
   emptyPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  fabDock: {
+    paddingHorizontal: spacing.md,
+    paddingTop: 2,
+    paddingBottom: 6,
+    alignItems: 'flex-end',
+  },
   bottomFilters: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
