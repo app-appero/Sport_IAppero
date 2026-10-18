@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { useThemedStyles } from '@/components/SportTheme';
+import { LockIcon } from '@/components/LockIcon';
+import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { BOOKINGS_API_READY } from '@/constants/features';
 import { fonts, radii, spacing, yellowCard, type Palette, fs } from '@/constants/theme';
 import { useEventBookings, useEventScorers } from '@/hooks/queries';
@@ -34,7 +35,16 @@ type ColumnState =
  * two rows each. Without the market for the competition (or on errors) the whole block
  * disappears; the yellow column shows "In arrivo" until the BFF route is live.
  */
-export function CardPlayers({ eventId, fallback = null }: { eventId: string; fallback?: ReactNode }) {
+export function CardPlayers({
+  eventId,
+  fallback = null,
+  locked = false,
+}: {
+  eventId: string;
+  fallback?: ReactNode;
+  /** Guest view: same block, but placeholders instead of players and percentages. */
+  locked?: boolean;
+}) {
   const styles = useThemedStyles(makeStyles);
   const scorers = useEventScorers(eventId, true, { poll: false });
   const bookings = useEventBookings(eventId, BOOKINGS_API_READY, { poll: false });
@@ -66,6 +76,7 @@ export function CardPlayers({ eventId, fallback = null }: { eventId: string; fal
 
   // Competition without scorers (e.g. Champions League): nothing to add here either.
   if (left.kind === 'hidden') return <>{fallback}</>;
+  if (locked) return <LockedPlayers />;
 
   let right: ColumnState;
   const bData = bookings.data;
@@ -117,6 +128,38 @@ export function CardPlayers({ eventId, fallback = null }: { eventId: string; fal
         )}
       </View>
       {others > 0 ? <Text style={styles.more}>+ altri giocatori · tocca per tutti</Text> : null}
+    </View>
+  );
+}
+
+function LockedPlayers() {
+  const styles = useThemedStyles(makeStyles);
+  const colors = useSportPalette();
+  return (
+    <View style={styles.block}>
+      <View style={styles.cols}>
+        {['Marcatori', 'Gialli'].map((cap, i) => (
+          <View key={cap} style={[styles.col, i === 1 && styles.colRight]}>
+            <View style={styles.head}>
+              <Text style={styles.cap}>{cap}</Text>
+            </View>
+            {[0, 1].map((r) => (
+              <View key={r} style={styles.row}>
+                <View style={styles.mini} />
+                <View style={styles.who}>
+                  <View style={styles.ghostName} />
+                  <View style={styles.ghostSub} />
+                </View>
+                <View style={styles.ghostPct} />
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+      <View style={styles.lockLine}>
+        <LockIcon size={12} color={colors.accentText} />
+        <Text style={styles.lockLineText}>Accedi per vedere marcatori e gialli</Text>
+      </View>
     </View>
   );
 }
@@ -246,5 +289,10 @@ const makeStyles = (colors: Palette) =>
     sub: { fontFamily: fonts.body, fontSize: fs(10), color: colors.inkMuted },
     pct: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
     pctYellow: { color: yellowCard.fill },
+    ghostName: { width: '70%', height: 9, borderRadius: 4, backgroundColor: colors.track },
+    ghostSub: { width: '40%', height: 7, borderRadius: 4, backgroundColor: colors.track, marginTop: 4, opacity: 0.6 },
+    ghostPct: { width: 24, height: 10, borderRadius: 4, backgroundColor: colors.track },
+    lockLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    lockLineText: { fontFamily: fonts.bodyBold, fontSize: fs(11), color: colors.accentText },
     more: { fontFamily: fonts.body, fontSize: fs(11), color: colors.inkMuted },
   });

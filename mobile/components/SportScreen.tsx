@@ -19,16 +19,20 @@ import { EventCard } from '@/components/EventCard';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { FilterChips } from '@/components/FilterChips';
+import { SignInSheet } from '@/components/SignInSheet';
+import { LockIcon } from '@/components/LockIcon';
 import { ProfileButton } from '@/components/ProfileButton';
 import { ProviderWarning } from '@/components/ProviderWarning';
 import { SportRail, type SportId } from '@/components/SportRail';
 import { SportThemeProvider } from '@/components/SportTheme';
 import { marketsForSport, predictionMatchesMarket } from '@/constants/markets';
 import { fonts, fs, paletteFor, radii, spacing } from '@/constants/theme';
+import { useIsGuest } from '@/hooks/auth';
 import { useProviderHealth, useSportPredictions } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
 import { usePersistedBoolean } from '@/hooks/usePersistedBoolean';
 import type { FeedItem } from '@/types/api';
+import { isLockedDay } from '@/utils/access';
 import { buildDayRows, type DayRow } from '@/utils/dayOrder';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
@@ -62,6 +66,12 @@ export function SportScreen({
 
   // Statistica giornata: visible by default, the choice is remembered on this device.
   const [statsVisible, toggleStats] = usePersistedBoolean('ui.dayStats.visible', true);
+
+  // Guests see past days freely; today and the future are limited and invite to sign in.
+  const guest = useIsGuest();
+  const locked = guest && isLockedDay(date, todayKey());
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const invite = () => setInviteOpen(true);
 
   const health = useProviderHealth();
   // Day feed without market/competition filters — chips and hero picks filter client-side
@@ -213,7 +223,7 @@ export function SportScreen({
           <View style={styles.metaRow}>
             {!query.isLoading && !query.isError && dayStats.events > 0 ? (
               <Pressable
-                onPress={toggleStats}
+                onPress={locked ? invite : toggleStats}
                 style={styles.statsToggle}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -221,12 +231,13 @@ export function SportScreen({
                 accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
               >
                 <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
-                  Statistica giornata {statsVisible ? '▴' : '▾'}
+                  Statistica giornata {locked ? '' : statsVisible ? '▴' : '▾'}
                 </Text>
+                {locked ? <LockIcon size={11} color={colors.inkMuted} /> : null}
               </Pressable>
             ) : null}
           </View>
-          {statsVisible && !query.isLoading && !query.isError ? (
+          {!locked && statsVisible && !query.isLoading && !query.isError ? (
             <DayStatsPanel stats={dayStats} sport={sport} />
           ) : null}
           {competitionOptions.length > 1 ? (
@@ -314,12 +325,27 @@ export function SportScreen({
                   index={index}
                   preferredMarket={market}
                   selectedDate={date}
-                  onPress={() => openEvent(row.item)}
+                  locked={locked}
+                  onPress={locked ? invite : () => openEvent(row.item)}
                 />
               )
             }
           />
         )}
+
+        {locked ? (
+          <Pressable
+            onPress={invite}
+            style={[styles.guestBar, { backgroundColor: colors.accent }]}
+            accessibilityRole="button"
+            accessibilityLabel="Accedi con Google"
+          >
+            <LockIcon size={14} color={colors.onAccent} />
+            <Text style={[styles.guestBarText, { color: colors.onAccent }]} maxFontSizeMultiplier={1.2}>
+              Accedi per sbloccare tutto
+            </Text>
+          </Pressable>
+        ) : null}
 
         <View
           style={[
@@ -336,6 +362,7 @@ export function SportScreen({
           />
         </View>
       </SafeAreaView>
+      <SignInSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} />
     </View>
     </SportThemeProvider>
   );
@@ -374,7 +401,18 @@ const styles = StyleSheet.create({
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28 },
-  statsToggle: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
+  guestBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 46,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: radii.md,
+  },
+  guestBarText: { fontFamily: fonts.bodyBold, fontSize: fs(14) },
+  statsToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
   statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
   finishedDivider: {
     fontFamily: fonts.bodyBold,

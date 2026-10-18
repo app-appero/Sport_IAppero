@@ -4,17 +4,20 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import { LockIcon } from '@/components/LockIcon';
 import { OutcomeDot } from '@/components/OutcomeDot';
 import { ProbabilityRing } from '@/components/ProbabilityRing';
 import { useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel } from '@/constants/markets';
-import { fonts, spacing, type Palette, fs } from '@/constants/theme';
+import { GUEST_FREE_MARKETS } from '@/utils/access';
+import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
 import { outcomeTone, type OutcomeTone } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
@@ -27,6 +30,9 @@ type Props = {
   picks: UnifiedPrediction[];
   /** Tone of the card, so the right-edge fade matches its background. */
   cardTone: OutcomeTone;
+  /** Guest view: the first markets are shown, the rest are placeholders and nothing scrolls. */
+  locked?: boolean;
+  onLockedPress?: () => void;
 };
 
 /**
@@ -34,7 +40,10 @@ type Props = {
  * "Mercati · N" + "scorri ›" above, a fade on the right edge while there is more, a thin
  * position bar below. With three markets or fewer there is nothing to scroll.
  */
-export function MarketsStrip({ picks, cardTone }: Props) {
+export function MarketsStrip({ picks, cardTone, locked = false, onLockedPress }: Props) {
+  if (locked && picks.length > GUEST_FREE_MARKETS) {
+    return <LockedStrip picks={picks} onPress={onLockedPress} />;
+  }
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
   const [viewW, setViewW] = useState(0);
@@ -95,6 +104,48 @@ export function MarketsStrip({ picks, cardTone }: Props) {
   );
 }
 
+/** Guest: three real circles, then grey placeholders under a "+N mercati" pill. No real values are rendered. */
+function LockedStrip({ picks, onPress }: { picks: UnifiedPrediction[]; onPress?: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const colors = useSportPalette();
+  const hidden = picks.length - GUEST_FREE_MARKETS;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.wrap}
+      accessibilityRole="button"
+      accessibilityLabel={`Mercati, ${picks.length}. Accedi per vederli tutti`}
+    >
+      <View style={styles.head}>
+        <Text style={styles.cap}>Mercati · {picks.length}</Text>
+        <View style={styles.lockChip}>
+          <LockIcon size={11} color={colors.accentText} />
+          <Text style={styles.lockChipText}>Accedi per scorrere</Text>
+        </View>
+      </View>
+      <View style={styles.lockedRow}>
+        {picks.slice(0, GUEST_FREE_MARKETS).map((pred) => (
+          <RingItem key={pred.id} pred={pred} />
+        ))}
+        <View style={styles.lockedRest}>
+          <View style={styles.lockedGhosts}>
+            {[0, 1].map((i) => (
+              <View key={i} style={styles.ghost}>
+                <View style={styles.ghostRing} />
+                <View style={styles.ghostBar} />
+              </View>
+            ))}
+          </View>
+          <View style={styles.lockPill}>
+            <LockIcon size={12} color={colors.ink} />
+            <Text style={styles.lockPillText}>+{hidden}</Text>
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 function RingItem({ pred }: { pred: UnifiedPrediction }) {
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
@@ -147,6 +198,35 @@ const makeStyles = (colors: Palette) =>
       color: colors.ink,
       textAlign: 'center',
     },
+    lockChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      borderRadius: radii.pill,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      backgroundColor: colors.accentSoft,
+    },
+    lockChipText: { fontFamily: fonts.bodyBold, fontSize: fs(10), color: colors.accentText },
+    lockedRow: { flexDirection: 'row', gap: 4, overflow: 'hidden' },
+    lockedRest: { flex: 1, minWidth: 0, justifyContent: 'center', alignItems: 'center' },
+    lockedGhosts: { flexDirection: 'row', gap: 4, opacity: 0.45, alignSelf: 'flex-start' },
+    ghost: { width: ITEM_WIDTH, alignItems: 'center', gap: 5 },
+    ghostRing: { width: 52, height: 52, borderRadius: 26, borderWidth: 5, borderColor: colors.track },
+    ghostBar: { width: 46, height: 8, borderRadius: 4, backgroundColor: colors.track, marginTop: 4 },
+    lockPill: {
+      position: 'absolute',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    lockPillText: { fontFamily: fonts.bodyBold, fontSize: fs(12), color: colors.ink },
     indicator: { height: 3, borderRadius: 3, backgroundColor: colors.track, overflow: 'hidden' },
     thumb: { position: 'absolute', top: 0, bottom: 0, borderRadius: 3, backgroundColor: colors.inkMuted },
   });

@@ -107,3 +107,9 @@ export function useAuth(): AuthState {
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
   return ctx;
 }
+
+/** True for a visitor who is not signed in. Always false where sign-in does not exist (web) and while loading. */
+export function useIsGuest(): boolean {
+  const { available, status } = useAuth();
+  return available && status === 'signedOut';
+}

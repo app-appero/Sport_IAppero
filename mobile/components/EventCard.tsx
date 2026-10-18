@@ -27,6 +27,8 @@ type Props = {
   preferredMarket?: string;
   /** Selected calendar day (YYYY-MM-DD) for past-day status heuristics. */
   selectedDate?: string | null;
+  /** Guest view of today/future: limited strip and players, the tap invites to sign in. */
+  locked?: boolean;
 };
 
 /** Football: three circles + likely scorers. Tennis: winner split + three circles. */
@@ -34,7 +36,7 @@ export function EventCard(props: Props) {
   return props.item.sport === 'tennis' ? <TennisCard {...props} /> : <FootballCard {...props} />;
 }
 
-function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate }: Props) {
+function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate, locked }: Props) {
   const styles = useThemedStyles(makeStyles);
   // Every market of the match, strongest first, scrolling on one row.
   const picks = topMarkets(item.predictions, { preferredMarket, limit: 99, byFamily: false });
@@ -63,16 +65,16 @@ function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate 
           {statusText ? <Text style={styles.muted}>{statusText}</Text> : null}
         </>
       }
-      strip={<MarketsStrip picks={picks} cardTone={tone} />}
+      strip={<MarketsStrip picks={picks} cardTone={tone} locked={locked} onLockedPress={onPress} />}
       after={
         /* Without the players block (competition without the market) keep the tap hint. */
-        <CardPlayers eventId={item.event.id} fallback={<MoreLine item={item} onPress={onPress} />} />
+        <CardPlayers eventId={item.event.id} locked={locked} fallback={<MoreLine item={item} onPress={onPress} />} />
       }
     />
   );
 }
 
-function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }: Props) {
+function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate, locked }: Props) {
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
   const winnerPred = item.predictions.find(
@@ -153,7 +155,7 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate }:
       ) : null}
         </>
       }
-      strip={picks.length ? <MarketsStrip picks={picks} cardTone={tone} /> : null}
+      strip={picks.length ? <MarketsStrip picks={picks} cardTone={tone} locked={locked} onLockedPress={onPress} /> : null}
       after={<MoreLine item={item} onPress={onPress} />}
     />
   );
