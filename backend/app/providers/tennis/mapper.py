@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any
 
 from app.domain.models import (
     Competition,
+    DecisionInfo,
     Event,
     EventScore,
     LiveState,
@@ -411,6 +413,100 @@ def _player_selection(raw_event: dict[str, Any], winner_label: str | None) -> Se
     return Selection(name="Unknown")
 
 
+def _event_in_play(event: Event) -> bool:
+    """True while the provider still has the match on court."""
+    if event.live is not None and event.live.is_live:
+        return True
+    return (event.status or "").strip().lower() == "live"
+
+
+def _locked_total_line(
+    direction: str | None, line: float | None, total: float | None
+) -> bool | None:
+    """Over already past the line is won; Under past the line is lost. Otherwise open."""
+    if direction not in {"over", "under"} or line is None or total is None:
+        return None
+    if float(total) > line:
+        return direction == "over"
+    return None
+
+
+# Same cut as Tennis Oracle `classify_single_bet_value` (2% over void odds).
+# `/next-fixtures/predictions` does not send value_decision: PLAY / BORDERLINE /
+# NO BET are recovered from the quote and the model probability already in the row.
+_MIN_EDGE_PERCENT = 2.0
+
+
+def _positive_odd(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number <= 1.0:
+        return None
+    return number
+
+
+def _classify_value_decision(market_odds: Any, void_odds: Any) -> DecisionInfo | None:
+    odds = _positive_odd(market_odds)
+    void = _positive_odd(void_odds)
+    if odds is None or void is None:
+        return None
+    play_threshold = void * (1.0 + _MIN_EDGE_PERCENT / 100.0)
+    if odds >= play_threshold:
+        code = "PLAY"
+    elif odds < void:
+        code = "NO BET"
+    else:
+        code = "BORDERLINE"
+    return DecisionInfo(code=code)
+
+
+def _decision_from_label(value: Any) -> DecisionInfo | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return DecisionInfo(code=value.strip())
+
+
+def _winner_model_probability(prediction: dict[str, Any]) -> float | None:
+    """Probability the model assigns to the player it picked, not to player 1."""
+    try:
+        p1 = float(prediction.get("prob_player_1_win"))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(p1) or p1 <= 0.0 or p1 >= 1.0:
+        return None
+    label = str(prediction.get("predicted_winner") or "").strip().lower()
+    if label in {"first player", "player_1", "player1", "home", "1"}:
+        return p1
+    if label in {"second player", "player_2", "player2", "away", "2"}:
+        return 1.0 - p1
+    return None
+
+
+def _match_winner_decision(raw: dict[str, Any], prediction: dict[str, Any]) -> DecisionInfo | None:
+    labelled = _decision_from_label(raw.get("value_decision") or prediction.get("value_decision"))
+    if labelled is not None:
+        return labelled
+    model_prob = _winner_model_probability(prediction)
+    void = (1.0 / model_prob) if model_prob else None
+    return _classify_value_decision(prediction.get("predicted_winner_odds"), void)
+
+
+def _extra_market_decision(market_payload: dict[str, Any]) -> DecisionInfo | None:
+    labelled = _decision_from_label(market_payload.get("value_decision"))
+    if labelled is not None:
+        return labelled
+    void = market_payload.get("void_odds")
+    if void is None:
+        try:
+            probability = float(market_payload.get("probability"))
+        except (TypeError, ValueError):
+            probability = 0.0
+        void = (1.0 / probability) if probability > 0.0 else None
+    return _classify_value_decision(market_payload.get("odds"), void)
+
+
 def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | None:
     prediction = raw.get("prediction")
     if not isinstance(prediction, dict):
@@ -426,15 +522,18 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
             Probability(key="player_1", label=event.participants[0].name, value=p1),
             Probability(key="player_2", label=event.participants[1].name, value=1 - p1),
         ]
-    correct_raw = prediction.get("is_correct")
-    if correct_raw is True:
-        correct: bool | None = True
-    elif correct_raw is False:
-        correct = False
+    if _event_in_play(event):
+        correct: bool | None = None
     else:
-        live = _dig(raw, "live_score", "score")
-        settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
-        correct = _settle_tennis_market("match_winner", selection, settlement)
+        correct_raw = prediction.get("is_correct")
+        if correct_raw is True:
+            correct = True
+        elif correct_raw is False:
+            correct = False
+        else:
+            live = _dig(raw, "live_score", "score")
+            settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
+            correct = _settle_tennis_market("match_winner", selection, settlement)
 
     return UnifiedPrediction(
         id=f"tennis_{event.id}_match_winner",
@@ -453,6 +552,7 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
         oracle_score=None,
         generated_at=_parse_dt(prediction.get("predicted_at")),
         correct=correct,
+        decision=_match_winner_decision(raw, prediction),
         raw=prediction,
     )
 
@@ -489,7 +589,16 @@ def map_extra_market(
     settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
     if settlement is None and event.actual_totals:
         settlement = event.actual_totals
-    correct = _settle_tennis_market(market, selection, settlement)
+    if _event_in_play(event):
+        if market in {"over_under_games", "total_games"} and settlement is not None:
+            direction, line = _parse_ou_line(selection.name or "")
+            correct: bool | None = _locked_total_line(
+                direction, line, settlement.get("total_games")
+            )
+        else:
+            correct = None
+    else:
+        correct = _settle_tennis_market(market, selection, settlement)
 
     return UnifiedPrediction(
         id=f"tennis_{event.id}_{market}",
@@ -504,6 +613,7 @@ def map_extra_market(
         oracle_score=None,
         generated_at=_parse_dt(market_payload.get("published_at")),
         correct=correct,
+        decision=_extra_market_decision(market_payload),
         raw=market_payload,
     )
 

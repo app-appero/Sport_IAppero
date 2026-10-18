@@ -8,6 +8,7 @@ from app.domain.models import (
     DecisionInfo,
     Event,
     EventScore,
+    LiveState,
     MarketInfo,
     Participant,
     PredictionValue,
@@ -20,6 +21,12 @@ from app.domain.models import (
 
 SPORT = "football"
 PROVIDER = "soccer-oracle"
+
+# API-Sports short codes. "live" from /dashboard/day is a phase, not a status:
+# a not-started match inside the kickoff window is phase=live with status NS,
+# and must not wear the LIVE badge.
+_LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT"}
+_FINAL_STATUSES = {"FT", "AET", "PEN", "ABD", "CANC", "PST", "WO", "AWD"}
 
 # Soccer Oracle h2h uses 1=home, X/0?=draw variants, 2=away in several exports.
 # Observed live payload: prediction int 1 with home win => home.
@@ -149,6 +156,161 @@ def _participants(raw: dict[str, Any]) -> list[Participant]:
     return out
 
 
+def _stat_count(value: Any) -> int | None:
+    """Card and corner counts. Accepts 2, 2.0 and "2"; never treats a blank as zero."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_int(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _live_clock(
+    status: str | None, elapsed: Any, extra: Any
+) -> tuple[int | None, str | None]:
+    """Minute for the badge, or a short label when the minute would lie (break, stoppage)."""
+    code = (status or "").strip().upper()
+    if code == "HT":
+        return None, "Intervallo"
+    if code == "P":
+        return None, "Rigori"
+    if code == "BT":
+        return None, "Pausa"
+    if code == "INT":
+        return None, "Sospesa"
+    minute = _as_int(elapsed)
+    added = _as_int(extra)
+    if minute is not None and minute > 0 and added is not None and added > 0:
+        return None, f"{minute}+{added}'"
+    if minute is not None and minute > 0:
+        return minute, None
+    return None, None
+
+
+def _status_code(value: Any) -> str:
+    return str(value or "").strip().upper()
+
+
+def attach_live_row(row: dict[str, Any], snapshot: dict[str, Any] | None) -> dict[str, Any]:
+    """Mark a day row in play and, when a live snapshot exists, refresh score and minute.
+
+    A snapshot from `/live/fixtures` wins over the day row: that feed is the
+    polling dataset. A day-row status of 1H/2H/HT still counts when the snapshot
+    is missing, so a match the provider already flagged is not settled as final.
+    `phase=live` alone does not: Soccer Oracle infers it from the kickoff clock.
+    """
+    row_status = _status_code(row.get("status"))
+    snap_status = _status_code((snapshot or {}).get("status"))
+    effective = snap_status or row_status
+    if effective in _FINAL_STATUSES:
+        return row
+    in_play = snapshot is not None or row_status in _LIVE_STATUSES
+    if not in_play:
+        return row
+
+    minute, detail = _live_clock(
+        effective,
+        (snapshot or {}).get("elapsed_minute"),
+        (snapshot or {}).get("elapsed_extra"),
+    )
+    updated = dict(row)
+    updated["_live"] = {"minute": minute, "status_detail": detail}
+    if snapshot is not None:
+        home = _as_int(snapshot.get("home_goals"))
+        away = _as_int(snapshot.get("away_goals"))
+        if home is not None and away is not None:
+            updated["score"] = {"home": home, "away": away}
+        cards = _as_int(snapshot.get("_cards"))
+        corners = _as_int(snapshot.get("_corners"))
+        if cards is not None or corners is not None:
+            totals = dict(updated.get("actual_totals") or {})
+            if cards is not None:
+                totals["cards"] = cards
+            if corners is not None:
+                totals["corners"] = corners
+            updated["actual_totals"] = totals
+    return updated
+
+
+def totals_from_live_statistics(payload: Any) -> tuple[int | None, int | None]:
+    """Yellow+red and corners from `/live/fixtures/{id}/statistics`.
+
+    None when that stat was not in the payload, so a missing feed is not
+    treated as zero. The card total is the same sum the finished match uses.
+    """
+    rows: list[Any] = []
+    if isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+        rows = payload["rows"]
+    elif isinstance(payload, list):
+        rows = payload
+    cards = 0
+    corners = 0
+    saw_cards = False
+    saw_corners = False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        stats = row.get("stats")
+        if not isinstance(stats, list):
+            continue
+        for entry in stats:
+            if not isinstance(entry, dict):
+                continue
+            kind = str(entry.get("type") or "").strip().lower()
+            value = _stat_count(entry.get("value"))
+            if value is None:
+                continue
+            if kind in {"yellow cards", "red cards"}:
+                cards += value
+                saw_cards = True
+            elif kind == "corner kicks":
+                corners += value
+                saw_corners = True
+    return (cards if saw_cards else None, corners if saw_corners else None)
+
+
+def index_live_fixtures(payload: Any) -> dict[str, dict[str, Any]]:
+    rows: list[Any]
+    if isinstance(payload, dict):
+        raw_rows = payload.get("rows")
+        rows = raw_rows if isinstance(raw_rows, list) else []
+    elif isinstance(payload, list):
+        rows = payload
+    else:
+        rows = []
+    indexed: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict) or row.get("fixture_id") is None:
+            continue
+        indexed[str(row["fixture_id"])] = row
+    return indexed
+
+
+def enrich_day_payload(payload: Any, live_by_id: dict[str, dict[str, Any]]) -> Any:
+    """Copy a dashboard payload, attaching the live snapshot to each row."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list):
+        return payload
+    rows: list[Any] = []
+    for row in payload["rows"]:
+        if not isinstance(row, dict):
+            rows.append(row)
+            continue
+        fixture_id = row.get("fixture_id", row.get("id"))
+        snapshot = live_by_id.get(str(fixture_id)) if fixture_id is not None else None
+        rows.append(attach_live_row(row, snapshot))
+    return {**payload, "rows": rows}
+
+
 def map_event(raw: dict[str, Any]) -> Event:
     event_id = str(_dig(raw, "fixture_id", "id", "event_id", "match_id") or "")
     participants = _participants(raw)
@@ -202,6 +364,20 @@ def map_event(raw: dict[str, Any]) -> Event:
     elif start is not None:
         calendar_date = start.date().isoformat()
 
+    live_hint = raw.get("_live")
+    live_state: LiveState | None = None
+    status = str(_dig(raw, "status", "phase", "state") or "") or None
+    if isinstance(live_hint, dict):
+        minute = _as_int(live_hint.get("minute"))
+        detail = live_hint.get("status_detail")
+        detail_text = str(detail).strip() if detail else None
+        live_state = LiveState(
+            is_live=True,
+            minute=minute if minute is not None and minute > 0 else None,
+            status_detail=detail_text or None,
+        )
+        status = "live"
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
@@ -209,8 +385,9 @@ def map_event(raw: dict[str, Any]) -> Event:
         start_time=start,
         calendar_date=calendar_date,
         participants=participants,
-        status=str(_dig(raw, "status", "phase", "state") or "") or None,
+        status=status,
         score=score_obj,
+        live=live_state,
         actual_totals=actual_totals,
     )
 
@@ -339,6 +516,58 @@ def _settle_soccer_market(market: str, selection: Selection, event: Event) -> bo
             return cards_n < line
         return None
 
+    return None
+
+
+def _line_side(selection: Selection) -> str | None:
+    sel = (selection.id or "").strip().lower()
+    name = (selection.name or "").strip().lower()
+    if sel == "over" or name.startswith("over"):
+        return "over"
+    if sel == "under" or name.startswith("under"):
+        return "under"
+    return None
+
+
+def _running_line_total(market: str, event: Event) -> tuple[float, float] | None:
+    """(total so far, line) for a totals market. None when the total is unknown."""
+    if market.startswith("under_over_"):
+        score = event.score
+        if score is None or score.home is None or score.away is None:
+            return None
+        line = _line_from_market(market, "under_over_")
+        if line is None:
+            return None
+        return float(int(score.home) + int(score.away)), line
+    totals = event.actual_totals or {}
+    if market.startswith("cards_line_"):
+        raw_total, prefix = totals.get("cards"), "cards_line_"
+    elif market.startswith("corners_line_"):
+        raw_total, prefix = totals.get("corners"), "corners_line_"
+    else:
+        return None
+    line = _line_from_market(market, prefix)
+    if line is None or raw_total is None:
+        return None
+    try:
+        return float(raw_total), line
+    except (TypeError, ValueError):
+        return None
+
+
+def _live_line_locked(market: str, selection: Selection, event: Event) -> bool | None:
+    """Color only what can no longer change.
+
+    An Over is already won once the total is past the line. An Under is already
+    lost at the same moment. Until then the market stays open.
+    """
+    side = _line_side(selection)
+    running = _running_line_total(market, event)
+    if side is None or running is None:
+        return None
+    total, line = running
+    if total > line:
+        return side == "over"
     return None
 
 
@@ -523,6 +752,7 @@ def _decision_from_card(card: dict[str, Any] | None) -> DecisionInfo | None:
         code=str(code) if code is not None else None,
         reason=str(reason) if reason is not None else None,
         policy_version=str(policy) if policy is not None else None,
+        low_reliability=True if card.get("low_reliability") is True else None,
     )
 
 
@@ -549,12 +779,22 @@ def _index_decision_cards(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _event_in_play(event: Event) -> bool:
+    if event.live is not None and event.live.is_live:
+        return True
+    return (event.status or "").strip().lower() == "live"
+
+
 def _resolve_correct(
     market: str,
     selection: Selection,
     event: Event,
     market_payload: dict[str, Any],
 ) -> bool | None:
+    # While the match is on, 1X2 and the lines still in range stay open.
+    # An Over already past its line, or an Under already busted, is final.
+    if _event_in_play(event):
+        return _live_line_locked(market, selection, event)
     settled = _settle_soccer_market(market, selection, event)
     if settled is not None:
         return settled

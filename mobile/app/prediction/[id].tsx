@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { LowReliabilityBadge } from '@/components/LowReliabilityBadge';
 import { BrandHeader } from '@/components/BrandHeader';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
 import { EmptyState } from '@/components/EmptyState';
@@ -173,6 +174,7 @@ function PredictionDetail() {
         </View>
 
         <Text style={styles.section}>Valore e quote</Text>
+        {decision?.low_reliability ? <LowReliabilityBadge /> : null}
         {hasExtras ? (
           <View style={styles.board}>
             <InfoRow

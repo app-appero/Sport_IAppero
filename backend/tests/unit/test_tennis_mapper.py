@@ -2,6 +2,79 @@ from app.providers.http_utils import load_fixture
 from app.providers.tennis import mapper
 
 
+def test_day_feed_recovers_play_borderline_and_no_bet():
+    """The tennis day route has no value_decision. Odds + model probability are enough."""
+    payload = load_fixture("tennis", "predictions.json")
+    predictions = mapper.map_predictions_payload(payload)
+    first = [p for p in predictions if p.event.id == "12168292"]
+    by_type = {p.prediction.type: p.decision.code if p.decision else None for p in first}
+    assert by_type["match_winner"] == "PLAY"
+    assert by_type["first_set_winner"] == "PLAY"
+    assert by_type["over_under_games"] == "NO BET"
+
+    # Quote below void odds (second fixture, match winner) is No bet, not missing.
+    second = next(
+        p for p in predictions if p.event.id == "12169224" and p.prediction.type == "match_winner"
+    )
+    assert second.decision is not None
+    assert second.decision.code == "NO BET"
+
+
+def test_value_decision_label_wins_over_the_odds_rule():
+    event_row = {
+        "event_key": 1,
+        "event_first_player": "A",
+        "event_second_player": "B",
+        "value_decision": "BORDERLINE",
+        "prediction": {
+            "prob_player_1_win": 0.6,
+            "predicted_winner": "First Player",
+            "predicted_winner_odds": 3.0,
+            "confidence": 0.6,
+        },
+        "extra_markets": [
+            {
+                "market": "over_under_games",
+                "selection": "Over 22.5",
+                "probability": 0.55,
+                "odds": 1.2,
+                "void_odds": 1.8,
+                "value_decision": "PLAY",
+            }
+        ],
+    }
+    predictions = mapper.map_predictions_payload([event_row])
+    by_type = {p.prediction.type: p.decision.code for p in predictions}
+    assert by_type["match_winner"] == "BORDERLINE"
+    assert by_type["over_under_games"] == "PLAY"
+
+
+def test_missing_odds_leave_the_decision_empty():
+    predictions = mapper.map_predictions_payload(
+        [
+            {
+                "event_key": 2,
+                "event_first_player": "A",
+                "event_second_player": "B",
+                "prediction": {
+                    "prob_player_1_win": 0.6,
+                    "predicted_winner": "First Player",
+                    "confidence": 0.6,
+                },
+            }
+        ]
+    )
+    assert len(predictions) == 1
+    assert predictions[0].decision is None
+
+
+def test_borderline_sits_between_void_odds_and_the_play_threshold():
+    # void 2.00, play threshold 2.04: 2.02 is value, but not enough margin.
+    decision = mapper._classify_value_decision(2.02, 2.0)
+    assert decision is not None
+    assert decision.code == "BORDERLINE"
+
+
 def test_map_predictions_payload():
     payload = load_fixture("tennis", "predictions.json")
     predictions = mapper.map_predictions_payload(payload)
@@ -126,6 +199,49 @@ def test_tiebreak_tokens_count_games_and_placeholder_game_is_dropped():
     assert event.live.sets == [[7, 6]]
     assert event.live.current_game is None
     assert event.live.server == "away"
+
+
+def test_live_match_does_not_settle_from_the_partial_score():
+    """1-0 in sets at 3-2 in the second set is not a result, even if the provider says is_correct."""
+    raw = _live_raw()
+    raw["prediction"] = {
+        "prob_player_1_win": 0.7,
+        "predicted_winner": "First Player",
+        "confidence": 0.7,
+        "is_correct": True,
+        "model_version": "v4",
+    }
+    raw["extra_markets"] = [
+        {"market": "first_set_winner", "selection": "First Player", "probability": 0.6},
+        {"market": "over_under_games", "selection": "Under 22.5", "probability": 0.55},
+    ]
+    by_type = {p.prediction.type: p for p in mapper.map_predictions_payload({"items": [raw]})}
+    assert by_type["match_winner"].event.status == "live"
+    assert by_type["match_winner"].event.live is not None
+    assert by_type["match_winner"].correct is None
+    assert by_type["first_set_winner"].correct is None
+    assert by_type["over_under_games"].correct is None  # 15 games, Under 22.5 still open
+
+
+def test_live_games_line_locks_only_when_the_total_is_already_past_it():
+    raw = _live_raw()
+    raw["prediction"] = {
+        "prob_player_1_win": 0.7,
+        "predicted_winner": "First Player",
+        "confidence": 0.7,
+        "model_version": "v4",
+    }
+    raw["extra_markets"] = [
+        {"market": "over_under_games", "selection": "Over 12.5", "probability": 0.6},
+        {"market": "over_under_games", "selection": "Under 12.5", "probability": 0.4},
+    ]
+    preds = mapper.map_predictions_payload({"items": [raw]})
+    # Both rows share the market key; the payload keeps them in order.
+    over, under = preds[1], preds[2]
+    assert over.prediction.selection.name == "Over 12.5"
+    assert over.correct is True  # 6-4 3-2 is already 15 games
+    assert under.correct is False
+    assert preds[0].correct is None
 
 
 def test_not_live_match_keeps_provider_status_and_has_no_live_state():

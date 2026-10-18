@@ -32,7 +32,7 @@ Spaziature e raggi sono in `spacing` / `radii`.
 Marcatori e gialli probabili stanno affiancati nella card (due colonne) e uno sotto l'altro nel
 dettaglio evento. I gialli leggono `GET /api/v1/events/{id}/bookings` (stessa forma dei marcatori,
 con `booked` al posto di `scored`). L'interruttore `BOOKINGS_API_READY` (`constants/features.ts`)
-è acceso di default; con `EXPO_PUBLIC_BOOKINGS_API=0` la colonna torna a "Modello in addestramento"
+è acceso di default; con `EXPO_PUBLIC_BOOKINGS_API=0` la colonna gialli non viene mostrata
 e l'app non fa richieste.
 
 ## Card partita: mercati scorrevoli e live

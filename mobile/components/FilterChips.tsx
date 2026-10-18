@@ -14,8 +14,8 @@ type Props<T extends string | undefined> = {
   value: T;
   onChange: (value: T) => void;
   accessibilityLabel?: string;
-  /** Kept for call-site compat; both sizes use content-width chips (no viewport split). */
-  size?: 'default' | 'large';
+  /** `compact` is the day-phase row: shorter chips beside “Statistica giornata”. */
+  size?: 'default' | 'large' | 'compact';
 };
 
 /**
@@ -28,14 +28,16 @@ export function FilterChips<T extends string | undefined>({
   value,
   onChange,
   accessibilityLabel,
+  size = 'default',
 }: Props<T>) {
   const styles = useThemedStyles(makeStyles);
+  const compact = size === 'compact';
   if (options.length === 0) return null;
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={styles.scroller}
+      style={[styles.scroller, compact && styles.scrollerCompact]}
       contentContainerStyle={styles.scrollContent}
       accessibilityLabel={accessibilityLabel}
       keyboardShouldPersistTaps="handled"
@@ -48,13 +50,13 @@ export function FilterChips<T extends string | undefined>({
               key={opt.label + String(opt.value ?? 'all')}
               onPress={() => onChange(opt.value)}
               hitSlop={5}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[styles.chip, compact && styles.chipCompact, active && styles.chipActive]}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               accessibilityLabel={opt.label}
             >
               <Text
-                style={[styles.chipText, active && styles.chipTextActive]}
+                style={[styles.chipText, compact && styles.chipTextCompact, active && styles.chipTextActive]}
                 allowFontScaling={false}
               >
                 {opt.label}
@@ -84,6 +86,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     alignItems: 'center',
     paddingRight: spacing.sm,
   },
+  scrollerCompact: { flexShrink: 1, marginBottom: 0, minWidth: 0 },
   chip: {
     marginRight: 8,
     borderWidth: 1,
@@ -95,11 +98,18 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     minHeight: 38,
     justifyContent: 'center',
   },
+  chipCompact: {
+    marginRight: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    minHeight: 26,
+  },
   chipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   chipText: {
     fontFamily: fonts.bodyMedium,
     color: colors.ink,
     fontSize: fs(13),
   },
+  chipTextCompact: { fontSize: fs(11) },
   chipTextActive: { color: colors.accentText, fontFamily: fonts.bodyBold },
 });

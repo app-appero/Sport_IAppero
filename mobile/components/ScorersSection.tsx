@@ -35,7 +35,6 @@ const SCORERS_NOTE =
   'Ogni giocatore ha la sua probabilità di segnare almeno un gol: le percentuali non si sommano a 100%.';
 const BOOKINGS_NOTE =
   'Probabilità di ricevere almeno un cartellino giallo. Ogni giocatore ha la sua: le percentuali non si sommano a 100%.';
-const BETA_TEXT = 'Le percentuali possono cambiare e non entrano nelle statistiche della giornata.';
 const PAGE = 8;
 
 type Variant = 'scorers' | 'bookings';
@@ -45,7 +44,7 @@ type Props = {
   data: EventScorersResponse | EventBookingsResponse | undefined;
   isLoading: boolean;
   isError: boolean;
-  /** `bookings` = probable yellow cards (beta): yellow accents, beta banner. */
+  /** `bookings` = probable yellow cards: yellow accents, yellow row once booked. */
   variant?: Variant;
 };
 
@@ -88,14 +87,12 @@ export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }
 
       {waiting ? (
         <Banner tone="wait" title="Formazioni non ancora ufficiali" sub={yellow ? undefined : SCORERS_PENDING_TEXT} />
-      ) : yellow ? (
-        <Banner tone="beta" title="Modello in addestramento" sub={BETA_TEXT} />
-      ) : (
+      ) : !yellow ? (
         <Banner
           tone={chip.kind === 'estimate' ? 'est' : 'ok'}
           title={chip.kind === 'estimate' ? 'Formazioni probabili (stima)' : 'Formazioni ufficiali'}
         />
-      )}
+      ) : null}
 
       {waiting ? null : (
         <>
@@ -139,21 +136,6 @@ export function ScorersSection({ data, isLoading, isError, variant = 'scorers' }
   );
 }
 
-/** Yellow-card section while the BFF route is not live: same place, honest state. */
-export function BookingsComingSoon() {
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={styles.wrap} accessibilityLabel="Gialli probabili, in arrivo">
-      <SectionTitle yellow />
-      <Banner
-        tone="beta"
-        title="Modello in addestramento"
-        sub="I gialli probabili arriveranno con uno dei prossimi aggiornamenti."
-      />
-    </View>
-  );
-}
-
 function SectionTitle({ yellow }: { yellow: boolean }) {
   const styles = useThemedStyles(makeStyles);
   return (
@@ -170,7 +152,7 @@ function Banner({
   title,
   sub,
 }: {
-  tone: 'ok' | 'est' | 'wait' | 'beta';
+  tone: 'ok' | 'est' | 'wait';
   title: string;
   sub?: string;
 }) {
@@ -181,7 +163,6 @@ function Banner({
         styles.banner,
         tone === 'wait' && styles.bannerWait,
         tone === 'est' && styles.bannerEst,
-        tone === 'beta' && styles.bannerBeta,
       ]}
     >
       <View
@@ -189,7 +170,6 @@ function Banner({
           styles.dot,
           tone === 'wait' && styles.dotWait,
           tone === 'est' && styles.dotEst,
-          tone === 'beta' && styles.dotBeta,
         ]}
       />
       <View style={styles.bannerText}>
@@ -198,7 +178,6 @@ function Banner({
             styles.bannerTitle,
             tone === 'wait' && styles.bannerTitleWait,
             tone === 'est' && styles.bannerTitleEst,
-            tone === 'beta' && styles.bannerTitleBeta,
           ]}
         >
           {title}
@@ -252,7 +231,11 @@ function PlayerRow({
   const ratio = scorerBarRatio(player.probability, 1);
   const label = yellow ? bookingA11yLabel(player as BookingPlayer) : scorerA11yLabel(player as ScorerPlayer);
   return (
-    <View style={[styles.row, yellow && done && styles.rowYellow]} accessible accessibilityLabel={label}>
+    <View
+      style={[styles.row, done && (yellow ? styles.rowYellow : styles.rowScored)]}
+      accessible
+      accessibilityLabel={label}
+    >
       <Text style={styles.rank}>{rank}</Text>
       {yellow ? (
         <View style={styles.cardWrap}>
@@ -272,7 +255,7 @@ function PlayerRow({
             <Text style={styles.tagText}>{positionShort(player.position)}</Text>
           </View>
         </View>
-        <Text style={[styles.team, yellow && done && styles.teamYellow]} numberOfLines={1}>
+        <Text style={[styles.team, done && (yellow ? styles.teamYellow : styles.teamScored)]} numberOfLines={1}>
           {player.team}
           {done ? (yellow ? ' · ammonito' : ' · ha segnato') : ''}
         </Text>
@@ -348,16 +331,13 @@ const makeStyles = (colors: Palette) =>
     },
     bannerWait: { borderColor: colors.line, backgroundColor: colors.track },
     bannerEst: { borderColor: colors.warning, backgroundColor: 'rgba(230,184,77,0.10)' },
-    bannerBeta: { borderColor: yellowCard.border, backgroundColor: yellowCard.bg },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
     dotWait: { backgroundColor: colors.inkMuted },
     dotEst: { backgroundColor: colors.warning },
-    dotBeta: { backgroundColor: yellowCard.fill },
     bannerText: { flex: 1, gap: 2 },
     bannerTitle: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
     bannerTitleWait: { color: colors.ink },
     bannerTitleEst: { color: colors.warning },
-    bannerTitleBeta: { color: yellowCard.fill },
     bannerSub: { fontFamily: fonts.body, fontSize: fs(12), lineHeight: fs(17), color: colors.inkMuted },
 
     seg: {
@@ -400,6 +380,7 @@ const makeStyles = (colors: Palette) =>
       borderTopColor: colors.line,
     },
     rowYellow: { backgroundColor: yellowCard.bg },
+    rowScored: { backgroundColor: colors.accentSoft },
     rank: { width: 16, textAlign: 'center', fontFamily: fonts.bodyBold, fontSize: fs(12), color: colors.inkMuted },
     avatar: {
       width: 30,
@@ -435,6 +416,7 @@ const makeStyles = (colors: Palette) =>
     tagText: { fontFamily: fonts.bodyBold, fontSize: fs(9), letterSpacing: 0.5, color: colors.inkMuted },
     team: { fontFamily: fonts.body, fontSize: fs(11), color: colors.inkMuted },
     teamYellow: { color: yellowCard.fill },
+    teamScored: { color: colors.accent },
     track: { height: 4, borderRadius: 4, backgroundColor: colors.track, overflow: 'hidden' },
     fill: { height: '100%', borderRadius: 4, backgroundColor: colors.accent },
     fillYellow: { backgroundColor: yellowCard.fill },

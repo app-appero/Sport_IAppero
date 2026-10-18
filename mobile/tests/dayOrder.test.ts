@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildDayRows, isEventDone, sortDayEvents } from '../utils/dayOrder.ts';
+import { buildDayRows, eventMatchesPhase, isEventDone, sortDayEvents } from '../utils/dayOrder.ts';
 
 const TODAY = '2026-10-13';
 const ev = (id: string, start: string | null, status: string | null, calendar = TODAY) => ({
@@ -45,6 +45,21 @@ test('rows carry a single divider with the number of finished matches, and none 
   assert.equal((some[1] as { count: number }).count, 1);
   const none = buildDayRows([ev('y', '2026-10-13T11:00:00Z', 'NS')] as never, TODAY);
   assert.deepEqual(none.map((r) => r.kind), ['event']);
+});
+
+test('phase chips keep the existing groups: live badge, Finite, or the whole list', () => {
+  const live = { status: 'live', calendar_date: TODAY, live: { is_live: true } };
+  const upcoming = { status: 'NS', calendar_date: TODAY, live: null };
+  const finished = { status: 'FT', calendar_date: TODAY, live: null };
+  assert.equal(eventMatchesPhase(live, 'all', TODAY), true);
+  assert.equal(eventMatchesPhase(upcoming, 'all', TODAY), true);
+  assert.equal(eventMatchesPhase(finished, 'all', TODAY), true);
+  assert.equal(eventMatchesPhase(live, 'live', TODAY), true);
+  assert.equal(eventMatchesPhase(upcoming, 'live', TODAY), false);
+  assert.equal(eventMatchesPhase(finished, 'live', TODAY), false);
+  assert.equal(eventMatchesPhase(finished, 'done', TODAY), true);
+  assert.equal(eventMatchesPhase(live, 'done', TODAY), false);
+  assert.equal(eventMatchesPhase(upcoming, 'done', TODAY), false);
 });
 
 test('tennis without a timezone is ordered by the provider clock on the same day', () => {

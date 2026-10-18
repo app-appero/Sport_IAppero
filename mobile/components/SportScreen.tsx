@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandHeader } from '@/components/BrandHeader';
 import { DayScroller } from '@/components/DayScroller';
 import { DayStatsPanel } from '@/components/DayStatsPanel';
+import { DecisionFilterButton } from '@/components/DecisionFilterButton';
 import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { EventCardSkeleton } from '@/components/EventCardSkeleton';
@@ -33,11 +34,18 @@ import { useOnline } from '@/hooks/useOnline';
 import { usePersistedBoolean } from '@/hooks/usePersistedBoolean';
 import type { FeedItem } from '@/types/api';
 import { isLockedDay } from '@/utils/access';
-import { buildDayRows, type DayRow } from '@/utils/dayOrder';
+import { predictionMatchesDecision, type DecisionFilter } from '@/utils/decisionFilter';
+import { buildDayRows, eventMatchesPhase, type DayRow, type ListPhase } from '@/utils/dayOrder';
 import { buildDayStats } from '@/utils/dayStats';
 import { todayKey } from '@/utils/dates';
 import { formatApiError } from '@/utils/formatApiError';
 import { offlineBannerText } from '@/utils/staleness';
+
+const PHASE_OPTIONS: { label: string; value: ListPhase }[] = [
+  { label: 'Tutte', value: 'all' },
+  { label: 'Live', value: 'live' },
+  { label: 'Finite', value: 'done' },
+];
 
 const SPORT_COPY: Record<SportId, { emptyHint: string }> = {
   football: {
@@ -63,6 +71,8 @@ export function SportScreen({
   const [date, setDate] = useState(todayKey());
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [competitionId, setCompetitionId] = useState<string | undefined>(undefined);
+  const [phase, setPhase] = useState<ListPhase>('all');
+  const [decision, setDecision] = useState<DecisionFilter>('all');
 
   // Statistica giornata: visible by default, the choice is remembered on this device.
   const [statsVisible, toggleStats] = usePersistedBoolean('ui.dayStats.visible', true);
@@ -137,7 +147,8 @@ export function SportScreen({
   }, [competitionId, competitionOptions]);
 
   const events: FeedItem[] = useMemo(() => {
-    return dayEvents.filter((item) => {
+    const out: FeedItem[] = [];
+    for (const item of dayEvents) {
       if (
         competitionId &&
         !(
@@ -146,24 +157,40 @@ export function SportScreen({
             item.event.competition.name === competitionId)
         )
       ) {
-        return false;
+        continue;
       }
-      if (market && !item.predictions.some((p) => predictionMatchesMarket(p.prediction.type, market))) {
-        return false;
+      if (!eventMatchesPhase(item.event, phase, todayKey())) continue;
+      // Tutti keeps every prediction, including the market chip only as a match gate.
+      if (decision === 'all') {
+        if (market && !item.predictions.some((p) => predictionMatchesMarket(p.prediction.type, market))) {
+          continue;
+        }
+        out.push(item);
+        continue;
       }
-      return true;
-    });
-  }, [dayEvents, competitionId, market]);
+      const predictions = item.predictions.filter((p) => {
+        if (!predictionMatchesDecision(p, decision)) return false;
+        return !market || predictionMatchesMarket(p.prediction.type, market);
+      });
+      if (predictions.length === 0) continue;
+      out.push({ ...item, predictions });
+    }
+    return out;
+  }, [dayEvents, competitionId, market, phase, decision]);
 
   // Open and live matches by kickoff time, then a "Finite" divider and the finished ones, also by time.
   const rows: DayRow[] = useMemo(() => buildDayRows(events, todayKey()), [events]);
 
-  const filtersActive = Boolean(market || competitionId || date !== todayKey());
+  const filtersActive = Boolean(
+    market || competitionId || phase !== 'all' || decision !== 'all' || date !== todayKey(),
+  );
 
   const clearFilters = () => {
     setDate(todayKey());
     setMarket(undefined);
     setCompetitionId(undefined);
+    setPhase('all');
+    setDecision('all');
   };
 
   const onDateChange = (next: string) => {
@@ -177,7 +204,12 @@ export function SportScreen({
     // boards (1x2 / both OU sides) + EV from the provider.
     router.push({
       pathname: '/event/[id]',
-      params: { id: item.event.id, sport, date },
+      params: {
+        id: item.event.id,
+        sport,
+        date,
+        ...(decision === 'all' ? {} : { decision }),
+      },
     });
   };
 
@@ -216,25 +248,44 @@ export function SportScreen({
                 setSport(next);
                 setMarket(undefined);
                 setCompetitionId(undefined);
+                setPhase('all');
+                setDecision('all');
               }}
             />
           ) : null}
           <DayScroller value={date} onChange={onDateChange} />
           <View style={styles.metaRow}>
             {!query.isLoading && !query.isError && dayStats.events > 0 ? (
-              <Pressable
-                onPress={locked ? invite : toggleStats}
-                style={styles.statsToggle}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: statsVisible }}
-                accessibilityLabel={statsVisible ? 'Nascondi statistica giornata' : 'Mostra statistica giornata'}
-              >
-                <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
-                  Statistica giornata {locked ? '' : statsVisible ? '▴' : '▾'}
-                </Text>
-                {locked ? <LockIcon size={11} color={colors.inkMuted} /> : null}
-              </Pressable>
+              <Fragment>
+                <View style={styles.phaseSlot}>
+                  <FilterChips
+                    size="compact"
+                    options={PHASE_OPTIONS}
+                    value={phase}
+                    onChange={setPhase}
+                    accessibilityLabel="Filtro partite live e finite"
+                  />
+                </View>
+                <Pressable
+                  onPress={locked ? invite : toggleStats}
+                  style={styles.statsToggle}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: locked ? false : statsVisible }}
+                  accessibilityLabel={
+                    locked
+                      ? 'Statistica giornata, accedi per vederla'
+                      : statsVisible
+                        ? 'Nascondi statistica giornata'
+                        : 'Mostra statistica giornata'
+                  }
+                >
+                  <Text style={[styles.statsToggleText, { color: colors.inkMuted }]} maxFontSizeMultiplier={1.2}>
+                    Statistica giornata {locked ? '' : statsVisible ? '▴' : '▾'}
+                  </Text>
+                  {locked ? <LockIcon size={11} color={colors.inkMuted} /> : null}
+                </Pressable>
+              </Fragment>
             ) : null}
           </View>
           {!locked && statsVisible && !query.isLoading && !query.isError ? (
@@ -248,6 +299,7 @@ export function SportScreen({
               accessibilityLabel="Filtro competizione"
             />
           ) : null}
+          <DecisionFilterButton key={sport} value={decision} onChange={setDecision} />
           <ProviderWarning status={providerHealth?.status} provider={providerHealth?.provider} />
           <OfflineBanner text={offlineText} />
         </View>
@@ -261,6 +313,7 @@ export function SportScreen({
           </View>
         ) : null}
 
+        <View style={styles.body}>
         {query.isLoading ? (
           <EventCardSkeleton count={5} />
         ) : !query.data && !online ? (
@@ -285,6 +338,7 @@ export function SportScreen({
           </View>
         ) : (
           <FlatList
+            style={styles.fill}
             data={rows}
             keyExtractor={(row) => (row.kind === 'divider' ? 'divider-finished' : row.item.event.id)}
             contentContainerStyle={[styles.list, showingPrevious && styles.dimmed]}
@@ -303,7 +357,7 @@ export function SportScreen({
                 title={filtersActive ? 'Nessun risultato per questi filtri' : 'Nessuna partita'}
                 subtitle={
                   filtersActive
-                    ? 'Prova a cambiare mercato, competizione o giorno.'
+                    ? 'Prova a cambiare stato, mercato, competizione o giorno.'
                     : copy.emptyHint
                 }
                 actionLabel={filtersActive ? 'Azzera filtri' : undefined}
@@ -332,6 +386,7 @@ export function SportScreen({
             }
           />
         )}
+        </View>
 
         {locked ? (
           <Pressable
@@ -377,9 +432,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     gap: 6,
   },
+  body: { flex: 1, minHeight: 0 },
+  fill: { flex: 1 },
   list: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
   },
   brandActions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
@@ -400,7 +457,8 @@ const styles = StyleSheet.create({
   },
   historyText: { fontFamily: fonts.bodyBold, fontSize: fs(13) },
   dimmed: { opacity: 0.4 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 28, gap: 8 },
+  phaseSlot: { flexShrink: 1, minWidth: 0, overflow: 'hidden' },
   guestBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -412,7 +470,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   guestBarText: { fontFamily: fonts.bodyBold, fontSize: fs(14) },
-  statsToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 28, justifyContent: 'center', paddingHorizontal: 4 },
+  statsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    flexShrink: 0,
+  },
   statsToggleText: { fontFamily: fonts.bodyBold, fontSize: fs(12) },
   finishedDivider: {
     fontFamily: fonts.bodyBold,
