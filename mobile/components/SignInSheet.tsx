@@ -5,6 +5,7 @@ import { LockIcon } from '@/components/LockIcon';
 import { useThemedStyles } from '@/components/SportTheme';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import { useAuth } from '@/hooks/auth';
+import { authErrorMessage } from '@/utils/profile';
 
 const PERKS = [
   'Tutti i mercati, scorrevoli',
@@ -17,14 +18,17 @@ export function SignInSheet({ visible, onClose }: { visible: boolean; onClose: (
   const styles = useThemedStyles(makeStyles);
   const { signIn } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const go = async () => {
     setBusy(true);
+    setError(null);
     try {
       await signIn();
       onClose();
-    } catch {
-      /* the Google sheet failed or was dismissed: stay on the invite */
+    } catch (err) {
+      // Dismissing the Google sheet gives an empty message: stay on the invite quietly.
+      setError(authErrorMessage(err) || null);
     } finally {
       setBusy(false);
     }
@@ -56,6 +60,7 @@ export function SignInSheet({ visible, onClose }: { visible: boolean; onClose: (
             </View>
           ))}
         </View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable
           onPress={go}
           disabled={busy}
@@ -123,5 +128,6 @@ const makeStyles = (colors: Palette) =>
     },
     ctaBusy: { opacity: 0.6 },
     ctaText: { fontFamily: fonts.bodyBold, fontSize: fs(15), color: colors.onAccent },
+    error: { fontFamily: fonts.body, fontSize: fs(12), lineHeight: fs(17), color: colors.miss },
     later: { textAlign: 'center', fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
   });

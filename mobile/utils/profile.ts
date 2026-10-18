@@ -27,6 +27,9 @@ export function authErrorMessage(err: unknown): string {
   if (e.code === 'invalid_google_token' || e.status === 401) {
     return 'Accesso con Google non riuscito. Riprova.';
   }
+  if (e.code === 'native_module_missing') {
+    return 'Questa installazione non include l’accesso con Google. Installa l’ultimo APK (npm run apk).';
+  }
   if (e.code === 'SIGN_IN_CANCELLED' || e.code === '12501') return '';
   if (e.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
     return 'Google Play Services non è disponibile su questo dispositivo.';

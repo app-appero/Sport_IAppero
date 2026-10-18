@@ -14,9 +14,15 @@ const DEFAULT_WEB_CLIENT_ID =
   '113489003769-66q7tc5ccgdrq2hue7vod0ve75i80hu9.apps.googleusercontent.com';
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || DEFAULT_WEB_CLIENT_ID;
 
-/** False in Expo Go and in builds made before the module was added: it is missing from the binary. */
+/** Sign-in exists only in native builds that were given a Google Web client ID. */
+export const AUTH_AVAILABLE = Platform.OS !== 'web' && WEB_CLIENT_ID.length > 0;
+
+/**
+ * False in Expo Go and in builds made without the Google module: the sign-in button stays visible
+ * but sign-in cannot run there, and guests are not blocked (they could never sign in).
+ */
 function nativeModuleLinked(): boolean {
-  if (Platform.OS === 'web') return false;
+  if (!AUTH_AVAILABLE) return false;
   try {
     googleSignin();
     return true;
@@ -24,9 +30,7 @@ function nativeModuleLinked(): boolean {
     return false;
   }
 }
-
-/** Sign-in exists only in native builds that include the Google module and were given a Web client ID. */
-export const AUTH_AVAILABLE = WEB_CLIENT_ID.length > 0 && nativeModuleLinked();
+export const AUTH_NATIVE_READY = nativeModuleLinked();
 
 export type StoredSession = { token: string; expiresAt: string; user: AuthUser };
 
@@ -66,6 +70,7 @@ function googleSignin() {
 
 /** Returns the new session, or null if the user dismissed the Google sheet. */
 export async function signInWithGoogle(): Promise<StoredSession | null> {
+  if (!AUTH_NATIVE_READY) throw Object.assign(new Error('Google sign-in module missing'), { code: 'native_module_missing' });
   const { GoogleSignin, isSuccessResponse } = googleSignin();
   GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
   await GoogleSignin.hasPlayServices();

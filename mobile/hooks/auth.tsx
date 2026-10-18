@@ -10,6 +10,7 @@ import {
 
 import {
   AUTH_AVAILABLE,
+  AUTH_NATIVE_READY,
   clearSession,
   deleteAccount as deleteAccountRequest,
   loadSession,
@@ -108,8 +109,11 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-/** True for a visitor who is not signed in. Always false where sign-in does not exist (web) and while loading. */
+/**
+ * True for a visitor who is not signed in. False where sign-in cannot work (web, Expo Go, builds
+ * without the Google module) and while the saved session is loading.
+ */
 export function useIsGuest(): boolean {
   const { available, status } = useAuth();
-  return available && status === 'signedOut';
+  return available && AUTH_NATIVE_READY && status === 'signedOut';
 }

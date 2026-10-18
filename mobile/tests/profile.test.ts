@@ -21,6 +21,7 @@ test('a session is expired at or just before its expiry, and when unparseable', 
 
 test('error messages are friendly and a cancel is silent', () => {
   assert.equal(authErrorMessage({ code: 'SIGN_IN_CANCELLED' }), '');
+  assert.match(authErrorMessage({ code: 'native_module_missing' }), /ultimo APK/);
   assert.match(authErrorMessage({ status: 503, code: 'auth_disabled' }), /non è ancora disponibile/);
   assert.match(authErrorMessage({ status: 401, code: 'invalid_google_token' }), /non riuscito/);
   assert.match(authErrorMessage(new TypeError('Network request failed')), /Connessione/);
