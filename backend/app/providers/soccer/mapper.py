@@ -752,6 +752,7 @@ def _decision_from_card(card: dict[str, Any] | None) -> DecisionInfo | None:
         code=str(code) if code is not None else None,
         reason=str(reason) if reason is not None else None,
         policy_version=str(policy) if policy is not None else None,
+        low_reliability=True if card.get("low_reliability") is True else None,
     )
 
 

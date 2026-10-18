@@ -92,6 +92,9 @@ class DecisionInfo(BaseModel):
     code: str | None = None
     reason: str | None = None
     policy_version: str | None = None
+    # True when the provider flags the prediction as less reliable (e.g. an
+    # unquoted line the model is known to handle worse); None when not flagged.
+    low_reliability: bool | None = None
 
 
 class MarketInfo(BaseModel):
