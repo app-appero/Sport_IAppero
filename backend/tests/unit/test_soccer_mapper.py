@@ -357,3 +357,11 @@ def test_raw_cards_and_corners_models_are_not_shown():
     types = [p.prediction.type for p in mapper.map_day_payload([row])]
     assert "cards" not in types and "corners" not in types
     assert "cards_line_4_5" in types
+
+
+def test_decision_carries_low_reliability_flag():
+    card = {"value_label": "SENZA QUOTA", "value_reason": "Linea 6.5 non quotata", "low_reliability": True}
+    assert mapper._decision_from_card(card).low_reliability is True
+    plain = {"value_label": "PLAY", "value_reason": "ok", "low_reliability": False}
+    assert mapper._decision_from_card(plain).low_reliability is None
+    assert mapper._decision_from_card({"value_label": "PLAY"}).low_reliability is None

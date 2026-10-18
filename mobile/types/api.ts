@@ -76,6 +76,8 @@ export interface DecisionInfo {
   code?: string | null;
   reason?: string | null;
   policy_version?: string | null;
+  /** True when the provider flags the prediction as less reliable. */
+  low_reliability?: boolean | null;
 }
 
 export interface ProviderMetadata {
