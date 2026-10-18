@@ -14,8 +14,19 @@ const DEFAULT_WEB_CLIENT_ID =
   '113489003769-66q7tc5ccgdrq2hue7vod0ve75i80hu9.apps.googleusercontent.com';
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || DEFAULT_WEB_CLIENT_ID;
 
-/** Sign-in exists only in native builds that were given a Google Web client ID. */
-export const AUTH_AVAILABLE = Platform.OS !== 'web' && WEB_CLIENT_ID.length > 0;
+/** False in Expo Go and in builds made before the module was added: it is missing from the binary. */
+function nativeModuleLinked(): boolean {
+  if (Platform.OS === 'web') return false;
+  try {
+    googleSignin();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Sign-in exists only in native builds that include the Google module and were given a Web client ID. */
+export const AUTH_AVAILABLE = WEB_CLIENT_ID.length > 0 && nativeModuleLinked();
 
 export type StoredSession = { token: string; expiresAt: string; user: AuthUser };
 
