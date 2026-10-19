@@ -89,6 +89,54 @@ Decisioni di prodotto: accesso **facoltativo** (l'app resta usabile senza accoun
 
 I dati salvati per utente: nome, email verificata e foto del profilo Google. Il resto dell'API resta pubblico: l'account non sblocca nulla finora.
 
+## Sprint 5 — marcatori, gialli e aggiornamento (ottobre 2026)
+
+Lavori consegnati dopo il 12 ottobre. Il contratto dettagliato dei marcatori resta in `13_MARCATORI_PROPOSTA.md` (documento nato come proposta: le domande aperte con il motore sono state risolte nel codice, ma il testo non è stato riscritto).
+
+| ID | Attività | Stato |
+|---|---|---|
+| S01 | Marcatori probabili: sezione nell'app e nel dettaglio partita, dati dal motore Soccer (formazione ufficiale, ultima revisione per partita); il BFF non calcola nulla | **Implementato** |
+| S02 | Gialli probabili dei giocatori: rotta BFF `/events/{id}/bookings`, sezione "Gialli probabili", accesi di default (`BOOKINGS_API_READY`); solo gialli, non i rossi | **Implementato** |
+| S03 | "Aggiorna tutto" per Calcio e Tennis con percentuale di avanzamento per sport e totale, attesa di 20 minuti tra due avvii, aggiornamento che continua cambiando pagina; il Tennis rilancia sempre (`force=true`, niente 409 "già completato oggi"); bottone separato "Forza schedine Tennis (dopo le 10)" solo nel provider Tennis | **Implementato** |
+| S04 | Ruoli nel BFF (super admin da ambiente, admin con permessi), elenco utenti, audit | **Implementato** |
+| S05 | Filtro Tutti / Play / Borderline / No bet sopra i mercati; mercati su striscia di cerchi a scorrimento; chip Tutte / Live / Concluse accanto a "Statistica giornata"; live del calcio | **Implementato**; prova su dispositivo da fare |
+| S06 | Modelli grezzi `cards` e `corners` nascosti in tutte le risposte (nessuna etichetta leggibile); nomi dei modelli nascosti nello Storico | **Implementato** |
+| S07 | Ospiti: oggi e futuro limitati (3 mercati, marcatori e gialli, dettaglio, statistica giornata); giorni passati e Storico liberi. icona lucchetto sui contenuti bloccati e foglio "Accedi" | **Implementato**: primo pezzo di una futura distinzione ospite / account, senza pagamenti |
+| S08 | Avviso "Affidabilità ridotta" (barre di segnale ambra) nel dettaglio previsione quando il motore segnala `low_reliability` (cartellini 6.5 senza quota): il BFF passa il campo, l'app mostra il badge | **Implementato** (PR #82); serve nuovo APK e motore aggiornato |
+| S09 | Accesso: il pulsante resta visibile; senza modulo nativo Google (Expo Go, build vecchie) messaggio chiaro e nessun blocco ospite | **Implementato** |
+
+Lato motore Soccer (altro repository) nello stesso periodo: anagrafica unica dei giocatori API-Sports / FotMob e rotte `/players/*` per altri progetti, protette da `X-Service-Key` (PR #28), cartellini giocatori (gialli), quote "Non casa" con la X2 e motivi chiari per le linee non quotate (PR #29), fix dei duplicati delle formazioni previste (PR #30). Feature v2 dei giocatori mergiate ma spente (`docs/player_features_v2.md` nel repository del motore).
+
+### Aperti dello Sprint 5
+
+| ID | Attività | Chi |
+|---|---|---|
+| S10 | Redeploy del motore Soccer (migrazione dell'anagrafica, quote, avviso 6.5), poi del BFF e nuovo APK | Titolare |
+| S11 | Riaccendere i job fermati dalla pausa automatica per quota, se l'errore del provider era transitorio; i job spenti per scelta restano spenti | Titolare |
+| S12 | Marcatori e gialli dipendono dalla formazione ufficiale (circa 75 minuti prima del calcio d'inizio): senza i job di sincronizzazione accesi la previsione ufficiale non si crea. Rimisurare la regolarità con i job accesi | Motore |
+| S13 | Riscrivere `13_MARCATORI_PROPOSTA.md` come documento di stato, non di proposta | Documentazione |
+
+## Sprint 6 — abbonamenti (da definire, nessun pagamento implementato)
+
+Oggi non esiste nulla di pagamento nell'app né nel BFF. Sprint 4 dice "nessun pagamento", Sprint 3+ dice "abbonamenti solo dopo validazione uso e analisi del canale di vendita". Questa sezione elenca cosa va deciso e cosa è già pronto; i valori (prezzi, piani, cosa è gratis) **non sono decisi** e non vanno inventati.
+
+**Già pronto:**
+- Accesso Google facoltativo, sessione del BFF di 30 giorni, cancellazione account (Sprint 4).
+- Distinzione ospite / account nell'app (S07): è il punto da cui far partire un livello a pagamento.
+- Ledger ufficiale e Storico con denominatori (Sprint 3): servono per mostrare risultati senza gonfiarli.
+- Il bot Telegram del Tennis ha già una sua infrastruttura di abbonamenti (`/abbonati`) e un piano "beta gratuita → monetizzazione" (`docs/BETA_TO_MONETIZATION_PLAN.md` nel repository Tennis).
+
+**Da decidere prima di scrivere codice:**
+
+| ID | Decisione | Note |
+|---|---|---|
+| B01 | Cosa resta gratis e cosa diventa a pagamento (oggi l'ospite è già limitato su oggi e futuro) | Scelta di prodotto |
+| B02 | Piani e prezzi | Da fissare dopo la validazione dell'uso |
+| B03 | Canale di pagamento: acquisti in-app dello store o altro | Su iPhone le regole dell'App Store impongono anche "Accedi con Apple" (A08) e l'uso dei loro acquisti; da verificare prima di scegliere |
+| B04 | Soglie di avvio: il piano Tennis chiede almeno 300 tip chiuse, 8 settimane consecutive di osservazione, ROI live cumulato di almeno -2% e nessun drawdown critico. Per il Calcio serve misurare il ROI live delle giocate PLAY: oggi lo Storico mostra la percentuale di successo (59,7% su 149 decise al rilascio), non il rendimento | Da definire con i dati |
+| B05 | Testi legali: dati del titolare nell'informativa privacy (A07), termini di servizio, avvertenza sul rischio. Nessuna promessa di guadagno | Prerequisito di qualunque pagamento |
+| B06 | Come l'app riconosce un account a pagamento (campo sull'utente nel BFF, verifica della ricevuta) | Dopo B03 |
+
 ## Test significativi
 
 - Soccer binary prediction=0: probabilità selezione 1-p, non p; preferenza decision_cards.
