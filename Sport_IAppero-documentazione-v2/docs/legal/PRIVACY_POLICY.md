@@ -8,8 +8,8 @@ Questa informativa spiega quali dati personali tratta l'app Sport IApperò (di s
 
 Il titolare del trattamento è:
 
-- [NOME E INDIRIZZO DEL TITOLARE]
-- Contatto per questioni di privacy: [EMAIL DI CONTATTO]
+- GloveTrotta
+- Contatto per questioni di privacy: info@globetrotta.it
 
 ## 2. Quali dati trattiamo
 
@@ -72,11 +72,11 @@ I fornitori indicati possono trattare dati fuori dallo Spazio Economico Europeo,
 
 Hai diritto di accedere ai tuoi dati, rettificarli, cancellarli, limitarne il trattamento, opporti al trattamento, ottenerne la portabilità e proporre reclamo all'autorità di controllo (in Italia, il Garante per la protezione dei dati personali: https://www.garanteprivacy.it).
 
-Per esercitarli scrivi a [EMAIL DI CONTATTO]. Per verificare la tua identità potremmo chiederti di scrivere dall'indirizzo email associato all'account. Rispondiamo di norma entro un mese dalla richiesta.
+Per esercitarli scrivi a info@globetrotta.it. Per verificare la tua identità potremmo chiederti di scrivere dall'indirizzo email associato all'account. Rispondiamo di norma entro un mese dalla richiesta.
 
 ## 8. Come cancellare il tuo account
 
-Puoi eliminare l'account in qualsiasi momento dall'app: apri il profilo e premi "Elimina account", poi conferma con "Elimina definitivamente". L'operazione elimina dal nostro database il tuo utente e l'identità Google collegata. L'eliminazione non cancella il tuo account Google. Se non riesci a usare l'app, scrivi a [EMAIL DI CONTATTO].
+Puoi eliminare l'account in qualsiasi momento dall'app: apri il profilo e premi "Elimina account", poi conferma con "Elimina definitivamente". L'operazione elimina dal nostro database il tuo utente e l'identità Google collegata. L'eliminazione non cancella il tuo account Google. Se non riesci a usare l'app, scrivi a info@globetrotta.it.
 
 Puoi inoltre revocare l'accesso di Sport IApperò dalle impostazioni di sicurezza del tuo account Google.
 
@@ -90,4 +90,4 @@ Possiamo aggiornare questa informativa, per esempio se aggiungiamo funzioni o fo
 
 ## 11. Contatti
 
-[EMAIL DI CONTATTO] - [NOME E INDIRIZZO DEL TITOLARE]
+info@globetrotta.it - GloveTrotta
