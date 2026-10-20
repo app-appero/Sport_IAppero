@@ -14,7 +14,7 @@ Questa informativa spiega quali dati personali tratta l'app Sport IApperò (di s
 
 Il titolare del trattamento è:
 
-- GloveTrotta
+- GlobeTrotta
 - Contatto per questioni di privacy: info@globetrotta.it
 
 ## 2. Quali dati trattiamo
@@ -96,5 +96,5 @@ Possiamo aggiornare questa informativa, per esempio se aggiungiamo funzioni o fo
 
 ## 11. Contatti
 
-info@globetrotta.it - GloveTrotta
+info@globetrotta.it - GlobeTrotta
 """
