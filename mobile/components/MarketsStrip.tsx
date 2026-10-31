@@ -19,11 +19,15 @@ import { marketLabel } from '@/constants/markets';
 import { GUEST_FREE_MARKETS } from '@/utils/access';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
+import { decisionCode } from '@/utils/decisionFilter';
 import { outcomeTone, type OutcomeTone } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
 
 const ITEM_WIDTH = 84;
 const FADE_WIDTH = 30;
+
+const DECISION_SHORT = { PLAY: 'PLAY', BORDERLINE: 'BORDER', 'NO BET': 'NO BET' } as const;
+const DECISION_LABEL = { PLAY: 'Play', BORDERLINE: 'Borderline', 'NO BET': 'No bet' } as const;
 
 type Props = {
   /** Every prediction of the match, strongest first. */
@@ -41,9 +45,6 @@ type Props = {
  * position bar below. With three markets or fewer there is nothing to scroll.
  */
 export function MarketsStrip({ picks, cardTone, locked = false, onLockedPress }: Props) {
-  if (locked && picks.length > GUEST_FREE_MARKETS) {
-    return <LockedStrip picks={picks} onPress={onLockedPress} />;
-  }
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
   const [viewW, setViewW] = useState(0);
@@ -57,6 +58,9 @@ export function MarketsStrip({ picks, cardTone, locked = false, onLockedPress }:
   const thumbLeft = scrollable && maxX > 0 ? (x / maxX) * (1 - thumb) : 0;
   const bg =
     cardTone === 'hit' ? colors.hitBg : cardTone === 'miss' ? colors.missBg : colors.surfaceElevated;
+  if (locked && picks.length > GUEST_FREE_MARKETS) {
+    return <LockedStrip picks={picks} onPress={onLockedPress} bg={bg} />;
+  }
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setX(e.nativeEvent.contentOffset.x);
   const onLayout = (e: LayoutChangeEvent) => setViewW(e.nativeEvent.layout.width);
@@ -81,7 +85,7 @@ export function MarketsStrip({ picks, cardTone, locked = false, onLockedPress }:
           accessibilityLabel={`Tutti i mercati, ${picks.length}`}
         >
           {picks.map((pred) => (
-            <RingItem key={pred.id} pred={pred} />
+            <RingItem key={pred.id} pred={pred} bg={bg} />
           ))}
         </ScrollView>
         {scrollable && !atEnd ? (
@@ -105,7 +109,15 @@ export function MarketsStrip({ picks, cardTone, locked = false, onLockedPress }:
 }
 
 /** Guest: three real circles, then grey placeholders under a "+N mercati" pill. No real values are rendered. */
-function LockedStrip({ picks, onPress }: { picks: UnifiedPrediction[]; onPress?: () => void }) {
+function LockedStrip({
+  picks,
+  onPress,
+  bg,
+}: {
+  picks: UnifiedPrediction[];
+  onPress?: () => void;
+  bg: string;
+}) {
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
   const hidden = picks.length - GUEST_FREE_MARKETS;
@@ -125,7 +137,7 @@ function LockedStrip({ picks, onPress }: { picks: UnifiedPrediction[]; onPress?:
       </View>
       <View style={styles.lockedRow}>
         {picks.slice(0, GUEST_FREE_MARKETS).map((pred) => (
-          <RingItem key={pred.id} pred={pred} />
+          <RingItem key={pred.id} pred={pred} bg={bg} />
         ))}
         <View style={styles.lockedRest}>
           <View style={styles.lockedGhosts}>
@@ -146,19 +158,46 @@ function LockedStrip({ picks, onPress }: { picks: UnifiedPrediction[]; onPress?:
   );
 }
 
-function RingItem({ pred }: { pred: UnifiedPrediction }) {
+function RingItem({ pred, bg }: { pred: UnifiedPrediction; bg: string }) {
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
   const tone = outcomeTone(pred);
   const arc = tone === 'hit' ? colors.hit : tone === 'miss' ? colors.missBadge : colors.accent;
+  const decision = decisionCode(pred.decision?.code);
   return (
     <View style={styles.item}>
-      <ProbabilityRing
-        value={pred.prediction.confidence}
-        color={arc}
-        trackColor={colors.line}
-        textColor={colors.ink}
-      />
+      <View style={styles.ringWrap}>
+        <ProbabilityRing
+          value={pred.prediction.confidence}
+          color={arc}
+          trackColor={colors.line}
+          textColor={colors.ink}
+        />
+        {decision ? (
+          <View
+            style={[
+              styles.decision,
+              { backgroundColor: bg },
+              decision === 'PLAY' && { backgroundColor: colors.accent, borderColor: colors.accent },
+              decision === 'BORDERLINE' && { borderColor: colors.warning },
+              decision === 'NO BET' && { borderColor: colors.inkMuted },
+            ]}
+            accessibilityLabel={DECISION_LABEL[decision]}
+          >
+            <Text
+              style={[
+                styles.decisionText,
+                decision === 'PLAY' && { color: colors.onAccent },
+                decision === 'BORDERLINE' && { color: colors.warning },
+                decision === 'NO BET' && { color: colors.inkMuted },
+              ]}
+              maxFontSizeMultiplier={1.1}
+            >
+              {DECISION_SHORT[decision]}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       <Text style={styles.market} numberOfLines={1}>
         {marketLabel(pred.prediction.type)}
       </Text>
@@ -186,9 +225,22 @@ const makeStyles = (colors: Palette) =>
     hint: { fontFamily: fonts.body, fontSize: fs(10), color: colors.inkMuted },
     // The row bleeds into the card padding so the next circle visibly peeks in from the edge.
     stripWrap: { marginRight: -spacing.md },
-    row: { gap: 4, paddingRight: spacing.md },
+    row: { gap: 4, paddingRight: spacing.md, paddingTop: 5 },
     fade: { position: 'absolute', top: 0, bottom: 0, right: 0, width: FADE_WIDTH },
     item: { width: ITEM_WIDTH, alignItems: 'center', gap: 5 },
+    ringWrap: { alignSelf: 'center' },
+    // Badge on the ring's top-right corner; its fill hides the ring behind it.
+    decision: {
+      position: 'absolute',
+      top: -4,
+      right: -14,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+    },
+    decisionText: { fontFamily: fonts.bodyBold, fontSize: fs(8.5), letterSpacing: 0.4 },
     market: { fontFamily: fonts.body, fontSize: fs(10), color: colors.inkMuted, textAlign: 'center' },
     pickRow: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' },
     pick: {

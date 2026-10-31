@@ -159,3 +159,36 @@ test('topMarkets with byFamily=false keeps every cards line', () => {
   );
   assert.equal(topMarkets(list, { limit: 99 }).length, 2);
 });
+
+function withDecision(type: string, confidence: number, code: string | null) {
+  return {
+    id: `${type}-${confidence}`,
+    prediction: { type, confidence, selection: { id: 'x', name: 'x' } },
+    decision: code ? { code } : null,
+  } as never;
+}
+
+test('byDecision orders Play, Borderline, No bet, then strongest first', () => {
+  const picked = topMarkets(
+    [
+      withDecision('dc', 0.9, 'NO BET'),
+      withDecision('goal_no_goal', 0.55, 'PLAY'),
+      withDecision('h2h', 0.78, 'PLAY'),
+      withDecision('under_over_2_5', 0.64, 'BORDERLINE'),
+      withDecision('cards_line_4_5', 0.88, null),
+    ],
+    { limit: 99, byFamily: false, byDecision: true },
+  );
+  assert.deepEqual(
+    picked.map((p) => p.prediction.type),
+    ['h2h', 'goal_no_goal', 'under_over_2_5', 'dc', 'cards_line_4_5'],
+  );
+});
+
+test('byDecision keeps the preferred market first', () => {
+  const picked = topMarkets(
+    [withDecision('dc', 0.9, 'NO BET'), withDecision('h2h', 0.78, 'PLAY')],
+    { limit: 99, byFamily: false, byDecision: true, preferredMarket: 'dc' },
+  );
+  assert.equal(picked[0].prediction.type, 'dc');
+});
