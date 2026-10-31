@@ -12,7 +12,10 @@ import { marketLabel } from '@/constants/markets';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { topMarkets, marketFamily } from '@/utils/cardMarkets';
-import { formatEventTime } from '@/utils/dates';
+import { cardTally, type TallyTone } from '@/utils/cardTally';
+import { formatEventTime, todayKey } from '@/utils/dates';
+import { isEventDone } from '@/utils/dayOrder';
+import { decisionCode } from '@/utils/decisionFilter';
 import { eventStatusLabel } from '@/utils/eventStatus';
 import { formatSets, isLiveEvent, liveBoard, liveMinuteLabel } from '@/utils/liveScore';
 import { outcomeTone, scoreForMarket, type OutcomeTone } from '@/utils/outcome';
@@ -39,7 +42,12 @@ export function EventCard(props: Props) {
 function FootballCard({ item, index = 0, onPress, preferredMarket, selectedDate, locked }: Props) {
   const styles = useThemedStyles(makeStyles);
   // Every market of the match, strongest first, scrolling on one row.
-  const picks = topMarkets(item.predictions, { preferredMarket, limit: 99, byFamily: false });
+  const picks = topMarkets(item.predictions, {
+    preferredMarket,
+    limit: 99,
+    byFamily: false,
+    byDecision: true,
+  });
   if (picks.length === 0) return null;
 
   const tone = outcomeTone(picks[0]);
@@ -85,6 +93,7 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate, l
     preferredMarket,
     limit: 99,
     byFamily: false,
+    byDecision: true,
     exclude: winner && winnerPred ? [marketFamily(winnerPred.prediction.type)] : [],
   });
   if (!winner && picks.length === 0) return null;
@@ -131,7 +140,10 @@ function TennisCard({ item, index = 0, onPress, preferredMarket, selectedDate, l
               {Math.round(winner.probs[1] * 100)}%
             </Text>
           </View>
-          <Text style={styles.cap}>Vincitore</Text>
+          <View style={styles.capRow}>
+            <Text style={styles.cap}>Vincitore</Text>
+            <DecisionTag code={winnerPred ? decisionCode(winnerPred.decision?.code) : null} />
+          </View>
         </View>
       ) : (
         <Text style={styles.name}>{item.event.name}</Text>
@@ -229,6 +241,11 @@ function CardTop({ item, tone, live }: { item: FeedItem; tone: OutcomeTone; live
   const styles = useThemedStyles(makeStyles);
   const minute = live ? liveMinuteLabel(item.event) : null;
   const timeLabel = formatEventTime(item.event.start_time, item.event.local_time);
+  // Wins so far (live) or final, over every prediction of the match.
+  const tally = cardTally(
+    item.predictions.map((p) => outcomeTone(p)),
+    { live, done: isEventDone(item.event, todayKey()) },
+  );
   return (
     <View style={styles.top}>
       <Text style={styles.badge} numberOfLines={1}>
@@ -240,11 +257,49 @@ function CardTop({ item, tone, live }: { item: FeedItem; tone: OutcomeTone; live
             <Text style={styles.liveBadgeText}>{minute ? `● LIVE ${minute}` : '● LIVE'}</Text>
           </View>
         ) : null}
+        {tally ? (
+          <View
+            style={[styles.tally, tallyStyle(styles, tally.tone)]}
+            accessibilityLabel={`${tally.hits} previsioni prese su ${tally.total}`}
+          >
+            <Text style={[styles.tallyText, tallyTextStyle(styles, tally.tone)]} maxFontSizeMultiplier={1.1}>
+              {tally.hits}/{tally.total}
+              {live ? '' : <Text style={styles.tallySmall}> presi</Text>}
+            </Text>
+          </View>
+        ) : null}
         <OutcomeDot tone={tone} size={10} />
         <Text style={styles.time}>{timeLabel}</Text>
       </View>
     </View>
   );
+}
+
+function DecisionTag({ code }: { code: ReturnType<typeof decisionCode> }) {
+  const styles = useThemedStyles(makeStyles);
+  const colors = useSportPalette();
+  if (!code) return null;
+  const label = code === 'PLAY' ? 'PLAY' : code === 'BORDERLINE' ? 'BORDER' : 'NO BET';
+  const fill = code === 'PLAY';
+  const tint = code === 'PLAY' ? colors.onAccent : code === 'BORDERLINE' ? colors.warning : colors.inkMuted;
+  const border = code === 'PLAY' ? colors.accent : code === 'BORDERLINE' ? colors.warning : colors.inkMuted;
+  return (
+    <View
+      style={[styles.decisionTag, { borderColor: border }, fill && { backgroundColor: colors.accent }]}
+      accessibilityLabel={code === 'PLAY' ? 'Play' : code === 'BORDERLINE' ? 'Borderline' : 'No bet'}
+    >
+      <Text style={[styles.decisionTagText, { color: tint }]} maxFontSizeMultiplier={1.1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function tallyStyle(styles: ReturnType<typeof makeStyles>, tone: TallyTone) {
+  return tone === 'good' ? styles.tallyGood : tone === 'mid' ? styles.tallyMid : tone === 'bad' ? styles.tallyBad : null;
+}
+function tallyTextStyle(styles: ReturnType<typeof makeStyles>, tone: TallyTone) {
+  return tone === 'good' ? styles.tallyTextGood : tone === 'mid' ? styles.tallyTextMid : tone === 'bad' ? styles.tallyTextBad : null;
 }
 
 function MoreLine({ item, onPress }: { item: FeedItem; onPress?: () => void }) {
@@ -313,6 +368,30 @@ const makeStyles = (colors: Palette) =>
       flexShrink: 1,
     },
     time: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
+    tally: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.track,
+    },
+    tallyGood: { borderColor: colors.hit, backgroundColor: colors.hitBg },
+    tallyMid: { borderColor: colors.warning, backgroundColor: 'rgba(230,184,77,0.12)' },
+    tallyBad: { borderColor: colors.miss, backgroundColor: colors.missBg },
+    tallyText: { fontFamily: fonts.bodyBold, fontSize: fs(12), color: colors.ink },
+    tallyTextGood: { color: colors.hit },
+    tallyTextMid: { color: colors.warning },
+    tallyTextBad: { color: colors.missBadge },
+    tallySmall: { fontFamily: fonts.body, fontSize: fs(10), color: colors.inkMuted },
+    decisionTag: {
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+    },
+    decisionTagText: { fontFamily: fonts.bodyBold, fontSize: fs(9), letterSpacing: 0.4 },
+    capRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     liveBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
