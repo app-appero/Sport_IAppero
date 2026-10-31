@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/components/SportTheme';
@@ -16,7 +16,7 @@ type Props = {
 export function DayScroller({ value, onChange }: Props) {
   const styles = useThemedStyles(makeStyles);
   const days = useMemo(() => buildDayWindow(), []);
-  const ref = useRef<ScrollView>(null);
+  const ref = useRef<ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     const idx = days.findIndex((d) => d.value === value);

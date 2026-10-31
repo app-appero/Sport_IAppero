@@ -148,7 +148,7 @@ export function AdminUsersScreen() {
             >
               <Text style={styles.moreText}>Carica altri</Text>
             </Pressable>
-          ) : null
+          ) : undefined
         }
         renderItem={({ item }) => {
           const editable = canEditUser(user, item);

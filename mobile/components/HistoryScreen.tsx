@@ -165,9 +165,9 @@ function HistoryBody({
           if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
         }}
         ListFooterComponent={
-          rows.length === 0 ? null : list.isFetchingNextPage ? (
+          rows.length === 0 ? undefined : list.isFetchingNextPage ? (
             <Text style={styles.listEnd}>Carico altre predizioni…</Text>
-          ) : list.hasNextPage ? null : (
+          ) : list.hasNextPage ? undefined : (
             <Text style={styles.listEnd}>
               Fine dell&apos;elenco · {rows.length} {rows.length === 1 ? 'predizione' : 'predizioni'}
             </Text>

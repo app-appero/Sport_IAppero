@@ -4,7 +4,6 @@ import { Tabs } from 'expo-router';
 export default function TabLayout() {
   return (
     <Tabs
-      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarStyle: { display: 'none', height: 0, overflow: 'hidden' },
