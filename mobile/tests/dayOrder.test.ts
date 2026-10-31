@@ -47,7 +47,7 @@ test('rows carry a single divider with the number of finished matches, and none 
   assert.deepEqual(none.map((r) => r.kind), ['event']);
 });
 
-test('phase chips keep the existing groups: live badge, Finite, or the whole list', () => {
+test('phase chips: live badge, upcoming (not started), Finite, or the whole list', () => {
   const live = { status: 'live', calendar_date: TODAY, live: { is_live: true } };
   const upcoming = { status: 'NS', calendar_date: TODAY, live: null };
   const finished = { status: 'FT', calendar_date: TODAY, live: null };
@@ -60,6 +60,11 @@ test('phase chips keep the existing groups: live badge, Finite, or the whole lis
   assert.equal(eventMatchesPhase(finished, 'done', TODAY), true);
   assert.equal(eventMatchesPhase(live, 'done', TODAY), false);
   assert.equal(eventMatchesPhase(upcoming, 'done', TODAY), false);
+  assert.equal(eventMatchesPhase(upcoming, 'upcoming', TODAY), true);
+  assert.equal(eventMatchesPhase(live, 'upcoming', TODAY), false);
+  assert.equal(eventMatchesPhase(finished, 'upcoming', TODAY), false);
+  const stuck = { status: 'NS', calendar_date: '2026-10-12', live: null };
+  assert.equal(eventMatchesPhase(stuck, 'upcoming', TODAY), false);
 });
 
 test('tennis without a timezone is ordered by the provider clock on the same day', () => {

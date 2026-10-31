@@ -2,7 +2,7 @@ import type { Event, FeedItem } from '../types/api';
 import { isLiveEvent } from './liveScore.ts';
 
 /** Day-list status filter. `all` is the list as it is today. */
-export type ListPhase = 'all' | 'live' | 'done';
+export type ListPhase = 'all' | 'live' | 'upcoming' | 'done';
 
 function norm(status: string | null | undefined): string {
   return (status ?? '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
@@ -29,7 +29,7 @@ export function isEventDone(event: Pick<Event, 'status' | 'calendar_date'>, toda
 /**
  * Keeps a match for the day-list status chips.
  * `done` is the group already under "Finite". `live` is a match that already
- * shows the LIVE badge. Anything else (not started) stays visible only on `all`.
+ * shows the LIVE badge. `upcoming` is a match that has not started yet.
  */
 export function eventMatchesPhase(
   event: Pick<Event, 'status' | 'calendar_date' | 'live'>,
@@ -39,7 +39,9 @@ export function eventMatchesPhase(
   if (phase === 'all') return true;
   const done = isEventDone(event, today);
   if (phase === 'done') return done;
-  return isLiveEvent(event) && !done;
+  const live = isLiveEvent(event);
+  if (phase === 'live') return live && !done;
+  return !live && !done;
 }
 
 /** Kickoff instant when the provider gives one; else calendar day + provider clock (tennis), good for ordering only. */

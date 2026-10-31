@@ -44,6 +44,7 @@ import { offlineBannerText } from '@/utils/staleness';
 const PHASE_OPTIONS: { label: string; value: ListPhase }[] = [
   { label: 'Tutte', value: 'all' },
   { label: 'Live', value: 'live' },
+  { label: 'Prossime', value: 'upcoming' },
   { label: 'Finite', value: 'done' },
 ];
 
