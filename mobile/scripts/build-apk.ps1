@@ -13,6 +13,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $src = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$BuildDir = [IO.Path]::GetFullPath($BuildDir).TrimEnd('\')
+if ($BuildDir -eq [IO.Path]::GetPathRoot($BuildDir).TrimEnd('\') -or
+    $BuildDir -eq $src -or $BuildDir.StartsWith($src + '\', [StringComparison]::OrdinalIgnoreCase) -or
+    $src.StartsWith($BuildDir + '\', [StringComparison]::OrdinalIgnoreCase)) {
+  throw 'BuildDir must be a separate staging directory, not the source or its parent.'
+}
+$dependencyTarget = Join-Path $BuildDir 'node_modules'
+foreach ($path in @($BuildDir, $dependencyTarget)) {
+  if ((Test-Path -LiteralPath $path) -and
+      ((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    throw "Refusing to mirror dependencies through a linked directory: $path"
+  }
+}
 
 # Keep node_modules in sync with package.json: after a pull that adds a dependency,
 # Metro would otherwise fail with "Unable to resolve module ...".
@@ -29,8 +42,14 @@ finally {
 Write-Host "==> Sync $src -> $BuildDir"
 # Exclude only the root-level dirs: a bare /XD dist would also skip node_modules/**/dist.
 robocopy $src $BuildDir /E /NFL /NDL /NJH /NJS /NP `
-  /XD "$src\dist" "$src\.expo" "$src\android" "$src\build-output" | Out-Null
+  /XD "$src\dist" "$src\.expo" "$src\android" "$src\build-output" "$src\node_modules" | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+
+# Mirror dependencies separately: /E retains removed files from older package versions.
+# Those stale C++ sources are picked up by CMake and break native compilation.
+Write-Host '==> Mirror node_modules (remove obsolete dependency files)'
+robocopy "$src\node_modules" $dependencyTarget /MIR /XJ /R:1 /W:1 /NFL /NDL /NJH /NJS /NP
+if ($LASTEXITCODE -lt 0 -or $LASTEXITCODE -ge 8) { throw "dependency sync failed ($LASTEXITCODE)" }
 
 Push-Location $BuildDir
 try {
@@ -58,6 +77,8 @@ try {
   if ($g -notmatch 'CMAKE_JOB_POOLS') {
     $g = $g -replace '(versionName "[^"]*"\r?\n)', "`$1        externalNativeBuild { cmake { arguments `"-DCMAKE_JOB_POOLS=cc=2`", `"-DCMAKE_JOB_POOL_COMPILE=cc`", `"-DCMAKE_JOB_POOL_LINK=cc`" } }`n"
   }
+  # Hash long object paths before Ninja hits Windows' path limit, even in C:\sp.
+  $g = $g -replace '"-DCMAKE_JOB_POOLS=cc=2"', '"-DCMAKE_OBJECT_PATH_MAX=240", "-DCMAKE_JOB_POOLS=cc=2"'
   $g = $g -replace '// extraPackagerArgs = \[\]', 'extraPackagerArgs = ["--max-workers", "1"]'
   Set-Content $gradle $g -NoNewline
 
