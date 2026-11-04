@@ -86,6 +86,21 @@ function RefreshBlock({ token }: { token: string }) {
           {running ? 'Aggiornamento in corso…' : 'Aggiorna tutto (Calcio + Tennis)'}
         </Text>
       </Pressable>
+      <View style={styles.splitRow}>
+        {SPORTS.map((sport) => (
+          <Pressable
+            key={sport}
+            onPress={() => void start(token, [sport])}
+            disabled={running}
+            style={[styles.secondary, styles.splitButton, running && styles.disabled]}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: running }}
+            accessibilityLabel={`Aggiorna solo ${sportLabel(sport)}`}
+          >
+            <Text style={styles.secondaryText}>{`Solo ${sportLabel(sport)}`}</Text>
+          </Pressable>
+        ))}
+      </View>
       {states && overall != null ? (
         <View>
           <Text style={styles.stateRow}>{`Avanzamento totale · ${overall}%`}</Text>
@@ -156,6 +171,8 @@ const makeStyles = (colors: Palette) =>
       justifyContent: 'center',
       paddingHorizontal: spacing.lg,
     },
+    splitRow: { flexDirection: 'row', gap: spacing.sm },
+    splitButton: { flex: 1 },
     secondaryText: { fontFamily: fonts.bodyBold, fontSize: fs(14), color: colors.accentText },
     linkRow: {
       minHeight: 48,
