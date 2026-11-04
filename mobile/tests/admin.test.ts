@@ -16,6 +16,8 @@ import {
   sportProgress,
   roleLabel,
   shouldKeepPolling,
+  eventRefreshErrorMessage,
+  eventRefreshSummary,
 } from '../utils/admin.ts';
 
 test('role and admin checks', () => {
@@ -113,4 +115,31 @@ test('progress: finished runs count 100, others use the engine number', () => {
   assert.equal(sportProgress('running', 250), 100);
   assert.equal(overallProgress({ football: 'running', tennis: 'success' }, { football: 50 }), 75);
   assert.equal(overallProgress({}, {}), null);
+});
+
+test('eventRefreshSummary says what happened and which parts failed', () => {
+  assert.equal(
+    eventRefreshSummary({ state: 'ok', completed: false, errors: {} }),
+    'Partita aggiornata.',
+  );
+  assert.equal(
+    eventRefreshSummary({ state: 'ok', completed: true, errors: {} }),
+    'Partita aggiornata: risultato registrato.',
+  );
+  assert.match(
+    eventRefreshSummary({ state: 'partial', completed: false, errors: { scorers: 'boom' } }),
+    /Alcune parti non sono state aggiornate \(scorers\)/,
+  );
+});
+
+test('eventRefreshErrorMessage maps the BFF answers to short Italian lines', () => {
+  assert.equal(eventRefreshErrorMessage({ status: 403 }), 'Solo il super admin può aggiornare una partita.');
+  assert.equal(eventRefreshErrorMessage({ status: 401 }), 'Sessione scaduta: esci e accedi di nuovo.');
+  assert.equal(
+    eventRefreshErrorMessage({ status: 502, message: 'API 502 /x: {"detail":{"code":"rejected","message":"Fixture non trovata"}}' }),
+    'Il motore ha risposto: Fixture non trovata',
+  );
+  assert.equal(eventRefreshErrorMessage({ status: 502, message: 'boh' }), 'Il motore non ha aggiornato la partita.');
+  assert.equal(eventRefreshErrorMessage(new TypeError('Network request failed')), 'Connessione assente o instabile. Controlla la rete e riprova.');
+  assert.equal(eventRefreshErrorMessage({ status: 500 }), 'Aggiornamento non riuscito. Riprova tra poco.');
 });

@@ -34,5 +34,9 @@ class SportProvider(ABC):
     async def healthcheck(self) -> dict[str, Any]:
         raise NotImplementedError
 
+    async def refresh_event(self, event_id: str) -> dict[str, Any]:
+        """Aggiornamento puntuale di una partita sul motore (risultato + predizioni di tutti i mercati)."""
+        raise NotImplementedError
+
     async def aclose(self) -> None:
         return None

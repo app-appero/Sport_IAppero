@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 
@@ -214,6 +214,40 @@ async def refresh_all(body: RefreshRequest, actor=Depends(require_permission("re
     await _audit(maker, actor, "refresh", None, {"sports": list(results), "forced": body.force_outside_hours,
                                                  "states": {s: r["state"] for s, r in results.items()}})
     return {"started_at": datetime.now(UTC), "results": results}
+
+
+@router.post("/events/{sport}/{event_id}/refresh")
+async def refresh_event(
+    sport: Literal["football", "tennis"],
+    event_id: str = Path(pattern=r"^\d{1,12}$"),
+    actor=Depends(require_super_admin),
+) -> dict:
+    """Aggiorna UNA partita (solo super admin, nessun limite di frequenza per scelta del titolare): risultato e
+    predizioni di tutti i mercati. Spende quota delle API dei provider a ogni richiesta."""
+    _, maker = _auth_ready()
+    provider = get_provider(sport)
+    if provider is None:
+        raise _error(503, "provider_missing", "Provider non configurato")
+    try:
+        result = await provider.refresh_event(event_id)
+    except ProviderError as exc:
+        logger.warning("admin refresh event %s/%s failed: %s", sport, event_id, exc)
+        err = _engine_error(exc)
+        await _audit(maker, actor, "refresh_event", None,
+                     {"sport": sport, "event_id": event_id, "state": "error", "code": err["code"]})
+        raise _error(502, err["code"], err["message"]) from exc
+    errors = result.get("errors") or {}
+    state = "partial" if errors else "ok"
+    await _audit(maker, actor, "refresh_event", None,
+                 {"sport": sport, "event_id": event_id, "state": state, "completed": result.get("completed")})
+    return {
+        "sport": sport,
+        "event_id": event_id,
+        "state": state,
+        "completed": result.get("completed"),
+        "errors": errors,
+        "detail": result.get("detail"),
+    }
 
 
 @router.get("/refresh/status")
