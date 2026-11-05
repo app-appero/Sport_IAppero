@@ -101,7 +101,13 @@ class TennisProvider(SportProvider):
         logger.info("Authenticated against tennis-oracle as %s", username)
 
     async def _get(
-        self, path: str, params: dict[str, Any] | None = None, *, method: str = "GET", json: Any = None
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        *,
+        method: str = "GET",
+        json: Any = None,
+        timeout: float | None = None,
     ) -> Any:
         if self._settings.use_provider_fixtures:
             return self._fixture_for(path)
@@ -114,6 +120,7 @@ class TennisProvider(SportProvider):
                 path=path,
                 params=params,
                 json=json,
+                timeout=timeout,
             )
         except ProviderResponseError as exc:
             # refresh token once on 401
@@ -128,6 +135,7 @@ class TennisProvider(SportProvider):
                     path=path,
                     params=params,
                     json=json,
+                    timeout=timeout,
                 )
             raise
 
@@ -164,6 +172,26 @@ class TennisProvider(SportProvider):
         payload = payload if isinstance(payload, dict) else {}
         run_id = payload.get("run_id")
         return {"ref": str(run_id) if run_id is not None else None, "message": payload.get("message")}
+
+    async def refresh_event(self, event_id: str) -> dict[str, Any]:
+        """Aggiorna UNA partita sul motore Tennis: risultato e predizioni dei mercati (sincrono)."""
+        if self._settings.use_provider_fixtures:
+            return {"completed": None, "errors": {}, "detail": {"simulated": True}}
+        payload = await self._get(
+            f"/api/matches/{event_id}/refresh",
+            method="POST",
+            timeout=self._settings.provider_single_refresh_timeout,
+        )
+        payload = payload if isinstance(payload, dict) else {}
+        return {
+            "completed": payload.get("completed"),
+            "errors": payload.get("errors") or {},
+            "detail": {
+                "predictions": payload.get("predictions"),
+                "extra_markets": payload.get("extra_markets"),
+                "note": payload.get("note"),
+            },
+        }
 
     async def refresh_status(self, ref: str) -> dict[str, Any]:
         payload = await self._get("/api/global-update/status")

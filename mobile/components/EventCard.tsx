@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { CardPlayers } from '@/components/CardPlayers';
+import { EventRefreshButton } from '@/components/EventRefreshButton';
 import { LiveBoard } from '@/components/LiveBoard';
 import { MarketsStrip } from '@/components/MarketsStrip';
 import { ConfidenceBar } from '@/components/ConfidenceBar';
@@ -217,6 +218,7 @@ function CardShell({
             {after}
           </Tap>
         ) : null}
+        <EventRefreshButton sport={item.sport} eventId={item.event.id} />
       </View>
     </Animated.View>
   );

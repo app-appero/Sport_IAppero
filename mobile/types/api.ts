@@ -292,6 +292,15 @@ export interface AdminPermissionList {
 
 export type RefreshStartState = 'started' | 'error';
 
+/** Result of "Aggiorna partita" (super admin): `partial` = the engine updated what it could and reported errors. */
+export interface AdminEventRefreshResponse {
+  sport: string;
+  event_id: string;
+  state: 'ok' | 'partial';
+  completed: boolean | null;
+  errors: Record<string, string>;
+}
+
 export interface AdminRefreshResponse {
   started_at: string;
   results: Partial<

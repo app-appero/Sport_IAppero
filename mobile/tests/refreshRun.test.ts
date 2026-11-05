@@ -64,3 +64,20 @@ test('a refused start is reported per sport and a second start is ignored while 
   assert.equal(store.getView().states?.football, 'error');
   assert.equal(store.getView().reasons.football, 'No');
 });
+
+test('starting a single sport sends only that sport and tracks only its state', async () => {
+  const asked: string[][] = [];
+  const store = createRefreshStore({
+    start: async (_token, sports) => {
+      asked.push(sports);
+      return { results: { tennis: { state: 'queued', ref: 'b' } } };
+    },
+    status: async () => ({ tennis: { state: 'success', progress: 100 } }),
+    sleep: noSleep,
+  });
+  await store.start('t', ['tennis']);
+  const view = store.getView();
+  assert.deepEqual(asked, [['tennis']]);
+  assert.deepEqual(view.states, { tennis: 'success' });
+  assert.equal(view.running, false);
+});

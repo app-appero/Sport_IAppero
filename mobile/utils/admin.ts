@@ -162,3 +162,32 @@ export function overallProgress(
   const sum = sports.reduce((acc, sport) => acc + sportProgress(states[sport], progress[sport]), 0);
   return Math.round(sum / sports.length);
 }
+
+/** Short outcome line for "Aggiorna partita": what the engine did, and which parts failed (never raw errors). */
+export function eventRefreshSummary(res: {
+  state: string;
+  completed?: boolean | null;
+  errors?: Record<string, string> | null;
+}): string {
+  const failed = Object.keys(res.errors ?? {});
+  const base = res.completed ? 'Partita aggiornata: risultato registrato.' : 'Partita aggiornata.';
+  if (res.state === 'partial' || failed.length > 0) {
+    return `${base} Alcune parti non sono state aggiornate (${failed.join(', ') || 'dettagli nel motore'}).`;
+  }
+  return base;
+}
+
+/** Error line for a failed "Aggiorna partita" (the BFF answers 502 with the engine's reason, 403 if not super admin). */
+export function eventRefreshErrorMessage(err: unknown): string {
+  const e = (err ?? {}) as ErrLike;
+  if (e.status === 403) return 'Solo il super admin può aggiornare una partita.';
+  if (e.status === 401) return 'Sessione scaduta: esci e accedi di nuovo.';
+  if (e.status === 502) {
+    const reason = typeof e.message === 'string' ? /"message":"([^"]+)"/.exec(e.message)?.[1] : undefined;
+    return reason ? `Il motore ha risposto: ${reason}` : 'Il motore non ha aggiornato la partita.';
+  }
+  if (err instanceof TypeError || /network|fetch/i.test(String(e.message))) {
+    return 'Connessione assente o instabile. Controlla la rete e riprova.';
+  }
+  return 'Aggiornamento non riuscito. Riprova tra poco.';
+}

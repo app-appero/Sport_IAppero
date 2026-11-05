@@ -166,3 +166,54 @@ def test_engine_errors_are_summarised_without_leaking_details(client, keys, monk
     res = client.post("/api/v1/admin/refresh", headers=owner, json={"sports": ["football"]}).json()
     assert res["results"]["football"]["message"] == "Errore interno del motore (500)"
     assert res["results"]["football"]["code"] == "engine_error"
+
+
+def test_refresh_event_is_super_admin_only_and_audited(client, keys, monkeypatch):  # noqa: F811
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    _, luca_h = sign_in(client, keys, "3", "luca@example.com", "Luca")
+    client.put(f"/api/v1/admin/users/{client.get('/api/v1/admin/users', headers=owner).json()['items'][0]['id']}/role",
+               headers=owner, json={"role": "admin", "permissions": ["refresh_data"]})
+    path = "/api/v1/admin/events/tennis/123/refresh"
+    assert client.post(path).status_code == 401
+    assert client.post(path, headers=luca_h).status_code == 403  # nemmeno un admin con refresh_data
+    ok = client.post(path, headers=owner)
+    assert ok.status_code == 200
+    body = ok.json()
+    assert body["sport"] == "tennis" and body["event_id"] == "123" and body["state"] == "ok"
+    items = client.get("/api/v1/admin/audit", headers=owner).json()["items"]
+    assert items[0]["action"] == "refresh_event"
+    assert items[0]["details"]["event_id"] == "123"
+
+
+def test_refresh_event_rejects_bad_ids_and_sports(client, keys):  # noqa: F811
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    assert client.post("/api/v1/admin/events/tennis/abc/refresh", headers=owner).status_code == 422
+    assert client.post("/api/v1/admin/events/basket/1/refresh", headers=owner).status_code == 422
+
+
+def test_refresh_event_engine_failure_is_reported(client, keys, monkeypatch):  # noqa: F811
+    from app.core.exceptions import ProviderUnavailable
+    from app.services.registry import get_provider
+
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+
+    async def broken(event_id):
+        raise ProviderUnavailable("soccer-oracle", "/dashboard/matches/9/refresh returned 500", 500)
+
+    monkeypatch.setattr(get_provider("football"), "refresh_event", broken)
+    res = client.post("/api/v1/admin/events/football/9/refresh", headers=owner)
+    assert res.status_code == 502
+    assert res.json()["detail"]["code"] == "engine_error"
+
+
+def test_refresh_event_partial_when_engine_reports_errors(client, keys, monkeypatch):  # noqa: F811
+    from app.services.registry import get_provider
+
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+
+    async def partial(event_id):
+        return {"completed": False, "errors": {"scorers": "boom"}, "detail": {}}
+
+    monkeypatch.setattr(get_provider("football"), "refresh_event", partial)
+    body = client.post("/api/v1/admin/events/football/9/refresh", headers=owner).json()
+    assert body["state"] == "partial" and body["errors"] == {"scorers": "boom"}

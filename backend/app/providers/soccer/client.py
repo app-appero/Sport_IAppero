@@ -129,7 +129,13 @@ class SoccerProvider(SportProvider):
         )
 
     async def _get(
-        self, path: str, params: dict[str, Any] | None = None, *, method: str = "GET", json: Any = None
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        *,
+        method: str = "GET",
+        json: Any = None,
+        timeout: float | None = None,
     ) -> Any:
         if self._settings.use_provider_fixtures:
             return self._fixture_for(path, params)
@@ -143,6 +149,7 @@ class SoccerProvider(SportProvider):
                 path=path,
                 params=params,
                 json=json,
+                timeout=timeout,
             )
         except ProviderResponseError as exc:
             # refresh token once on 401 for protected routes
@@ -161,6 +168,7 @@ class SoccerProvider(SportProvider):
                     path=path,
                     params=params,
                     json=json,
+                    timeout=timeout,
                 )
             raise
 
@@ -225,6 +233,27 @@ class SoccerProvider(SportProvider):
         details = payload.get("details") if isinstance(payload, dict) else None
         job_id = (details or {}).get("job_id") if isinstance(details, dict) else None
         return {"ref": str(job_id) if job_id else None, "message": (payload or {}).get("message")}
+
+    async def refresh_event(self, event_id: str) -> dict[str, Any]:
+        """Aggiorna UNA partita sul motore Soccer: risultato, quote e predizioni di tutti i mercati (sincrono)."""
+        if self._settings.use_provider_fixtures:
+            return {"completed": None, "errors": {}, "detail": {"simulated": True}}
+        payload = await self._get(
+            f"/dashboard/matches/{event_id}/refresh",
+            method="POST",
+            timeout=self._settings.provider_single_refresh_timeout,
+        )
+        payload = payload if isinstance(payload, dict) else {}
+        imported = payload.get("import") if isinstance(payload.get("import"), dict) else {}
+        return {
+            "completed": None,
+            "errors": payload.get("errors") or {},
+            "detail": {
+                "fixtures_seen": imported.get("fixtures_seen"),
+                "updated": imported.get("updated"),
+                "inserted": imported.get("inserted"),
+            },
+        }
 
     async def refresh_status(self, ref: str) -> dict[str, Any]:
         payload = await self._get(f"/jobs/{ref}")

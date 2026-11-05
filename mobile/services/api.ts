@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import type {
   AdminPermissionList,
+  AdminEventRefreshResponse,
   AdminRefreshResponse,
   AdminRefreshStatus,
   AdminUser,
@@ -423,6 +424,15 @@ export function adminRefresh(token: string, sports: string[], opts?: { forceOuts
     token,
     body: { sports, force_outside_hours: opts?.forceOutsideHours === true },
   });
+}
+
+/** Super admin only: refreshes ONE match (result + predictions of every market). Waits for the engine. */
+export function adminRefreshEvent(token: string, sport: string, eventId: string) {
+  return request<AdminEventRefreshResponse>(
+    'POST',
+    `/api/v1/admin/events/${encodeURIComponent(sport)}/${encodeURIComponent(eventId)}/refresh`,
+    { token },
+  );
 }
 
 /** `refs` maps a sport to the `ref` returned when its refresh started. */

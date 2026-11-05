@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     provider_connect_timeout: float = 3.0
     provider_read_timeout: float = 15.0
+    # Aggiornamento puntuale di una partita: sincrono sul motore (import + ricalcolo di tutti i mercati).
+    provider_single_refresh_timeout: float = 120.0
 
     use_provider_fixtures: bool = False
 
