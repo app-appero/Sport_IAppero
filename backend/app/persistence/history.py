@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from typing import Any
 
@@ -218,3 +219,138 @@ async def list_ledger(
         for rev, sett, ev in rows
     ]
     return {"items": items, "limit": limit, "offset": offset, "count": len(items)}
+
+
+_VS = re.compile(r"\s+(?:vs\.?|v|-)\s+", re.IGNORECASE)
+
+
+def _participant_names(ev: Event) -> list[str]:
+    """The two sides of a match: stored participants first, else the "A vs B" event name. Never invented."""
+    names: list[str] = []
+    for p in ev.participants or []:
+        name = p.get("name") if isinstance(p, dict) else p if isinstance(p, str) else None
+        if isinstance(name, str) and name.strip():
+            names.append(name.strip())
+    if len(names) >= 2:
+        return names[:2]
+    if ev.name:
+        parts = [x.strip() for x in _VS.split(ev.name, maxsplit=1) if x.strip()]
+        if len(parts) == 2:
+            return parts
+    return names
+
+
+def _competition_label(ev: Event, known_names: dict[tuple[str, str], str]) -> str:
+    if ev.competition_name:
+        return ev.competition_name
+    if ev.competition_id:
+        # The official ledger carries only the league id: borrow the name another event of the same league
+        # already has (seen in the feed). Never invented.
+        known = known_names.get((ev.sport, ev.competition_id))
+        return known or f"Campionato n. {ev.competition_id}"
+    return "Campionato non indicato"
+
+
+async def _known_competition_names(session: AsyncSession) -> dict[tuple[str, str], str]:
+    rows = (
+        await session.execute(
+            select(Event.sport, Event.competition_id, Event.competition_name)
+            .where(Event.competition_id.is_not(None), Event.competition_name.is_not(None))
+            .distinct()
+        )
+    ).all()
+    names: dict[tuple[str, str], str] = {}
+    for sport, cid, cname in rows:
+        names.setdefault((sport, cid), cname)
+    return names
+
+
+def _ranked(entities: dict[str, "_Entity"]) -> list[dict[str, Any]]:
+    """Most "prese" first, then higher rate, then name. Markets of each entity by rate (then by decided)."""
+    out = []
+    for name, ent in entities.items():
+        counts = ent.counts.as_dict()
+        markets = []
+        for market, mc in ent.markets.items():
+            m = mc.as_dict()
+            markets.append({
+                "market": market, "won": m["won"], "lost": m["lost"], "decided": m["decided"],
+                "total": m["total"], "win_rate": m["win_rate"],
+            })
+        markets.sort(key=lambda m: (-(m["win_rate"] if m["win_rate"] is not None else -1), -m["decided"], m["market"]))
+        out.append({"name": name, **counts, "markets": markets})
+    out.sort(key=lambda e: (-e["won"], -(e["win_rate"] if e["win_rate"] is not None else -1), -e["decided"], e["name"]))
+    return out
+
+
+@dataclass
+class _Entity:
+    counts: Counts = field(default_factory=Counts)
+    markets: dict[str, Counts] = field(default_factory=dict)
+
+
+@dataclass
+class _Competition:
+    counts: Counts = field(default_factory=Counts)
+    entities: dict[str, _Entity] = field(default_factory=dict)
+
+
+async def compute_breakdown(
+    session: AsyncSession,
+    *,
+    sport: str | None = None,
+    market: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    decision: str | None = DEFAULT_DECISION,
+) -> dict[str, Any]:
+    """Per competition: teams / players "involved" in the plays (a play counts for BOTH sides of the match),
+    most "prese" first; under each, the market types by rate. Same rules as `compute_stats`: official ledger,
+    verifiably pre-match, default only PLAY, markets not promoted yet excluded."""
+    rows = (
+        await session.execute(
+            _base_query(
+                sport=sport, market=market, model_name=None, date_from=date_from, date_to=date_to,
+                decision=decision,
+            )
+        )
+    ).all()
+    rows = _latest_versions_only(rows)
+    known_names = await _known_competition_names(session)
+    comps: dict[str, _Competition] = {}
+    excluded_timing = 0
+    without_names = 0
+    for rev, sett, ev in rows:
+        if rev.pre_match is not True:
+            excluded_timing += 1
+            continue
+        comp = comps.setdefault(_competition_label(ev, known_names), _Competition())
+        comp.counts.add(sett.status)
+        names = _participant_names(ev)
+        if not names:
+            without_names += 1
+            continue
+        for name in dict.fromkeys(names):
+            ent = comp.entities.setdefault(name, _Entity())
+            ent.counts.add(sett.status)
+            ent.markets.setdefault(rev.market, Counts()).add(sett.status)
+    competitions = []
+    for label, comp in comps.items():
+        competitions.append({"competition": label, **comp.counts.as_dict(), "entities": _ranked(comp.entities)})
+    competitions.sort(key=lambda c: (-c["won"], -c["decided"], c["competition"]))
+    return {
+        "scope": "official_ledger",
+        "filters": {
+            "sport": sport, "market": market, "decision": decision or DEFAULT_DECISION,
+            "from": date_from.isoformat() if date_from else None,
+            "to": date_to.isoformat() if date_to else None,
+        },
+        "competitions": competitions,
+        "excluded_not_pre_match": excluded_timing,
+        "without_participant_names": without_names,
+        "notes": [
+            "Una giocata conta per entrambe le squadre (o i due giocatori) della partita.",
+            "Ordine: più prese prima; a parità, percentuale più alta. I tipi di evento sono per percentuale.",
+            "win_rate = prese / (prese + perse); annullate e in attesa non contano come perse.",
+        ],
+    }

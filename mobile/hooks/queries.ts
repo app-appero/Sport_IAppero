@@ -9,6 +9,7 @@ import {
   getFeedWithFallback,
   getHealthProviders,
   getHistoryPredictions,
+  getHistoryBreakdown,
   getHistoryStats,
   getPrediction,
   getPredictions,
@@ -203,6 +204,16 @@ export function useHistoryStats(opts?: { sport?: string; market?: string; from?:
   return useQuery({
     queryKey: ['history', 'stats', opts?.sport ?? null, opts?.market ?? null, opts?.from ?? null],
     queryFn: () => getHistoryStats(opts),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Per competition: teams/players involved in the plays, most "prese" first. */
+export function useHistoryBreakdown(opts?: { sport?: string; market?: string; from?: string }) {
+  return useQuery({
+    queryKey: ['history', 'breakdown', opts?.sport ?? null, opts?.market ?? null, opts?.from ?? null],
+    queryFn: () => getHistoryBreakdown(opts),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });

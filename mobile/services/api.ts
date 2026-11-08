@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import type {
   AdminPermissionList,
   AdminEventRefreshResponse,
+  HistoryBreakdown,
   AdminRefreshResponse,
   AdminRefreshStatus,
   AdminUser,
@@ -359,6 +360,15 @@ export function getHistoryStats(opts?: { sport?: string; market?: string; from?:
   if (opts?.from) params.set('from', opts.from);
   const q = params.toString() ? `?${params}` : '';
   return getJson<HistoryStats>(`/api/v1/history/stats${q}`);
+}
+
+export function getHistoryBreakdown(opts?: { sport?: string; market?: string; from?: string }) {
+  const params = new URLSearchParams();
+  if (opts?.sport) params.set('sport', opts.sport);
+  if (opts?.market) params.set('market', opts.market);
+  if (opts?.from) params.set('from', opts.from);
+  const q = params.toString() ? `?${params}` : '';
+  return getJson<HistoryBreakdown>(`/api/v1/history/breakdown${q}`);
 }
 
 export function getHistoryPredictions(opts?: {

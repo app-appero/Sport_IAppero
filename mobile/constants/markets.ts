@@ -43,6 +43,7 @@ export function marketLabel(key: string): string {
     goal_no_goal: 'Gol/No Gol',
     dc: 'Doppia chance',
     cards_line: 'Cartellini',
+    cards: 'Cartellini',
     match_winner: 'Match winner',
     first_set_winner: 'Primo set',
     total_games: 'Totale game',

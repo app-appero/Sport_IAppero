@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -10,19 +10,27 @@ import { SportRail, SPORTS, type SportId } from '@/components/SportRail';
 import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/components/SportTheme';
 import { marketLabel, marketsForSport } from '@/constants/markets';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
-import { useHistoryPredictions, useHistoryStats } from '@/hooks/queries';
+import { useHistoryBreakdown, useHistoryPredictions, useHistoryStats } from '@/hooks/queries';
 import { useOnline } from '@/hooks/useOnline';
-import type { HistoryCounts, HistoryPrediction, SettlementStatus } from '@/types/api';
+import type {
+  HistoryBreakdownCompetition,
+  HistoryCounts,
+  HistoryPrediction,
+  SettlementStatus,
+} from '@/types/api';
 import { formatApiError } from '@/utils/formatApiError';
 import {
   STATUS_LABEL,
   barShares,
   decidedLine,
+  entityLine,
   excludedNote,
   formatKickoffDay,
   formatRate,
   groupsByMarket,
+  marketsLine,
   othersLine,
+  visibleEntities,
 } from '@/utils/history';
 import { PERIOD_OPTIONS, periodFrom, periodLabel, romeToday, type PeriodId } from '@/utils/period';
 import { offlineBannerText } from '@/utils/staleness';
@@ -61,6 +69,7 @@ function HistoryBody({
 
   const from = useMemo(() => periodFrom(period, romeToday()), [period]);
   const stats = useHistoryStats({ sport, market, from });
+  const breakdown = useHistoryBreakdown({ sport, market, from });
   const list = useHistoryPredictions({ sport, market, status, from });
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data]);
 
@@ -104,6 +113,17 @@ function HistoryBody({
               <Text style={styles.section}>Per mercato</Text>
               {groupsByMarket(stats.data.groups).map((g) => (
                 <GroupCard key={g.market} title={marketLabel(g.market)} counts={g} />
+              ))}
+            </>
+          ) : null}
+          {breakdown.data && breakdown.data.competitions.length > 0 ? (
+            <>
+              <Text style={styles.section}>Per campionato</Text>
+              <Text style={styles.note}>
+                Squadre e giocatori coinvolti nelle giocate, dal più preso. Ogni giocata conta per entrambe le parti della partita; sotto, i tipi di evento per percentuale.
+              </Text>
+              {breakdown.data.competitions.map((c) => (
+                <CompetitionCard key={c.competition} competition={c} />
               ))}
             </>
           ) : null}
@@ -287,6 +307,53 @@ function GroupCard({ title, counts }: { title: string; counts: HistoryCounts }) 
   );
 }
 
+function CompetitionCard({ competition }: { competition: HistoryBreakdownCompetition }) {
+  const styles = useThemedStyles(makeStyles);
+  const [expanded, setExpanded] = useState(false);
+  const shown = visibleEntities(competition.entities, expanded);
+  const hidden = competition.entities.length - shown.length;
+  return (
+    <View style={styles.group}>
+      <View style={styles.groupHead}>
+        <Text style={styles.groupTitle} numberOfLines={1}>
+          {competition.competition}
+        </Text>
+        <Text style={[styles.groupRate, competition.win_rate == null && styles.groupRateNa]}>
+          {formatRate(competition.win_rate)}
+        </Text>
+      </View>
+      <Text style={styles.groupSub}>{decidedLine(competition)}</Text>
+      {shown.map((e) => {
+        const markets = marketsLine(e.markets, marketLabel);
+        return (
+          <View key={e.name} style={styles.entity}>
+            <View style={styles.groupHead}>
+              <Text style={styles.entityName} numberOfLines={1}>
+                {e.name}
+              </Text>
+              <Text style={styles.entityRate}>{e.decided > 0 ? formatRate(e.win_rate) : 'n.d.'}</Text>
+            </View>
+            <Text style={styles.groupSub}>{entityLine(e)}</Text>
+            {markets ? <Text style={styles.entityMarkets}>{markets}</Text> : null}
+          </View>
+        );
+      })}
+      {hidden > 0 || expanded ? (
+        <Pressable
+          onPress={() => setExpanded((v) => !v)}
+          style={styles.more}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Mostra meno' : `Mostra tutte le ${competition.entities.length}`}
+        >
+          <Text style={styles.moreText}>
+            {expanded ? 'Mostra meno' : `Mostra tutte (${competition.entities.length})`}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function Row({ item }: { item: HistoryPrediction }) {
   const styles = useThemedStyles(makeStyles);
   const colors = useSportPalette();
@@ -379,6 +446,18 @@ const makeStyles = (colors: Palette) =>
     groupRate: { fontFamily: fonts.bodyBold, fontSize: fs(16), color: colors.accentText },
     groupRateNa: { color: colors.inkMuted, fontFamily: fonts.body, fontSize: fs(13) },
     groupSub: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
+    entity: {
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+      marginTop: spacing.sm,
+      paddingTop: spacing.sm,
+      gap: 2,
+    },
+    entityName: { flex: 1, fontFamily: fonts.bodyBold, fontSize: fs(14), color: colors.ink },
+    entityRate: { fontFamily: fonts.bodyBold, fontSize: fs(14), color: colors.accentText },
+    entityMarkets: { fontFamily: fonts.body, fontSize: fs(12), color: colors.ink },
+    more: { minHeight: 44, justifyContent: 'center', alignItems: 'flex-start', marginTop: spacing.xs },
+    moreText: { fontFamily: fonts.bodyBold, fontSize: fs(13), color: colors.accentText },
     row: {
       backgroundColor: colors.surfaceElevated,
       borderColor: colors.line,

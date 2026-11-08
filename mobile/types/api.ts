@@ -207,6 +207,35 @@ export interface HistoryGroup extends HistoryCounts {
   model_version: string | null;
 }
 
+export interface HistoryBreakdownMarket {
+  market: string;
+  won: number;
+  lost: number;
+  decided: number;
+  total: number;
+  win_rate: number | null;
+}
+
+/** A team or a player involved in plays of one competition (a play counts for both sides of the match). */
+export interface HistoryBreakdownEntity extends HistoryCounts {
+  name: string;
+  /** Market types of this team/player, best rate first. */
+  markets: HistoryBreakdownMarket[];
+}
+
+export interface HistoryBreakdownCompetition extends HistoryCounts {
+  competition: string;
+  /** Most "prese" first. */
+  entities: HistoryBreakdownEntity[];
+}
+
+export interface HistoryBreakdown {
+  competitions: HistoryBreakdownCompetition[];
+  excluded_not_pre_match: number;
+  without_participant_names: number;
+  notes: string[];
+}
+
 export interface HistoryStats {
   scope: string;
   filters: Record<string, string | null>;

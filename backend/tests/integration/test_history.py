@@ -236,3 +236,82 @@ async def test_history_hides_markets_not_promoted_yet(tmp_path, monkeypatch):
     finally:
         await db_session.close_db()
         get_settings.cache_clear()
+
+
+async def test_breakdown_by_competition_counts_both_sides_and_orders_by_prese(tmp_path, monkeypatch):
+    import json
+    from dataclasses import replace
+    from pathlib import Path
+
+    from app.db import session as db_session
+    from app.domain.models import Event as DomainEvent
+    from app.persistence import history
+    from app.persistence.recorder import apply_event_names, record_ledger
+    from app.providers.soccer.ledger import map_ledger_payload
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'brk.db'}")
+    get_settings.cache_clear()
+    assert await db_session.init_db()
+    try:
+        fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
+        records = map_ledger_payload(json.loads(fixture.read_text()))
+        # 1579486 under_over_3_5 lost (Roma-Lazio), 1579487 h2h won (Roma-Milan), 1579490 h2h lost (post-kickoff: excluded)
+        extra_win = replace(records[1], source_ref="extra-win", market="goal_no_goal", settlement_status="won")
+        corners = replace(records[1], source_ref="corners-x", market="corners", settlement_status="won")
+        await record_ledger(records + [extra_win, corners])
+        await apply_event_names("football", [
+            DomainEvent(id="1579486", name="Roma vs Lazio"),
+            DomainEvent(id="1579487", name="Roma vs Milan"),
+            DomainEvent(id="1579488", name="Napoli vs Inter"),
+        ])
+
+        async with db_session.get_sessionmaker()() as session:
+            res = await history.compute_breakdown(session, sport="football")
+        comps = res["competitions"]
+        assert len(comps) == 1 and comps[0]["competition"] == "Campionato n. 492"
+        ents = {e["name"]: e for e in comps[0]["entities"]}
+        # Roma is in 3 plays (loss, win, win): both sides of every match count.
+        assert (ents["Roma"]["won"], ents["Roma"]["lost"]) == (2, 1)
+        assert ents["Milan"]["won"] == 2 and ents["Lazio"]["lost"] == 1
+        names_in_order = [e["name"] for e in comps[0]["entities"]]
+        # Roma and Milan both have 2 prese: the higher rate (Milan 100% vs Roma 67%) goes first.
+        assert names_in_order[:2] == ["Milan", "Roma"]
+        assert names_in_order.index("Roma") < names_in_order.index("Lazio")
+        # Under Roma: market types by rate (goal_no_goal 100%, h2h 100%, under_over_3_5 0%).
+        rates = [m["win_rate"] for m in ents["Roma"]["markets"]]
+        assert rates == sorted(rates, reverse=True) and ents["Roma"]["markets"][-1]["market"] == "under_over_3_5"
+        assert not any(m["market"].startswith("corners") for e in comps[0]["entities"] for m in e["markets"])
+        assert res["excluded_not_pre_match"] >= 1
+    finally:
+        await db_session.close_db()
+        get_settings.cache_clear()
+
+
+async def test_breakdown_names_competition_from_other_events_of_the_same_league(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+
+    from sqlalchemy import update
+
+    from app.db import session as db_session
+    from app.db.models import Event
+    from app.persistence import history
+    from app.persistence.recorder import record_ledger
+    from app.providers.soccer.ledger import map_ledger_payload
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'brk2.db'}")
+    get_settings.cache_clear()
+    assert await db_session.init_db()
+    try:
+        fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
+        await record_ledger(map_ledger_payload(json.loads(fixture.read_text())))
+        async with db_session.get_sessionmaker()() as session:
+            await session.execute(
+                update(Event).where(Event.source_event_id == "1579487").values(competition_name="Serie A")
+            )
+            await session.commit()
+            res = await history.compute_breakdown(session, sport="football")
+        assert [c["competition"] for c in res["competitions"]] == ["Serie A"]
+    finally:
+        await db_session.close_db()
+        get_settings.cache_clear()

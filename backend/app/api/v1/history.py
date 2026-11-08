@@ -35,6 +35,21 @@ async def stats(
         )
 
 
+@router.get("/breakdown")
+async def breakdown(
+    sport: str | None = Query(default=None),
+    market: str | None = Query(default=None),
+    date_from: date | None = Query(default=None, alias="from"),
+    date_to: date | None = Query(default=None, alias="to"),
+    decision: str = Query(default=DEFAULT_DECISION, pattern="^(PLAY|BORDERLINE|NO BET|all)$"),
+) -> dict:
+    """Per campionato: squadre/tennisti coinvolti nelle giocate, dal più "preso", con i tipi di evento per percentuale."""
+    async with _maker()() as session:
+        return await history.compute_breakdown(
+            session, sport=sport, market=market, date_from=date_from, date_to=date_to, decision=decision,
+        )
+
+
 @router.get("/predictions")
 async def predictions(
     sport: str | None = Query(default=None),

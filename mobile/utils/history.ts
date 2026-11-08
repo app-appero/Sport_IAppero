@@ -1,4 +1,10 @@
-import type { HistoryCounts, HistoryGroup, SettlementStatus } from '@/types/api';
+import type {
+  HistoryBreakdownEntity,
+  HistoryBreakdownMarket,
+  HistoryCounts,
+  HistoryGroup,
+  SettlementStatus,
+} from '@/types/api';
 
 export const STATUS_LABEL: Record<SettlementStatus, string> = {
   won: 'Presa',
@@ -77,4 +83,28 @@ export function formatKickoffDay(iso: string | null): string {
   })
     .format(d)
     .replace('.', '');
+}
+
+export const ENTITIES_PREVIEW = 5;
+
+/** Teams/players of a competition: the first few, or all of them when expanded. Order comes from the server. */
+export function visibleEntities<T>(entities: T[], expanded: boolean, limit = ENTITIES_PREVIEW): T[] {
+  return expanded ? entities : entities.slice(0, limit);
+}
+
+/** "6 prese su 11 decise · 55%" for a team or a player. */
+export function entityLine(e: Pick<HistoryBreakdownEntity, 'won' | 'decided' | 'win_rate'>): string {
+  const base = decidedLine({ won: e.won, decided: e.decided } as HistoryCounts);
+  return e.decided > 0 ? `${base} · ${formatRate(e.win_rate)}` : base;
+}
+
+/** Market types of one team/player in the server's order (best rate first): "Over/Under 2.5 67% · 1X2 50%". */
+export function marketsLine(
+  markets: HistoryBreakdownMarket[],
+  label: (market: string) => string,
+): string {
+  return markets
+    .filter((m) => m.decided > 0)
+    .map((m) => `${label(m.market)} ${formatRate(m.win_rate)} (${m.won}/${m.decided})`)
+    .join(' · ');
 }
