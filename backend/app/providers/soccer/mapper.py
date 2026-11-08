@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from app.domain.leagues import soccer_league_name
+from app.domain.leagues import real_league_name, soccer_league_name
 from app.domain.models import (
     Competition,
     DecisionInfo,
@@ -331,6 +331,8 @@ def map_event(raw: dict[str, Any]) -> Event:
             name=str(
                 _dig(raw, "league_name", "competition_name")
                 or soccer_league_name(league)
+                # The engine sometimes sends the league NAME in the id field.
+                or (league if isinstance(league, str) and real_league_name(league) else None)
                 or f"League {league}"
             ),
         )

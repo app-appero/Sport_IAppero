@@ -360,3 +360,45 @@ def test_soccer_mapper_names_leagues_from_the_engine_list():
     assert ev.competition.id == "138" and ev.competition.name == "Serie C - Girone A"
     unknown = map_event({"fixture_id": 8, "league": 99999, "name": "A vs B"})
     assert unknown.competition.name == "League 99999"
+
+
+def test_league_name_cleanup_and_mapper_keep_names_the_engine_sends_in_the_id_field():
+    from app.domain.leagues import real_league_name
+    from app.providers.soccer.mapper import map_event
+
+    assert real_league_name("League Serie A") == "Serie A"
+    assert real_league_name("League Ligue 1") == "Ligue 1"
+    assert real_league_name("League UEFA Champions League") == "UEFA Champions League"
+    assert real_league_name("Serie A") == "Serie A"
+    assert real_league_name("League 138") is None and real_league_name("138") is None
+    assert real_league_name(None) is None and real_league_name("  ") is None
+    ev = map_event({"fixture_id": 9, "league": "Serie A", "name": "A vs B"})
+    assert ev.competition.name == "Serie A"
+
+
+async def test_breakdown_strips_the_league_prefix_from_stored_names(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+
+    from sqlalchemy import update
+
+    from app.db import session as db_session
+    from app.db.models import Event
+    from app.persistence import history
+    from app.persistence.recorder import record_ledger
+    from app.providers.soccer.ledger import map_ledger_payload
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'brk4.db'}")
+    get_settings.cache_clear()
+    assert await db_session.init_db()
+    try:
+        fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
+        await record_ledger(map_ledger_payload(json.loads(fixture.read_text())))
+        async with db_session.get_sessionmaker()() as session:
+            await session.execute(update(Event).values(competition_id="Serie A", competition_name="League Serie A"))
+            await session.commit()
+            res = await history.compute_breakdown(session, sport="football")
+        assert [c["competition"] for c in res["competitions"]] == ["Serie A"]
+    finally:
+        await db_session.close_db()
+        get_settings.cache_clear()

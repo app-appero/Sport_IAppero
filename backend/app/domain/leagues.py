@@ -30,6 +30,7 @@ SOCCER_LEAGUE_NAMES: dict[str, str] = {
 }
 
 _PLACEHOLDER = re.compile(r"^\s*League\s+(\d+)\s*$", re.IGNORECASE)
+_PREFIX = re.compile(r"^\s*League\s+(.+?)\s*$", re.IGNORECASE)
 
 
 def soccer_league_name(league_id: object) -> str | None:
@@ -40,3 +41,13 @@ def placeholder_league_id(name: str | None) -> str | None:
     """"League 138" is what the BFF used when it knew only the id: return "138", else None."""
     match = _PLACEHOLDER.match(name) if name else None
     return match.group(1) if match else None
+
+
+def real_league_name(name: str | None) -> str | None:
+    """A usable league name: the stored text without the "League " prefix the BFF used to add when the engine
+    sent the name in the id field ("League Serie A" -> "Serie A"). None when only an id is left ("League 138")."""
+    if not name or not name.strip():
+        return None
+    match = _PREFIX.match(name)
+    rest = (match.group(1) if match else name).strip()
+    return None if rest.isdigit() else rest
