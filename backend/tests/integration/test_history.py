@@ -199,3 +199,40 @@ async def test_default_counts_only_recommended_plays_and_names_are_filled(tmp_pa
     finally:
         await db_session.close_db()
         get_settings.cache_clear()
+
+
+async def test_history_hides_markets_not_promoted_yet(tmp_path, monkeypatch):
+    import json
+    from dataclasses import replace
+    from pathlib import Path
+
+    from app.db import session as db_session
+    from app.persistence import history
+    from app.persistence.recorder import record_ledger
+    from app.providers.soccer.ledger import map_ledger_payload
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'hide.db'}")
+    get_settings.cache_clear()
+    assert await db_session.init_db()
+    try:
+        fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
+        records = map_ledger_payload(json.loads(fixture.read_text()))
+        corners = [
+            replace(records[1], source_ref="corners-1", fixture_id="998", market="corners", line=None,
+                    settlement_status="won"),
+            replace(records[1], source_ref="corners-2", fixture_id="997", market="corners_line_9_5",
+                    settlement_status="lost"),
+        ]
+        await record_ledger(records + corners)
+
+        async with db_session.get_sessionmaker()() as session:
+            stats = await history.compute_stats(session, sport="football", decision="all")
+            listed = await history.list_ledger(session, sport="football", decision="all", limit=200)
+            only_corners = await history.compute_stats(session, sport="football", market="corners", decision="all")
+        assert not any(g["market"].startswith("corners") for g in stats["groups"])
+        assert not any(i["market"].startswith("corners") for i in listed["items"])
+        assert only_corners["totals"]["total"] == 0
+        assert stats["totals"]["total"] == 4  # the five fixture rows minus the one excluded for timing
+    finally:
+        await db_session.close_db()
+        get_settings.cache_clear()

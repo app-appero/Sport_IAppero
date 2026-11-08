@@ -15,6 +15,9 @@ from app.db.models import Event, PredictionRevision, PredictionSettlement
 # rows (NO BET, BORDERLINE) stay in the database and can be requested explicitly.
 DEFAULT_DECISION = "PLAY"
 DECISIONS = ("PLAY", "BORDERLINE", "NO BET", "all")
+# Markets the engines track but have not promoted yet: never part of the history shown to users
+# (corner: not promoted). The rows stay in the database.
+NOT_PROMOTED_MARKET_PREFIXES = ("corners",)
 STATUSES = ("won", "lost", "void", "pending", "not_placed", "unknown")
 
 
@@ -66,6 +69,8 @@ def _base_query(
         .join(Event, Event.id == PredictionRevision.event_id)
         .where(PredictionRevision.is_official.is_(True))
     )
+    for prefix in NOT_PROMOTED_MARKET_PREFIXES:
+        q = q.where(~PredictionRevision.market.like(f"{prefix}%"))
     if sport:
         q = q.where(PredictionRevision.sport == sport)
     if decision and decision != "all":
