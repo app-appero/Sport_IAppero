@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from app.domain.leagues import soccer_league_name
 from app.domain.models import (
     Competition,
     DecisionInfo,
@@ -327,7 +328,11 @@ def map_event(raw: dict[str, Any]) -> Event:
     elif isinstance(league, (str, int)):
         competition = Competition(
             id=str(league),
-            name=str(_dig(raw, "league_name", "competition_name") or f"League {league}"),
+            name=str(
+                _dig(raw, "league_name", "competition_name")
+                or soccer_league_name(league)
+                or f"League {league}"
+            ),
         )
     elif _dig(raw, "league_name"):
         competition = Competition(

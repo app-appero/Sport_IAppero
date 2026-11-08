@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Event, PredictionRevision, PredictionSettlement
+from app.domain.leagues import placeholder_league_id, soccer_league_name
 
 # The performance shown to users is about recommended plays only; tracked-but-discarded
 # rows (NO BET, BORDERLINE) stay in the database and can be requested explicitly.
@@ -241,13 +242,19 @@ def _participant_names(ev: Event) -> list[str]:
 
 
 def _competition_label(ev: Event, known_names: dict[tuple[str, str], str]) -> str:
-    if ev.competition_name:
+    # "League 138" is a placeholder stored when only the id was known: it is not a name.
+    placeholder_id = placeholder_league_id(ev.competition_name)
+    if ev.competition_name and placeholder_id is None:
         return ev.competition_name
-    if ev.competition_id:
-        # The official ledger carries only the league id: borrow the name another event of the same league
-        # already has (seen in the feed). Never invented.
-        known = known_names.get((ev.sport, ev.competition_id))
-        return known or f"Campionato n. {ev.competition_id}"
+    league_id = ev.competition_id or placeholder_id
+    if league_id:
+        # The official ledger carries only the league id: the engine's configured leagues first, then the
+        # name another event of the same league already has (seen in the feed). Never invented.
+        return (
+            (ev.sport == "football" and soccer_league_name(league_id))
+            or known_names.get((ev.sport, league_id))
+            or f"Campionato n. {league_id}"
+        )
     return "Campionato non indicato"
 
 
@@ -261,7 +268,8 @@ async def _known_competition_names(session: AsyncSession) -> dict[tuple[str, str
     ).all()
     names: dict[tuple[str, str], str] = {}
     for sport, cid, cname in rows:
-        names.setdefault((sport, cid), cname)
+        if placeholder_league_id(cname) is None:
+            names.setdefault((sport, cid), cname)
     return names
 
 

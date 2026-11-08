@@ -268,7 +268,7 @@ async def test_breakdown_by_competition_counts_both_sides_and_orders_by_prese(tm
         async with db_session.get_sessionmaker()() as session:
             res = await history.compute_breakdown(session, sport="football")
         comps = res["competitions"]
-        assert len(comps) == 1 and comps[0]["competition"] == "Campionato n. 492"
+        assert len(comps) == 1 and comps[0]["competition"] == "Eerste Divisie"  # engine league 492
         ents = {e["name"]: e for e in comps[0]["entities"]}
         # Roma is in 3 plays (loss, win, win): both sides of every match count.
         assert (ents["Roma"]["won"], ents["Roma"]["lost"]) == (2, 1)
@@ -306,12 +306,57 @@ async def test_breakdown_names_competition_from_other_events_of_the_same_league(
         fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
         await record_ledger(map_ledger_payload(json.loads(fixture.read_text())))
         async with db_session.get_sessionmaker()() as session:
+            # A league the engine list does not know (id 77777): the name comes from another event of it.
+            await session.execute(update(Event).values(competition_id="77777"))
             await session.execute(
-                update(Event).where(Event.source_event_id == "1579487").values(competition_name="Serie A")
+                update(Event).where(Event.source_event_id == "1579487").values(competition_name="Lega X")
             )
             await session.commit()
             res = await history.compute_breakdown(session, sport="football")
-        assert [c["competition"] for c in res["competitions"]] == ["Serie A"]
+        assert [c["competition"] for c in res["competitions"]] == ["Lega X"]
     finally:
         await db_session.close_db()
         get_settings.cache_clear()
+
+
+async def test_breakdown_replaces_placeholder_league_names_with_real_ones(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+
+    from sqlalchemy import update
+
+    from app.db import session as db_session
+    from app.db.models import Event
+    from app.persistence import history
+    from app.persistence.recorder import record_ledger
+    from app.providers.soccer.ledger import map_ledger_payload
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'brk3.db'}")
+    get_settings.cache_clear()
+    assert await db_session.init_db()
+    try:
+        fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
+        await record_ledger(map_ledger_payload(json.loads(fixture.read_text())))
+        async with db_session.get_sessionmaker()() as session:
+            await session.execute(
+                update(Event).values(competition_id="138", competition_name="League 138")
+            )
+            await session.execute(
+                update(Event).where(Event.source_event_id == "1579487").values(competition_id=None)
+            )
+            await session.commit()
+            res = await history.compute_breakdown(session, sport="football")
+        # Both the id-based and the placeholder-name-based lookups land on the real league name.
+        assert [c["competition"] for c in res["competitions"]] == ["Serie C - Girone A"]
+    finally:
+        await db_session.close_db()
+        get_settings.cache_clear()
+
+
+def test_soccer_mapper_names_leagues_from_the_engine_list():
+    from app.providers.soccer.mapper import map_event
+
+    ev = map_event({"fixture_id": 7, "league": 138, "name": "A vs B"})
+    assert ev.competition.id == "138" and ev.competition.name == "Serie C - Girone A"
+    unknown = map_event({"fixture_id": 8, "league": 99999, "name": "A vs B"})
+    assert unknown.competition.name == "League 99999"

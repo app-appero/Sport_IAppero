@@ -65,6 +65,7 @@ function HistoryBody({
   const [market, setMarket] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [period, setPeriod] = useState<PeriodId>('all');
+  const [league, setLeague] = useState<string | undefined>(undefined);
   const online = useOnline();
 
   const from = useMemo(() => periodFrom(period, romeToday()), [period]);
@@ -122,9 +123,16 @@ function HistoryBody({
               <Text style={styles.note}>
                 Squadre e giocatori coinvolti nelle giocate, dal più preso. Ogni giocata conta per entrambe le parti della partita; sotto, i tipi di evento per percentuale.
               </Text>
-              {breakdown.data.competitions.map((c) => (
-                <CompetitionCard key={c.competition} competition={c} />
-              ))}
+              <FilterChips
+                options={breakdown.data.competitions.map((c) => ({ label: c.competition, value: c.competition }))}
+                value={selectedLeague(breakdown.data.competitions, league)?.competition}
+                onChange={setLeague}
+                accessibilityLabel="Campionato"
+              />
+              {(() => {
+                const current = selectedLeague(breakdown.data.competitions, league);
+                return current ? <CompetitionCard key={current.competition} competition={current} /> : null;
+              })()}
             </>
           ) : null}
         </>
@@ -305,6 +313,14 @@ function GroupCard({ title, counts }: { title: string; counts: HistoryCounts }) 
       </Text>
     </View>
   );
+}
+
+/** The tab shown: the chosen league, or the first one (most "prese") when none is chosen or it is gone. */
+function selectedLeague(
+  competitions: HistoryBreakdownCompetition[],
+  chosen: string | undefined,
+): HistoryBreakdownCompetition | undefined {
+  return competitions.find((c) => c.competition === chosen) ?? competitions[0];
 }
 
 function CompetitionCard({ competition }: { competition: HistoryBreakdownCompetition }) {
