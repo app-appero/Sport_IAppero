@@ -38,7 +38,7 @@ export function newDecisionTotals(): DecisionTotals {
 export function tallyDecision(
   totals: DecisionTotals,
   code: string | null | undefined,
-  tone: string,
+  tone: string | null,
   closedWithoutResult: boolean,
 ): void {
   const key = decisionCode(code);
