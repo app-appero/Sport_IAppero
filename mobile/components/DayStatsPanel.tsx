@@ -6,6 +6,7 @@ import { marketLabel } from '@/constants/markets';
 import { useThemedStyles } from '@/components/SportTheme';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { DayStats, EventDayStat, MarketTypeStat } from '@/utils/dayStats';
+import { DECISION_SHORT_LABEL, decisionRatio } from '@/utils/decisionTotals';
 import { selectionLabel } from '@/utils/selectionLabel';
 
 type Props = {
@@ -28,6 +29,9 @@ export function DayStatsPanel({ stats, sport }: Props) {
 
   const ratio = stats.settled > 0 ? `${stats.hits}/${stats.settled}` : `0/0`;
   const pct = stats.hitRate != null ? `${Math.round(stats.hitRate * 100)}%` : '—';
+  const decisionSummary = stats.byDecision
+    .map((d) => `${DECISION_SHORT_LABEL[d.decision]} ${decisionRatio(d)}`)
+    .join(', ');
 
   return (
     <View style={styles.wrap}>
@@ -39,13 +43,21 @@ export function DayStatsPanel({ stats, sport }: Props) {
         style={styles.summary}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`Statistica giornata: presi ${ratio}`}
+        accessibilityLabel={`Statistica giornata: presi ${ratio}. ${decisionSummary}`}
       >
         <View style={styles.summaryLeft}>
           <Text style={styles.kicker}>Statistica giornata</Text>
           <Text style={styles.ratio}>
             Presi <Text style={styles.ratioAccent}>{ratio}</Text>
           </Text>
+          <View style={styles.decisionRow}>
+            {stats.byDecision.map((d) => (
+              <Text key={d.decision} style={styles.decisionItem}>
+                {`${DECISION_SHORT_LABEL[d.decision]} `}
+                <Text style={styles.decisionRatio}>{decisionRatio(d)}</Text>
+              </Text>
+            ))}
+          </View>
         </View>
         <View style={styles.summaryRight}>
           <Text style={styles.pct}>{pct}</Text>
@@ -291,6 +303,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     color: colors.inkMuted,
     paddingHorizontal: spacing.md,
   },
+  decisionRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 2, marginTop: 2 },
+  decisionItem: { fontFamily: fonts.body, fontSize: fs(12), color: colors.inkMuted },
+  decisionRatio: { fontFamily: fonts.bodyBold, color: colors.accentText },
   marketTypeRow: {
     flexDirection: 'row',
     alignItems: 'center',

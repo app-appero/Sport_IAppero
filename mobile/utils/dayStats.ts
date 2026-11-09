@@ -1,5 +1,11 @@
 import type { FeedItem, UnifiedPrediction } from '@/types/api';
 import { eventStatusLabel, isClosedWithoutResult } from '@/utils/eventStatus';
+import {
+  decisionTotalsList,
+  newDecisionTotals,
+  tallyDecision,
+  type DecisionTotal,
+} from '@/utils/decisionTotals';
 import { outcomeTone, type OutcomeTone } from '@/utils/outcome';
 
 export type MarketStat = {
@@ -37,6 +43,8 @@ export type DayStats = {
   settled: number;
   /** hits / settled, null if nothing settled yet */
   hitRate: number | null;
+  /** Taken / decided for each state, in order Play, Borderline, No bet. */
+  byDecision: DecisionTotal[];
   byMarket: MarketTypeStat[];
   byEvent: EventDayStat[];
 };
@@ -53,6 +61,7 @@ export function buildDayStats(
 ): DayStats {
   const byEvent: EventDayStat[] = [];
   const marketMap = new Map<string, MarketTypeStat>();
+  const decisionTotals = newDecisionTotals();
   let hits = 0;
   let misses = 0;
   let pending = 0;
@@ -70,6 +79,7 @@ export function buildDayStats(
       if (m.tone === 'hit') eh += 1;
       else if (m.tone === 'miss') em += 1;
       else if (!closedNoResult) ep += 1;
+      tallyDecision(decisionTotals, m.prediction.decision?.code, m.tone, Boolean(closedNoResult));
 
       const key = marketGroupKey(m.prediction.prediction.type);
       let bucket = marketMap.get(key);
@@ -139,6 +149,7 @@ export function buildDayStats(
     pending,
     settled,
     hitRate: settled > 0 ? hits / settled : null,
+    byDecision: decisionTotalsList(decisionTotals),
     byMarket,
     byEvent,
   };
