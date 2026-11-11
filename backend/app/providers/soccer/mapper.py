@@ -19,6 +19,7 @@ from app.domain.models import (
     Selection,
     UnifiedPrediction,
 )
+from app.providers import transparency as tx
 
 SPORT = "football"
 PROVIDER = "soccer-oracle"
@@ -396,6 +397,10 @@ def map_event(raw: dict[str, Any]) -> Event:
         score=score_obj,
         live=live_state,
         actual_totals=actual_totals,
+        unavailable_markets=tx.unavailable_markets(
+            raw.get("markets_unavailable"),
+            raw.get("markets_missing_reasons"),
+        ),
     )
 
 
@@ -869,18 +874,54 @@ def map_market_prediction(
 
     correct = _resolve_correct(market, selection, event, market_payload)
 
+    model_name = tx.clean_text(
+        _dig(decision_card or {}, "model_name") or market_payload.get("model_name")
+    )
+    run_id = tx.clean_text(
+        _dig(decision_card or {}, "run_id") or market_payload.get("run_id")
+    )
+    generated_at = tx.parse_timestamp(
+        market_payload.get("computed_at")
+        or _dig(decision_card or {}, "computed_at", "captured_at")
+    )
+    limited_reason = None
+    quality_payload = market_payload.get("data_quality")
+    if not isinstance(quality_payload, dict) and isinstance(decision_card, dict):
+        quality_payload = decision_card.get("data_quality")
+    data_quality = quality_payload if isinstance(quality_payload, dict) else None
+    if isinstance(data_quality, dict) and data_quality.get("xg_available") is False:
+        limited_reason = "xg_unavailable"
+
+    anomalies = tx.merge_anomalies(
+        tx.probability_anomalies(
+            market_payload.get("probability")
+            or _dig(decision_card or {}, "predicted_probability", "p_model"),
+            confidence,
+        ),
+        tx.engine_warnings(market_payload.get("warnings"), (decision_card or {}).get("warnings")),
+    )
+
     return UnifiedPrediction(
         id=f"soccer_{event.id}_{market}",
         sport=SPORT,
         event=event,
         prediction=PredictionValue(type=market, selection=selection, confidence=confidence),
         probabilities=probabilities,
-        provider=ProviderMetadata(name=PROVIDER, version=None),
+        provider=ProviderMetadata(name=PROVIDER, version=run_id),
         oracle_score=None,
-        generated_at=None,
+        generated_at=generated_at,
         correct=correct,
         pricing=_pricing_from_card(decision_card),
         decision=_decision_from_card(decision_card),
+        model=tx.model_info(model_name, run_id),
+        availability=tx.availability(confidence, limited_reason=limited_reason),
+        data_freshness=tx.data_freshness(predicted_at=generated_at),
+        provenance=tx.provenance(
+            PROVIDER,
+            source="soccer-oracle/dashboard",
+            data_quality=data_quality,
+        ),
+        anomalies=anomalies,
         raw=market_payload,
     )
 
@@ -912,6 +953,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     event = map_event(row)
     nested = row.get("predictions")
     cards = _index_decision_cards(row)
+    row_quality = row.get("data_quality") if isinstance(row.get("data_quality"), dict) else None
 
     if isinstance(nested, dict):
         three_way = _parse_1x2_probabilities(
@@ -929,10 +971,13 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 continue
             if not isinstance(market_payload, dict):
                 continue
+            payload = dict(market_payload)
+            if row_quality is not None and "data_quality" not in payload:
+                payload["data_quality"] = row_quality
             out.append(
                 map_market_prediction(
                     mkey,
-                    market_payload,
+                    payload,
                     event,
                     three_way=three_way if mkey in {"h2h", "dc"} else None,
                     decision_card=cards.get(mkey),

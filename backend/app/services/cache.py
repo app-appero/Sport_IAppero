@@ -47,6 +47,9 @@ class SnapshotStore:
         )
         self._purge_expired(now)
 
+    def clear(self) -> None:
+        self._entries.clear()
+
     def _purge_expired(self, now: float) -> None:
         dead = [k for k, v in self._entries.items() if now > v.stale_until]
         for key in dead:
@@ -81,6 +84,16 @@ class SingleFlightCache:
             return entry.value
         self._entries.pop(key, None)
         return None
+
+    def clear(self) -> None:
+        """Drop every cached value so the next read rebuilds from the engines."""
+        self._entries.clear()
+
+    def age_seconds(self, key: str) -> float | None:
+        entry = self._entries.get(key)
+        if not entry:
+            return None
+        return max(0.0, time.monotonic() - entry.created_at)
 
     async def get_or_build(self, key: str, builder: Callable[[], Awaitable[T]]) -> T:
         fresh = self.get_fresh(key)

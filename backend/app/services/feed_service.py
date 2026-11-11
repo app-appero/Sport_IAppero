@@ -59,6 +59,13 @@ def reset_feed_state() -> None:
     _snapshots = None
 
 
+def invalidate_feed_cache() -> None:
+    """Drop in-memory feed snapshots after an admin refresh of the engines."""
+    feed_cache, snapshots = _caches()
+    feed_cache.clear()
+    snapshots.clear()
+
+
 @dataclass
 class ProviderSlice:
     sport: str
@@ -371,18 +378,21 @@ async def get_feed(
             raise SnapshotExpired(snap_id)
         offset = max(0, offset)
 
+    served_stale = False
     if snapshot is None:
+        cache_key = _cache_key(query)
         try:
             snapshot = await feed_cache.get_or_build(
-                _cache_key(query),
+                cache_key,
                 lambda: _build_snapshot(query),
             )
             # Re-key into snapshot store under snapshot_id
             snapshots.put(snapshot.snapshot_id, snapshot)
         except ProviderError as exc:
-            stale = feed_cache.get_stale(_cache_key(query))
+            stale = feed_cache.get_stale(cache_key)
             if stale is not None:
                 snapshot = stale
+                served_stale = True
                 snapshots.put(snapshot.snapshot_id, snapshot)
             else:
                 raise ProviderError("feed", exc.message, status_code=503) from exc
@@ -392,6 +402,14 @@ async def get_feed(
     next_cursor = None
     if next_offset < len(snapshot.items):
         next_cursor = _encode_cursor(snapshot.snapshot_id, next_offset, snapshot.filter_hash)
+
+    generated = snapshot.generated_at
+    if generated.tzinfo is None:
+        generated = generated.replace(tzinfo=UTC)
+    age_seconds = max(0.0, (datetime.now(UTC) - generated.astimezone(UTC)).total_seconds())
+    warnings = list(snapshot.warnings)
+    if served_stale:
+        warnings = [*warnings, "served_from_stale_cache"]
 
     return FeedResponse(
         schema_version="1",
@@ -404,7 +422,9 @@ async def get_feed(
             status=snapshot.meta_status,
             is_complete=snapshot.is_complete,
             providers=snapshot.providers,
-            warnings=snapshot.warnings,
+            warnings=warnings,
+            snapshot_age_seconds=age_seconds,
+            is_stale=served_stale,
         ),
     )
 

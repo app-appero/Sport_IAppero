@@ -112,13 +112,15 @@ function PredictionDetail() {
   const outcomes =
     item.probabilities.length > 0
       ? item.probabilities
-      : [
-          {
-            key: item.prediction.selection.id || 'sel',
-            label: item.prediction.selection.name,
-            value: item.prediction.confidence ?? 0,
-          },
-        ];
+      : item.prediction.confidence != null
+        ? [
+            {
+              key: item.prediction.selection.id || 'sel',
+              label: item.prediction.selection.name,
+              value: item.prediction.confidence,
+            },
+          ]
+        : [];
   const pricing = item.pricing;
   const decision = item.decision;
   const hasExtras =

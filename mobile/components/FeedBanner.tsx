@@ -20,6 +20,15 @@ export function FeedBanner({
     lines.push('Modalità compatibilità: feed ricostruito dagli endpoint per sport.');
   }
 
+  if (meta.is_stale) {
+    const age = meta.snapshot_age_seconds;
+    lines.push(
+      typeof age === 'number' && age > 0
+        ? `Dati in cache (non aggiornati ora; età circa ${Math.round(age)}s).`
+        : 'Dati in cache: i motori non hanno risposto, mostrati gli ultimi disponibili.',
+    );
+  }
+
   if (meta.status === 'unavailable') {
     lines.push('Feed non disponibile: entrambi i provider sono offline.');
   } else if (meta.status === 'degraded') {

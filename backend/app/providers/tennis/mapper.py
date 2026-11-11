@@ -18,6 +18,7 @@ from app.domain.models import (
     Selection,
     UnifiedPrediction,
 )
+from app.providers import transparency as tx
 
 SPORT = "tennis"
 PROVIDER = "tennis-oracle"
@@ -396,6 +397,7 @@ def map_event(raw: dict[str, Any]) -> Event:
         score=score_obj,
         live=live_state,
         actual_totals=actual_totals,
+        unavailable_markets=[],
     )
 
 
@@ -535,6 +537,32 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
             settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
             correct = _settle_tennis_market("match_winner", selection, settlement)
 
+    generated_at = tx.parse_timestamp(prediction.get("predicted_at"))
+    model_version = tx.clean_text(prediction.get("model_version"))
+    model_name = tx.clean_text(prediction.get("model_name"))
+    decision = _match_winner_decision(raw, prediction)
+    decision_derived = decision is not None and not (
+        isinstance(raw.get("value_decision"), str)
+        or isinstance(prediction.get("value_decision"), str)
+    )
+    features_available = prediction.get("features_available")
+    limited_reason = None
+    if features_available is False:
+        limited_reason = "features_unavailable"
+    anomalies = tx.merge_anomalies(
+        tx.probability_anomalies(prediction.get("prob_player_1_win"), conf),
+        tx.engine_warnings(prediction.get("warnings"), raw.get("prediction_warning")),
+        ["decision_derived_by_bff"] if decision_derived else [],
+        ["features_unavailable"] if features_available is False else [],
+        ["naive_datetime"] if generated_at is not None and generated_at.tzinfo is None else [],
+    )
+    quality = prediction.get("data_quality")
+    if not isinstance(quality, dict):
+        quality = {
+            "features_available": features_available,
+            "warnings": prediction.get("warnings") or [],
+        }
+
     return UnifiedPrediction(
         id=f"tennis_{event.id}_match_winner",
         sport=SPORT,
@@ -547,12 +575,28 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
         probabilities=probabilities,
         provider=ProviderMetadata(
             name=PROVIDER,
-            version=str(prediction.get("model_version") or "") or None,
+            version=model_version,
         ),
         oracle_score=None,
-        generated_at=_parse_dt(prediction.get("predicted_at")),
+        generated_at=generated_at,
         correct=correct,
-        decision=_match_winner_decision(raw, prediction),
+        decision=decision,
+        model=tx.model_info(model_name, model_version),
+        availability=tx.availability(conf, limited_reason=limited_reason),
+        data_freshness=tx.data_freshness(
+            predicted_at=generated_at,
+            event_data_updated_at=tx.parse_timestamp(raw.get("imported_at")),
+            live_updated_at=tx.parse_timestamp(raw.get("live_score_updated_at")),
+            odds_captured_at=tx.parse_timestamp(
+                prediction.get("odds_captured_at") or raw.get("odds_captured_at")
+            ),
+        ),
+        provenance=tx.provenance(
+            PROVIDER,
+            source=tx.clean_text(raw.get("source")) or "api-tennis",
+            data_quality=quality if isinstance(quality, dict) else None,
+        ),
+        anomalies=anomalies,
         raw=prediction,
     )
 
@@ -600,6 +644,20 @@ def map_extra_market(
     else:
         correct = _settle_tennis_market(market, selection, settlement)
 
+    generated_at = tx.parse_timestamp(market_payload.get("published_at"))
+    model_version = tx.clean_text(market_payload.get("model_version"))
+    model_name = tx.clean_text(market_payload.get("model_name"))
+    decision = _extra_market_decision(market_payload)
+    decision_derived = decision is not None and not isinstance(
+        market_payload.get("value_decision"), str
+    )
+    anomalies = tx.merge_anomalies(
+        tx.probability_anomalies(market_payload.get("probability"), confidence),
+        tx.engine_warnings(market_payload.get("warnings")),
+        ["decision_derived_by_bff"] if decision_derived else [],
+        ["naive_datetime"] if generated_at is not None and generated_at.tzinfo is None else [],
+    )
+
     return UnifiedPrediction(
         id=f"tennis_{event.id}_{market}",
         sport=SPORT,
@@ -608,12 +666,24 @@ def map_extra_market(
         probabilities=probabilities,
         provider=ProviderMetadata(
             name=PROVIDER,
-            version=str(market_payload.get("model_version") or "") or None,
+            version=model_version,
         ),
         oracle_score=None,
-        generated_at=_parse_dt(market_payload.get("published_at")),
+        generated_at=generated_at,
         correct=correct,
-        decision=_extra_market_decision(market_payload),
+        decision=decision,
+        model=tx.model_info(model_name, model_version),
+        availability=tx.availability(confidence),
+        data_freshness=tx.data_freshness(
+            predicted_at=generated_at,
+            event_data_updated_at=tx.parse_timestamp(raw_event.get("imported_at")),
+            live_updated_at=tx.parse_timestamp(raw_event.get("live_score_updated_at")),
+        ),
+        provenance=tx.provenance(
+            PROVIDER,
+            source=tx.clean_text(raw_event.get("source")) or "api-tennis",
+        ),
+        anomalies=anomalies,
         raw=market_payload,
     )
 
