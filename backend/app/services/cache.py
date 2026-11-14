@@ -96,14 +96,22 @@ class SingleFlightCache:
         return max(0.0, time.monotonic() - entry.created_at)
 
     async def get_or_build(self, key: str, builder: Callable[[], Awaitable[T]]) -> T:
+        value, _stale = await self.get_or_build_ex(key, builder)
+        return value
+
+    async def get_or_build_ex(
+        self, key: str, builder: Callable[[], Awaitable[T]]
+    ) -> tuple[T, bool]:
+        """Like get_or_build, but also says whether the value is a stale fallback
+        (the rebuild failed and an expired entry was served instead)."""
         fresh = self.get_fresh(key)
         if fresh is not None:
-            return fresh
+            return fresh, False
 
         async with self._lock:
             fresh = self.get_fresh(key)
             if fresh is not None:
-                return fresh
+                return fresh, False
             existing = self._inflight.get(key)
             if existing is None:
                 loop = asyncio.get_running_loop()
@@ -126,14 +134,15 @@ class SingleFlightCache:
                 expires_at=now + self.ttl_seconds,
                 stale_until=now + self.stale_max_seconds,
             )
-            fut.set_result(value)
-            return value
+            fut.set_result((value, False))
+            return value, False
         except Exception as exc:
             stale = self.get_stale(key)
             if stale is not None:
-                fut.set_result(stale)
-                return stale
+                fut.set_result((stale, True))
+                return stale, True
             fut.set_exception(exc)
+            fut.exception()  # mark retrieved: no waiter may exist, avoids asyncio log noise
             raise
         finally:
             async with self._lock:

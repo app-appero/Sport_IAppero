@@ -382,7 +382,7 @@ async def get_feed(
     if snapshot is None:
         cache_key = _cache_key(query)
         try:
-            snapshot = await feed_cache.get_or_build(
+            snapshot, served_stale = await feed_cache.get_or_build_ex(
                 cache_key,
                 lambda: _build_snapshot(query),
             )
