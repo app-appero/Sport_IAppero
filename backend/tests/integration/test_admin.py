@@ -217,3 +217,57 @@ def test_refresh_event_partial_when_engine_reports_errors(client, keys, monkeypa
     monkeypatch.setattr(get_provider("football"), "refresh_event", partial)
     body = client.post("/api/v1/admin/events/football/9/refresh", headers=owner).json()
     assert body["state"] == "partial" and body["errors"] == {"scorers": "boom"}
+
+
+def _cached_feed_entries():
+    from app.services import feed_service
+
+    feed_cache, snapshots = feed_service._caches()
+    return len(feed_cache._entries), len(snapshots._entries)
+
+
+def test_refresh_started_drops_feed_cache_and_keeps_cooldown_and_audit(client, keys):  # noqa: F811
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
+    assert _cached_feed_entries()[0] > 0
+    assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 200
+    assert _cached_feed_entries() == (0, 0)
+    # cooldown and audit are untouched
+    assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 429
+    actions = [i["action"] for i in client.get("/api/v1/admin/audit", headers=owner).json()["items"]]
+    assert actions == ["refresh"]
+
+
+def test_refresh_not_started_keeps_feed_cache(client, keys, monkeypatch):  # noqa: F811
+    from app.core.exceptions import ProviderUnavailable
+
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
+    before = _cached_feed_entries()
+
+    async def broken(*, force_outside_hours=False):
+        raise ProviderUnavailable("x", "/jobs returned 500", 500)
+
+    for sport in ("football", "tennis"):
+        monkeypatch.setattr(get_providers()[sport], "start_refresh", broken)
+    res = client.post("/api/v1/admin/refresh", headers=owner, json={}).json()
+    assert {r["state"] for r in res["results"].values()} == {"error"}
+    assert _cached_feed_entries() == before
+
+
+def test_refresh_event_drops_feed_cache_only_on_success(client, keys, monkeypatch):  # noqa: F811
+    from app.core.exceptions import ProviderUnavailable
+    from app.services.registry import get_provider
+
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
+    before = _cached_feed_entries()
+
+    async def broken(event_id):
+        raise ProviderUnavailable("soccer-oracle", "/refresh returned 500", 500)
+
+    monkeypatch.setattr(get_provider("football"), "refresh_event", broken)
+    assert client.post("/api/v1/admin/events/football/9/refresh", headers=owner).status_code == 502
+    assert _cached_feed_entries() == before
+    assert client.post("/api/v1/admin/events/tennis/123/refresh", headers=owner).status_code == 200
+    assert _cached_feed_entries() == (0, 0)
