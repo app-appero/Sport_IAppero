@@ -7,7 +7,7 @@ import pytest
 import respx
 
 from app.core.config import get_settings
-from app.core.exceptions import ProviderUnavailable
+from app.core.exceptions import ProviderResponseError, ProviderUnavailable
 from app.providers.http_utils import request_json, reset_provider_circuits
 
 
@@ -64,3 +64,72 @@ async def test_circuit_opens_after_threshold():
             await request_json(client, provider="test-engine", method="GET", path="/data")
     assert "Circuit open" in str(exc.value)
     assert route.call_count == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_4xx_is_not_retried_and_does_not_open_the_circuit():
+    route = respx.get("https://engine.test/data").mock(return_value=httpx.Response(404, text="nope"))
+    async with httpx.AsyncClient(base_url="https://engine.test") as client:
+        for _ in range(4):
+            with pytest.raises(ProviderResponseError):
+                await request_json(client, provider="test-engine", method="GET", path="/data")
+    assert route.call_count == 4  # one call each: no retry, circuit never opened
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_429_is_retried_for_get():
+    route = respx.get("https://engine.test/data").mock(
+        side_effect=[httpx.Response(429), httpx.Response(200, json={"ok": 1})]
+    )
+    async with httpx.AsyncClient(base_url="https://engine.test") as client:
+        assert await request_json(client, provider="test-engine", method="GET", path="/data") == {"ok": 1}
+    assert route.call_count == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_timeout_is_retried_then_succeeds():
+    route = respx.get("https://engine.test/data").mock(
+        side_effect=[httpx.ReadTimeout("slow"), httpx.Response(200, json={"ok": 2})]
+    )
+    async with httpx.AsyncClient(base_url="https://engine.test") as client:
+        assert await request_json(client, provider="test-engine", method="GET", path="/data") == {"ok": 2}
+    assert route.call_count == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_attempts_are_capped(monkeypatch):
+    monkeypatch.setenv("PROVIDER_CIRCUIT_FAILURE_THRESHOLD", "99")
+    get_settings.cache_clear()
+    route = respx.get("https://engine.test/data").mock(return_value=httpx.Response(502))
+    async with httpx.AsyncClient(base_url="https://engine.test") as client:
+        with pytest.raises(ProviderUnavailable):
+            await request_json(client, provider="test-engine", method="GET", path="/data")
+    assert route.call_count == 3
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_success_resets_the_failure_count():
+    respx.get("https://engine.test/data").mock(
+        side_effect=[httpx.Response(500), httpx.Response(200, json={}), httpx.Response(500),
+                     httpx.Response(200, json={})]
+    )
+    async with httpx.AsyncClient(base_url="https://engine.test") as client:
+        for _ in range(2):  # threshold is 2: failures separated by a success never open it
+            await request_json(client, provider="test-engine", method="GET", path="/data")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_circuits_are_per_provider_and_error_text_has_no_url_credentials():
+    respx.get("https://user:secret@engine.test/data").mock(side_effect=httpx.ConnectError("refused"))
+    async with httpx.AsyncClient(base_url="https://user:secret@engine.test") as client:
+        with pytest.raises(ProviderUnavailable) as exc:
+            await request_json(client, provider="engine-a", method="GET", path="/data")
+        assert "secret" not in str(exc.value)
+        respx.get("https://user:secret@engine.test/ok").mock(return_value=httpx.Response(200, json={"a": 1}))
+        assert await request_json(client, provider="engine-b", method="GET", path="/ok") == {"a": 1}
