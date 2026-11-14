@@ -93,3 +93,75 @@ def test_tennis_marks_bff_derived_decisions():
     # Fixtures have odds but usually no value_decision: the BFF recovers PLAY/BORDERLINE.
     derived = [p for p in match_winners if "decision_derived_by_bff" in (p.anomalies or [])]
     assert derived
+
+
+def test_decision_source_is_declared_for_both_engines():
+    soccer = soccer_mapper.map_day_payload(load_fixture("soccer", "day.json"))
+    with_decision = [p for p in soccer if p.decision is not None]
+    assert with_decision
+    assert {p.provenance.decision_source for p in with_decision} == {"provider"}
+
+    tennis = tennis_mapper.map_predictions_payload(load_fixture("tennis", "predictions.json"))
+    assert {p.provenance.decision_source for p in tennis if p.decision} == {"bff_derived"}
+
+
+def test_tennis_provider_label_wins_and_is_not_marked_derived():
+    payload = load_fixture("tennis", "predictions.json")
+    payload["items"][0]["value_decision"] = "BORDERLINE"
+    first = next(
+        p for p in tennis_mapper.map_predictions_payload(payload) if p.prediction.type == "match_winner"
+    )
+    assert first.decision.code == "BORDERLINE"
+    assert first.provenance.decision_source == "provider"
+    assert "decision_derived_by_bff" not in first.anomalies
+
+
+def test_soccer_keeps_missing_upstream_values_empty_and_maps_present_ones():
+    predictions = soccer_mapper.map_day_payload(load_fixture("soccer", "day.json"))
+    sample = predictions[0]
+    # run_id is sent upstream; computed_at is not in the fixtures: no value is invented.
+    assert sample.provider.version == sample.model.version
+    assert sample.generated_at is None
+    assert sample.data_freshness is None
+
+    payload = load_fixture("soccer", "day.json")
+    for row in payload["rows"]:
+        for market in (row.get("predictions") or {}).values():
+            if isinstance(market, dict):
+                market["computed_at"] = "2026-09-19T06:42:38+00:00"
+    stamped = soccer_mapper.map_day_payload(payload)[0]
+    assert stamped.generated_at is not None and stamped.generated_at.tzinfo is not None
+    assert stamped.data_freshness.predicted_at == stamped.generated_at
+    assert stamped.data_freshness.timezone_explicit is True
+
+
+def test_old_payload_without_new_fields_still_validates():
+    """A payload shaped like the pre-audit contract (no new keys) must still parse."""
+    legacy = _serialize(soccer_mapper.map_day_payload(load_fixture("soccer", "day.json"))[0])
+    for key in SHARED_TRANSPARENCY_KEYS:
+        legacy.pop(key)
+    legacy["event"].pop("unavailable_markets")
+    legacy["provider"] = {"name": "soccer-oracle", "version": None}
+    parsed = UnifiedPrediction.model_validate(legacy)
+    assert parsed.model is None and parsed.availability is None
+    assert parsed.data_freshness is None and parsed.provenance is None
+    assert parsed.anomalies == []
+    assert parsed.event.unavailable_markets == []
+
+
+def test_feed_meta_without_new_fields_validates():
+    from app.domain.models import FeedMeta
+
+    meta = FeedMeta.model_validate({"status": "ok", "is_complete": True})
+    assert meta.is_stale is False and meta.snapshot_age_seconds is None
+
+
+def test_missing_probability_is_unavailable_with_anomaly():
+    from app.providers import transparency as tx
+
+    avail = tx.availability(None)
+    assert avail.status == "unavailable" and avail.reason == "no_probability"
+    assert tx.probability_anomalies(None, None) == ["probability_missing"]
+    assert tx.probability_anomalies("abc", None) == ["probability_not_numeric"]
+    assert tx.probability_anomalies(55, 0.55) == ["probability_sent_as_percent"]
+    assert tx.probability_anomalies(0.55, 0.55) == []

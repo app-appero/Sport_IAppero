@@ -130,6 +130,9 @@ class Provenance(BaseModel):
     engine: str
     source: str | None = None
     data_quality: dict[str, Any] | None = None
+    # Who produced `decision.code`: "provider" when the engine sent it, "bff_derived"
+    # when this BFF recovered it from odds and probability. None when there is no decision.
+    decision_source: Literal["provider", "bff_derived"] | None = None
 
 
 class PricingInfo(BaseModel):

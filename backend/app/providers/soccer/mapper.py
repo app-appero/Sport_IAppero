@@ -920,6 +920,7 @@ def map_market_prediction(
             PROVIDER,
             source="soccer-oracle/dashboard",
             data_quality=data_quality,
+            decision_source="provider" if _decision_from_card(decision_card) else None,
         ),
         anomalies=anomalies,
         raw=market_payload,

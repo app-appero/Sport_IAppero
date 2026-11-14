@@ -509,6 +509,12 @@ def _extra_market_decision(market_payload: dict[str, Any]) -> DecisionInfo | Non
     return _classify_value_decision(market_payload.get("odds"), void)
 
 
+def _decision_source(decision: DecisionInfo | None, derived: bool) -> str | None:
+    if decision is None:
+        return None
+    return "bff_derived" if derived else "provider"
+
+
 def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | None:
     prediction = raw.get("prediction")
     if not isinstance(prediction, dict):
@@ -595,6 +601,7 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
             PROVIDER,
             source=tx.clean_text(raw.get("source")) or "api-tennis",
             data_quality=quality if isinstance(quality, dict) else None,
+            decision_source=_decision_source(decision, decision_derived),
         ),
         anomalies=anomalies,
         raw=prediction,
@@ -682,6 +689,7 @@ def map_extra_market(
         provenance=tx.provenance(
             PROVIDER,
             source=tx.clean_text(raw_event.get("source")) or "api-tennis",
+            decision_source=_decision_source(decision, decision_derived),
         ),
         anomalies=anomalies,
         raw=market_payload,

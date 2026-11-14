@@ -126,8 +126,15 @@ def data_freshness(
     )
 
 
-def provenance(engine: str, *, source: Any = None, data_quality: Any = None) -> Provenance:
+def provenance(
+    engine: str,
+    *,
+    source: Any = None,
+    data_quality: Any = None,
+    decision_source: str | None = None,
+) -> Provenance:
     return Provenance(
+        decision_source=decision_source,  # type: ignore[arg-type]
         engine=engine,
         source=clean_text(source),
         data_quality=data_quality if isinstance(data_quality, dict) and data_quality else None,
