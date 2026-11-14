@@ -8,6 +8,7 @@ import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { UnifiedPrediction } from '@/types/api';
 import { outcomeTone, scoreForMarket } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
+import { outcomesFor } from '@/utils/probability';
 
 type Props = {
   item: UnifiedPrediction;
@@ -23,18 +24,7 @@ export function MarketBoard({ item, date }: Props) {
   const tone = outcomeTone(item);
   const scoreLine = scoreForMarket(item.event, item.prediction.type);
   const recommendedKey = (item.prediction.selection.id || '').toLowerCase();
-  const outcomes =
-    item.probabilities.length > 0
-      ? item.probabilities
-      : item.prediction.confidence != null
-        ? [
-            {
-              key: item.prediction.selection.id || 'sel',
-              label: item.prediction.selection.name,
-              value: item.prediction.confidence,
-            },
-          ]
-        : [];
+  const outcomes = outcomesFor(item);
 
   const openDetail = () => {
     router.push({

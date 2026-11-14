@@ -12,11 +12,9 @@ import { usePredictionDetail } from '@/hooks/queries';
 import { formatApiError } from '@/utils/formatApiError';
 import { outcomeTone, scoreForMarket } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
+import { formatProbability, outcomesFor } from '@/utils/probability';
 
-function fmtPct(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
-}
+const fmtPct = formatProbability;
 
 function fmtEv(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
@@ -109,18 +107,7 @@ function PredictionDetail() {
   const tone = outcomeTone(item);
   const scoreLine = scoreForMarket(item.event, item.prediction.type);
   const recommendedKey = (item.prediction.selection.id || '').toLowerCase();
-  const outcomes =
-    item.probabilities.length > 0
-      ? item.probabilities
-      : item.prediction.confidence != null
-        ? [
-            {
-              key: item.prediction.selection.id || 'sel',
-              label: item.prediction.selection.name,
-              value: item.prediction.confidence,
-            },
-          ]
-        : [];
+  const outcomes = outcomesFor(item);
   const pricing = item.pricing;
   const decision = item.decision;
   const hasExtras =
