@@ -60,9 +60,14 @@ def reset_feed_state() -> None:
 
 
 def invalidate_feed_cache() -> None:
-    """Drop in-memory feed snapshots after an admin refresh of the engines."""
+    """Expire in-memory feed snapshots after an admin refresh of the engines.
+
+    The next read rebuilds from the engines. The expired snapshot is kept only as a
+    fallback: if that rebuild fails it is served flagged stale (within
+    `cache_stale_max_seconds`) instead of a 503. Cursors of the old snapshot stop
+    working, so no page of pre-refresh data is served as current."""
     feed_cache, snapshots = _caches()
-    feed_cache.clear()
+    feed_cache.expire_all()
     snapshots.clear()
 
 

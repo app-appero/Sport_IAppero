@@ -65,6 +65,8 @@ class SingleFlightCache:
         self._entries: dict[str, CacheEntry] = {}
         self._inflight: dict[str, asyncio.Future] = {}
         self._lock = asyncio.Lock()
+        # Bumped by expire_all(): a build that started before it is stored already expired.
+        self._generation = 0
 
     def get_fresh(self, key: str) -> Any | None:
         entry = self._entries.get(key)
@@ -85,9 +87,15 @@ class SingleFlightCache:
         self._entries.pop(key, None)
         return None
 
-    def clear(self) -> None:
-        """Drop every cached value so the next read rebuilds from the engines."""
-        self._entries.clear()
+    def expire_all(self) -> None:
+        """Mark every cached value as expired without dropping it.
+
+        The next read rebuilds; if that rebuild fails the old value is still served
+        as a stale fallback until its original `stale_until` (the stale window is
+        not extended). A build already in flight is stored expired as well."""
+        self._generation += 1
+        for entry in self._entries.values():
+            entry.expires_at = float("-inf")
 
     def age_seconds(self, key: str) -> float | None:
         entry = self._entries.get(key)
@@ -125,13 +133,16 @@ class SingleFlightCache:
         if not owner:
             return await fut
 
+        generation = self._generation
         try:
             value = await builder()
             now = time.monotonic()
+            # Invalidated while building: keep the value only as a stale fallback.
+            superseded = generation != self._generation
             self._entries[key] = CacheEntry(
                 value=value,
                 created_at=now,
-                expires_at=now + self.ttl_seconds,
+                expires_at=float("-inf") if superseded else now + self.ttl_seconds,
                 stale_until=now + self.stale_max_seconds,
             )
             fut.set_result((value, False))

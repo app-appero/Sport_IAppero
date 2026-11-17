@@ -133,3 +133,63 @@ async def test_single_flight_reports_stale_fallback():
     assert await cache.get_or_build_ex("k", ok) == ("v1", False)
     assert await cache.get_or_build_ex("k", fail) == ("v1", True)
     assert await cache.get_or_build("k", fail) == "v1"
+
+
+@pytest.mark.asyncio
+async def test_expire_all_forces_a_rebuild_and_keeps_the_stale_fallback():
+    cache = SingleFlightCache(ttl_seconds=3600, stale_max_seconds=3600)
+    calls = []
+
+    async def build():
+        calls.append(1)
+        return f"v{len(calls)}"
+
+    async def fail():
+        raise RuntimeError("down")
+
+    assert await cache.get_or_build_ex("k", build) == ("v1", False)
+    assert await cache.get_or_build_ex("k", build) == ("v1", False)  # fresh: no rebuild
+    cache.expire_all()
+    assert cache.get_fresh("k") is None and cache.get_stale("k") == "v1"
+    assert await cache.get_or_build_ex("k", fail) == ("v1", True)  # rebuild failed: flagged fallback
+    assert await cache.get_or_build_ex("k", build) == ("v2", False)  # rebuild ok: fresh again
+    assert await cache.get_or_build_ex("k", fail) == ("v2", False)
+
+
+@pytest.mark.asyncio
+async def test_expire_all_does_not_extend_the_stale_window():
+    cache = SingleFlightCache(ttl_seconds=3600, stale_max_seconds=0)
+
+    async def ok():
+        return "v1"
+
+    async def fail():
+        raise RuntimeError("down")
+
+    await cache.get_or_build_ex("k", ok)
+    cache.expire_all()
+    with pytest.raises(RuntimeError):
+        await cache.get_or_build_ex("k", fail)
+
+
+@pytest.mark.asyncio
+async def test_build_in_flight_during_expire_all_is_stored_expired():
+    import asyncio
+
+    cache = SingleFlightCache(ttl_seconds=3600, stale_max_seconds=3600)
+    started, release = asyncio.Event(), asyncio.Event()
+    calls = []
+
+    async def slow():
+        calls.append(1)
+        started.set()
+        await release.wait()
+        return f"v{len(calls)}"
+
+    task = asyncio.create_task(cache.get_or_build_ex("k", slow))
+    await started.wait()
+    cache.expire_all()  # e.g. an admin refresh starts while the feed is being built
+    release.set()
+    assert await task == ("v1", False)
+    assert cache.get_fresh("k") is None and cache.get_stale("k") == "v1"
+    assert await cache.get_or_build_ex("k", slow) == ("v2", False)

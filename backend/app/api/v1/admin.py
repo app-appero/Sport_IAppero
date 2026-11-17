@@ -212,8 +212,9 @@ async def refresh_all(body: RefreshRequest, actor=Depends(require_permission("re
                 err = _engine_error(exc)
                 results[sport] = {"state": "error", "ref": None, "message": err["message"], "code": err["code"]}
     if any(r.get("state") == "started" for r in results.values()):
-        # The engines are rebuilding; drop local feed snapshots so the next read
-        # does not keep serving the pre-refresh cache as if it were current.
+        # The engines are rebuilding; expire local feed snapshots so the next read
+        # rebuilds instead of serving the pre-refresh cache as if it were current.
+        # They stay available only as a flagged stale fallback if that rebuild fails.
         from app.services.feed_service import invalidate_feed_cache
 
         invalidate_feed_cache()

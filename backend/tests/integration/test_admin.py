@@ -219,31 +219,96 @@ def test_refresh_event_partial_when_engine_reports_errors(client, keys, monkeypa
     assert body["state"] == "partial" and body["errors"] == {"scorers": "boom"}
 
 
-def _cached_feed_entries():
+def _feed_cache_state():
+    """(fresh entries, entries kept as stale fallback, snapshots addressable by cursor)."""
     from app.services import feed_service
 
     feed_cache, snapshots = feed_service._caches()
-    return len(feed_cache._entries), len(snapshots._entries)
+    fresh = sum(1 for key in feed_cache._entries if feed_cache.get_fresh(key) is not None)
+    return fresh, len(feed_cache._entries), len(snapshots._entries)
 
 
-def test_refresh_started_drops_feed_cache_and_keeps_cooldown_and_audit(client, keys):  # noqa: F811
+@pytest.fixture
+def feed_state():
+    from app.services import feed_service
+
+    feed_service.reset_feed_state()
+    yield
+    feed_service.reset_feed_state()
+
+
+def _engines_down(monkeypatch):
+    from app.core.exceptions import ProviderError
+    from app.services import feed_service
+
+    async def boom(query):
+        raise ProviderError("feed", "engines down", status_code=503)
+
+    monkeypatch.setattr(feed_service, "_build_snapshot", boom)
+
+
+def test_refresh_started_expires_feed_cache_and_next_read_rebuilds(client, keys, feed_state):  # noqa: F811
     _, owner = sign_in(client, keys, "1", SUPER, "Owner")
-    assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
-    assert _cached_feed_entries()[0] > 0
+    before = client.get("/api/v1/feed", params={"limit": 1}).json()
+    assert _feed_cache_state() == (1, 1, 1)
     assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 200
-    assert _cached_feed_entries() == (0, 0)
+    # expired, not dropped: nothing is fresh, the old snapshot stays only as a fallback
+    assert _feed_cache_state() == (0, 1, 0)
+    after = client.get("/api/v1/feed", params={"limit": 1}).json()
+    assert after["snapshot_id"] != before["snapshot_id"]
+    assert after["meta"]["is_stale"] is False
+    assert "served_from_stale_cache" not in after["meta"]["warnings"]
+    assert _feed_cache_state() == (1, 1, 1)
     # cooldown and audit are untouched
     assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 429
     actions = [i["action"] for i in client.get("/api/v1/admin/audit", headers=owner).json()["items"]]
     assert actions == ["refresh"]
 
 
-def test_refresh_not_started_keeps_feed_cache(client, keys, monkeypatch):  # noqa: F811
+def test_refresh_started_then_engines_down_serves_flagged_stale_not_503(client, keys, monkeypatch, feed_state):  # noqa: F811
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    params = {"limit": 1, "sports": "football"}
+    before = client.get("/api/v1/feed", params=params).json()
+    assert before["meta"]["is_stale"] is False and before["page"]["next_cursor"]
+    assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 200
+    _engines_down(monkeypatch)
+    after = client.get("/api/v1/feed", params=params)
+    assert after.status_code == 200
+    body = after.json()
+    assert body["snapshot_id"] == before["snapshot_id"] and body["items"] == before["items"]
+    assert body["meta"]["is_stale"] is True
+    assert "served_from_stale_cache" in body["meta"]["warnings"]
+    # the fallback is paginable again and every page stays flagged
+    page_two = client.get("/api/v1/feed", params={**params, "cursor": body["page"]["next_cursor"]}).json()
+    assert page_two["meta"]["is_stale"] is True
+
+
+def test_cursor_of_the_pre_refresh_snapshot_expires(client, keys, feed_state):  # noqa: F811
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    params = {"limit": 1, "sports": "football"}
+    cursor = client.get("/api/v1/feed", params=params).json()["page"]["next_cursor"]
+    assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 200
+    gone = client.get("/api/v1/feed", params={**params, "cursor": cursor})
+    assert gone.status_code == 410 and gone.json()["detail"]["code"] == "SNAPSHOT_EXPIRED"
+
+
+def test_stale_fallback_after_refresh_respects_the_stale_window(client, keys, monkeypatch, feed_state):  # noqa: F811
+    monkeypatch.setenv("CACHE_STALE_MAX_SECONDS", "0")
+    get_settings.cache_clear()
+    _, owner = sign_in(client, keys, "1", SUPER, "Owner")
+    assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
+    assert client.post("/api/v1/admin/refresh", headers=owner, json={}).status_code == 200
+    _engines_down(monkeypatch)
+    assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 503
+
+
+def test_refresh_not_started_keeps_feed_cache(client, keys, monkeypatch, feed_state):  # noqa: F811
     from app.core.exceptions import ProviderUnavailable
 
     _, owner = sign_in(client, keys, "1", SUPER, "Owner")
     assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
-    before = _cached_feed_entries()
+    before = _feed_cache_state()
+    assert before == (1, 1, 1)
 
     async def broken(*, force_outside_hours=False):
         raise ProviderUnavailable("x", "/jobs returned 500", 500)
@@ -252,22 +317,23 @@ def test_refresh_not_started_keeps_feed_cache(client, keys, monkeypatch):  # noq
         monkeypatch.setattr(get_providers()[sport], "start_refresh", broken)
     res = client.post("/api/v1/admin/refresh", headers=owner, json={}).json()
     assert {r["state"] for r in res["results"].values()} == {"error"}
-    assert _cached_feed_entries() == before
+    assert _feed_cache_state() == before
 
 
-def test_refresh_event_drops_feed_cache_only_on_success(client, keys, monkeypatch):  # noqa: F811
+def test_refresh_event_expires_feed_cache_only_on_success(client, keys, monkeypatch, feed_state):  # noqa: F811
     from app.core.exceptions import ProviderUnavailable
     from app.services.registry import get_provider
 
     _, owner = sign_in(client, keys, "1", SUPER, "Owner")
     assert client.get("/api/v1/feed", params={"limit": 1}).status_code == 200
-    before = _cached_feed_entries()
+    before = _feed_cache_state()
+    assert before == (1, 1, 1)
 
     async def broken(event_id):
         raise ProviderUnavailable("soccer-oracle", "/refresh returned 500", 500)
 
     monkeypatch.setattr(get_provider("football"), "refresh_event", broken)
     assert client.post("/api/v1/admin/events/football/9/refresh", headers=owner).status_code == 502
-    assert _cached_feed_entries() == before
+    assert _feed_cache_state() == before
     assert client.post("/api/v1/admin/events/tennis/123/refresh", headers=owner).status_code == 200
-    assert _cached_feed_entries() == (0, 0)
+    assert _feed_cache_state() == (0, 1, 0)
