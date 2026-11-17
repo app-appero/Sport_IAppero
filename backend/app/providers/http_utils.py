@@ -73,26 +73,33 @@ async def request_json(
     timeout: float | None = None,
 ) -> Any:
     settings = get_settings()
-    method_upper = method.upper()
+    is_read = method.upper() == "GET"
     # Mutations stay single-shot: a refresh must not be retried blindly.
-    max_attempts = (
-        max(1, settings.provider_get_max_attempts) if method_upper == "GET" else 1
-    )
+    max_attempts = max(1, settings.provider_get_max_attempts) if is_read else 1
     extra = {"timeout": timeout} if timeout is not None else {}
     last_error: Exception | None = None
 
+    # The breaker protects the read traffic of the feed. Mutations are rare manual
+    # admin actions (engine refresh): they are neither blocked by an open circuit nor
+    # counted by it, so a refresh still reaches the engine and its own failure (e.g. a
+    # long refresh timing out) does not cut the feed off for the open window.
+    async def record_failure() -> None:
+        if is_read:
+            await _record_failure(provider)
+
     for attempt in range(1, max_attempts + 1):
-        await _circuit_guard(provider)
+        if is_read:
+            await _circuit_guard(provider)
         try:
             response = await client.request(method, path, params=params, json=json, **extra)
         except httpx.TimeoutException as exc:
             last_error = ProviderUnavailable(provider, f"Timeout calling {path}")
-            await _record_failure(provider)
+            await record_failure()
             if attempt >= max_attempts:
                 raise last_error from exc
         except httpx.HTTPError as exc:
             last_error = ProviderUnavailable(provider, f"HTTP error calling {path}: {exc}")
-            await _record_failure(provider)
+            await record_failure()
             if attempt >= max_attempts:
                 raise last_error from exc
         else:
@@ -102,7 +109,7 @@ async def request_json(
                     f"{path} returned {response.status_code}",
                     response.status_code,
                 )
-                await _record_failure(provider)
+                await record_failure()
                 if attempt >= max_attempts or not _retryable_status(response.status_code):
                     raise last_error
             elif response.status_code >= 400:
@@ -112,7 +119,8 @@ async def request_json(
                     response.status_code,
                 )
             else:
-                await _record_success(provider)
+                if is_read:
+                    await _record_success(provider)
                 if not response.content:
                     return None
                 try:
