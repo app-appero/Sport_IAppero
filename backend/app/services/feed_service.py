@@ -89,6 +89,9 @@ class FeedSnapshot:
     meta_status: str
     predictions_by_id: dict[str, UnifiedPrediction] = field(default_factory=dict)
     events_by_id: dict[str, FeedItem] = field(default_factory=dict)
+    # Set the first time this snapshot is served because a rebuild failed. It stays
+    # with the snapshot, so every later page (cursor) carries the same stale flag.
+    served_stale: bool = False
 
 
 def _filter_hash(query: FeedQuery) -> str:
@@ -378,24 +381,25 @@ async def get_feed(
             raise SnapshotExpired(snap_id)
         offset = max(0, offset)
 
-    served_stale = False
     if snapshot is None:
         cache_key = _cache_key(query)
         try:
-            snapshot, served_stale = await feed_cache.get_or_build_ex(
+            snapshot, fallback = await feed_cache.get_or_build_ex(
                 cache_key,
                 lambda: _build_snapshot(query),
             )
-            # Re-key into snapshot store under snapshot_id
-            snapshots.put(snapshot.snapshot_id, snapshot)
         except ProviderError as exc:
-            stale = feed_cache.get_stale(cache_key)
-            if stale is not None:
-                snapshot = stale
-                served_stale = True
-                snapshots.put(snapshot.snapshot_id, snapshot)
-            else:
+            snapshot = feed_cache.get_stale(cache_key)
+            if snapshot is None:
                 raise ProviderError("feed", exc.message, status_code=503) from exc
+            fallback = True
+        if fallback:
+            snapshot.served_stale = True
+        # Re-key into snapshot store under snapshot_id
+        snapshots.put(snapshot.snapshot_id, snapshot)
+
+    # Pages reached through a cursor read the flag from the snapshot itself.
+    served_stale = snapshot.served_stale
 
     page_items = snapshot.items[offset : offset + limit]
     next_offset = offset + limit

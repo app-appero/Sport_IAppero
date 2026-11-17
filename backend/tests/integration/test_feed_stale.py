@@ -66,6 +66,43 @@ def test_expired_entry_with_engines_down_is_served_flagged(monkeypatch):
     assert body["snapshot_id"] == first["snapshot_id"]
 
 
+def test_stale_flag_follows_the_snapshot_on_every_page(monkeypatch):
+    monkeypatch.setenv("CACHE_TTL_SECONDS", "0")
+    monkeypatch.setenv("CACHE_STALE_MAX_SECONDS", "300")
+    get_settings.cache_clear()
+    params = {"limit": 1, "sports": "football"}
+    with TestClient(app) as client:
+        fresh = client.get("/api/v1/feed", params=params).json()
+        assert fresh["meta"]["is_stale"] is False and fresh["page"]["next_cursor"]
+        _break_providers(monkeypatch)
+        first_page = client.get("/api/v1/feed", params=params).json()
+        assert first_page["meta"]["is_stale"] is True
+        cursor = first_page["page"]["next_cursor"]
+        assert cursor
+        second_page = client.get("/api/v1/feed", params={**params, "cursor": cursor})
+        # A cursor issued while the snapshot was still fresh points to the same snapshot:
+        # once that snapshot is served as a fallback, its pages say so too.
+        old_cursor_page = client.get("/api/v1/feed", params={**params, "cursor": fresh["page"]["next_cursor"]})
+    for response in (second_page, old_cursor_page):
+        assert response.status_code == 200
+        body = response.json()
+        assert body["snapshot_id"] == first_page["snapshot_id"] == fresh["snapshot_id"]
+        assert body["meta"]["is_stale"] is True
+        assert "served_from_stale_cache" in body["meta"]["warnings"]
+        assert body["meta"]["snapshot_age_seconds"] >= first_page["meta"]["snapshot_age_seconds"]
+        assert body["items"] and body["items"] != first_page["items"]
+
+
+def test_next_page_of_a_fresh_snapshot_is_not_stale():
+    params = {"limit": 1, "sports": "football"}
+    with TestClient(app) as client:
+        first = client.get("/api/v1/feed", params=params).json()
+        second = client.get("/api/v1/feed", params={**params, "cursor": first["page"]["next_cursor"]}).json()
+    assert second["snapshot_id"] == first["snapshot_id"]
+    assert second["meta"]["is_stale"] is False
+    assert "served_from_stale_cache" not in second["meta"]["warnings"]
+
+
 def test_entry_beyond_stale_window_is_not_served(monkeypatch):
     monkeypatch.setenv("CACHE_TTL_SECONDS", "0")
     monkeypatch.setenv("CACHE_STALE_MAX_SECONDS", "0")
