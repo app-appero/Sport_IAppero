@@ -105,6 +105,24 @@ def test_decision_source_is_declared_for_both_engines():
     assert {p.provenance.decision_source for p in tennis if p.decision} == {"bff_derived"}
 
 
+def test_decision_basis_is_declared_for_both_engines():
+    soccer = soccer_mapper.map_day_payload(load_fixture("soccer", "day.json"))
+    assert {p.provenance.decision_basis for p in soccer if p.decision} == {"provider_decision"}
+    assert all(p.provenance.decision_basis is None for p in soccer if p.decision is None)
+
+    tennis = tennis_mapper.map_predictions_payload(load_fixture("tennis", "predictions.json"))
+    by_market: dict[str, set] = {}
+    for p in tennis:
+        if p.decision:
+            by_market.setdefault(p.prediction.type, set()).add(p.provenance.decision_basis)
+    # The day route sends void_odds for the extra markets only (no label for any market).
+    assert by_market["match_winner"] == {"raw_probability"}
+    assert by_market["first_set_winner"] == {"provider_void_odds"}
+    assert by_market["over_under_games"] == {"provider_void_odds"}
+    raw_based = [p for p in tennis if p.provenance.decision_basis == "raw_probability"]
+    assert all("decision_from_raw_probability" in p.anomalies for p in raw_based)
+
+
 def test_tennis_provider_label_wins_and_is_not_marked_derived():
     payload = load_fixture("tennis", "predictions.json")
     payload["items"][0]["value_decision"] = "BORDERLINE"

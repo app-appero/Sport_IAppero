@@ -24,6 +24,12 @@ ANOMALY_PROBABILITY_MISSING = "probability_missing"
 ANOMALY_PROBABILITY_NOT_NUMERIC = "probability_not_numeric"
 ANOMALY_PROBABILITY_AS_PERCENT = "probability_sent_as_percent"
 ANOMALY_PROBABILITY_OUT_OF_RANGE = "probability_out_of_range"
+ANOMALY_DECISION_DERIVED = "decision_derived_by_bff"
+ANOMALY_DECISION_FROM_RAW_PROBABILITY = "decision_from_raw_probability"
+
+DECISION_BASIS_PROVIDER = "provider_decision"
+DECISION_BASIS_PROVIDER_VOID_ODDS = "provider_void_odds"
+DECISION_BASIS_RAW_PROBABILITY = "raw_probability"
 
 _MAX_ANOMALIES = 12
 _MAX_ANOMALY_LENGTH = 200
@@ -132,13 +138,27 @@ def provenance(
     source: Any = None,
     data_quality: Any = None,
     decision_source: str | None = None,
+    decision_basis: str | None = None,
 ) -> Provenance:
     return Provenance(
         decision_source=decision_source,  # type: ignore[arg-type]
+        decision_basis=decision_basis,  # type: ignore[arg-type]
         engine=engine,
         source=clean_text(source),
         data_quality=data_quality if isinstance(data_quality, dict) and data_quality else None,
     )
+
+
+def decision_provenance(basis: str | None) -> tuple[str | None, list[str]]:
+    """(`decision_source`, anomalies) for a decision resting on `basis`."""
+    if basis is None:
+        return None, []
+    if basis == DECISION_BASIS_PROVIDER:
+        return "provider", []
+    anomalies = [ANOMALY_DECISION_DERIVED]
+    if basis == DECISION_BASIS_RAW_PROBABILITY:
+        anomalies.append(ANOMALY_DECISION_FROM_RAW_PROBABILITY)
+    return "bff_derived", anomalies
 
 
 def unavailable_markets(

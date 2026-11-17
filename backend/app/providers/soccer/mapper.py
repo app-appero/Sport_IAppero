@@ -873,6 +873,8 @@ def map_market_prediction(
         )
 
     correct = _resolve_correct(market, selection, event, market_payload)
+    # PLAY / BORDERLINE / NO BET always come from the engine's decision card.
+    decision = _decision_from_card(decision_card)
 
     model_name = tx.clean_text(
         _dig(decision_card or {}, "model_name") or market_payload.get("model_name")
@@ -912,7 +914,7 @@ def map_market_prediction(
         generated_at=generated_at,
         correct=correct,
         pricing=_pricing_from_card(decision_card),
-        decision=_decision_from_card(decision_card),
+        decision=decision,
         model=tx.model_info(model_name, run_id),
         availability=tx.availability(confidence, limited_reason=limited_reason),
         data_freshness=tx.data_freshness(predicted_at=generated_at),
@@ -920,7 +922,8 @@ def map_market_prediction(
             PROVIDER,
             source="soccer-oracle/dashboard",
             data_quality=data_quality,
-            decision_source="provider" if _decision_from_card(decision_card) else None,
+            decision_source="provider" if decision else None,
+            decision_basis=tx.DECISION_BASIS_PROVIDER if decision else None,
         ),
         anomalies=anomalies,
         raw=market_payload,

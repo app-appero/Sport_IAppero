@@ -133,6 +133,15 @@ class Provenance(BaseModel):
     # Who produced `decision.code`: "provider" when the engine sent it, "bff_derived"
     # when this BFF recovered it from odds and probability. None when there is no decision.
     decision_source: Literal["provider", "bff_derived"] | None = None
+    # Additive. What `decision.code` rests on. None when there is no decision.
+    # - "provider_decision": the engine sent the label itself;
+    # - "provider_void_odds": this BFF applied the engine's cut to the break-even
+    #   odds published by the engine (for tennis they already include the engine's
+    #   shrink of the model probability toward the market);
+    # - "raw_probability": the engine sent neither, so the cut was applied to
+    #   1 / the raw model probability. An engine that decides on a market-adjusted
+    #   probability can reach a different code for the same match.
+    decision_basis: Literal["provider_decision", "provider_void_odds", "raw_probability"] | None = None
 
 
 class PricingInfo(BaseModel):
