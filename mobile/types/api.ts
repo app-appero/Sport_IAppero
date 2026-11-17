@@ -113,6 +113,13 @@ export interface Provenance {
   engine: string;
   source?: string | null;
   data_quality?: Record<string, unknown> | null;
+  /** Who produced `decision.code`: the engine, or the BFF from odds and probability. */
+  decision_source?: 'provider' | 'bff_derived' | null;
+  /**
+   * What `decision.code` rests on. `raw_probability`: the engine sent neither its label nor its
+   * break-even odds, so the code comes from the raw model probability and can differ from the engine's.
+   */
+  decision_basis?: 'provider_decision' | 'provider_void_odds' | 'raw_probability' | null;
 }
 
 export interface UnifiedPrediction {
