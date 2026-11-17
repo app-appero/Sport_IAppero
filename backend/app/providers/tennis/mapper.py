@@ -18,6 +18,7 @@ from app.domain.models import (
     Selection,
     UnifiedPrediction,
 )
+from app.providers import transparency as tx
 
 SPORT = "tennis"
 PROVIDER = "tennis-oracle"
@@ -384,6 +385,13 @@ def map_event(raw: dict[str, Any]) -> Event:
     if live_state is not None:
         status = "live"  # the provider says "Set 2": the app only needs to know it is in progress
 
+    # The engine sets `prediction_warning` (e.g. missing_persisted_prediction) on a row
+    # it returns without the match-winner prediction: pass its code on as the reason.
+    unavailable = []
+    prediction_warning = tx.clean_text(raw.get("prediction_warning"))
+    if prediction_warning and not isinstance(raw.get("prediction"), dict):
+        unavailable = tx.unavailable_markets(["match_winner"], default_reason=prediction_warning)
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
@@ -396,6 +404,7 @@ def map_event(raw: dict[str, Any]) -> Event:
         score=score_obj,
         live=live_state,
         actual_totals=actual_totals,
+        unavailable_markets=unavailable,
     )
 
 
@@ -433,7 +442,9 @@ def _locked_total_line(
 
 # Same cut as Tennis Oracle `classify_single_bet_value` (2% over void odds).
 # `/next-fixtures/predictions` does not send value_decision: PLAY / BORDERLINE /
-# NO BET are recovered from the quote and the model probability already in the row.
+# NO BET are recovered here. Since 2026-11-04 the engine decides on a probability
+# shrunk toward the market (`blend_with_market`): its `void_odds` already include
+# that shrink, so they are always preferred to 1 / the raw model probability.
 _MIN_EDGE_PERCENT = 2.0
 
 
@@ -484,27 +495,66 @@ def _winner_model_probability(prediction: dict[str, Any]) -> float | None:
     return None
 
 
-def _match_winner_decision(raw: dict[str, Any], prediction: dict[str, Any]) -> DecisionInfo | None:
-    labelled = _decision_from_label(raw.get("value_decision") or prediction.get("value_decision"))
+def _decide(
+    label: Any, market_odds: Any, engine_void_odds: Any, raw_probability: float | None
+) -> tuple[DecisionInfo | None, str | None]:
+    """Decision and what it rests on (`Provenance.decision_basis`).
+
+    Order: the engine's own label, then the engine's break-even odds, then, only
+    when the engine sent neither, 1 / the raw model probability."""
+    labelled = _decision_from_label(label)
     if labelled is not None:
-        return labelled
-    model_prob = _winner_model_probability(prediction)
-    void = (1.0 / model_prob) if model_prob else None
-    return _classify_value_decision(prediction.get("predicted_winner_odds"), void)
+        return labelled, tx.DECISION_BASIS_PROVIDER
+    if engine_void_odds is not None:
+        decision = _classify_value_decision(market_odds, engine_void_odds)
+        return decision, tx.DECISION_BASIS_PROVIDER_VOID_ODDS if decision else None
+    void = (1.0 / raw_probability) if raw_probability else None
+    decision = _classify_value_decision(market_odds, void)
+    return decision, tx.DECISION_BASIS_RAW_PROBABILITY if decision else None
 
 
-def _extra_market_decision(market_payload: dict[str, Any]) -> DecisionInfo | None:
-    labelled = _decision_from_label(market_payload.get("value_decision"))
-    if labelled is not None:
-        return labelled
-    void = market_payload.get("void_odds")
-    if void is None:
-        try:
-            probability = float(market_payload.get("probability"))
-        except (TypeError, ValueError):
-            probability = 0.0
-        void = (1.0 / probability) if probability > 0.0 else None
-    return _classify_value_decision(market_payload.get("odds"), void)
+def _first_present(*values: Any) -> Any:
+    return next((value for value in values if value is not None), None)
+
+
+def _match_winner_decision(
+    raw: dict[str, Any], prediction: dict[str, Any]
+) -> tuple[DecisionInfo | None, str | None]:
+    return _decide(
+        raw.get("value_decision") or prediction.get("value_decision"),
+        prediction.get("predicted_winner_odds"),
+        _first_present(prediction.get("void_odds"), raw.get("void_odds")),
+        _winner_model_probability(prediction),
+    )
+
+
+def _extra_market_decision(
+    market_payload: dict[str, Any],
+) -> tuple[DecisionInfo | None, str | None]:
+    try:
+        probability = float(market_payload.get("probability"))
+    except (TypeError, ValueError):
+        probability = 0.0
+    return _decide(
+        market_payload.get("value_decision"),
+        market_payload.get("odds"),
+        market_payload.get("void_odds"),
+        probability if probability > 0.0 else None,
+    )
+
+
+def _quality_gap(quality: Any) -> str | None:
+    """Gap the engine declares in `prediction.data_quality` ({"status": sufficient |
+    limited | insufficient, "reasons": [...]}): its first reason code, None when the
+    status is sufficient or the report is missing."""
+    if not isinstance(quality, dict):
+        return None
+    status = str(quality.get("status") or "").strip().lower()
+    if status not in {"limited", "insufficient"}:
+        return None
+    reasons = quality.get("reasons")
+    first = tx.clean_text(reasons[0]) if isinstance(reasons, list) and reasons else None
+    return first or f"data_quality_{status}"
 
 
 def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | None:
@@ -535,6 +585,29 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
             settlement = _tennis_settlement_from_live(live) if isinstance(live, dict) else None
             correct = _settle_tennis_market("match_winner", selection, settlement)
 
+    generated_at = tx.parse_timestamp(prediction.get("predicted_at"))
+    model_version = tx.clean_text(prediction.get("model_version"))
+    model_name = tx.clean_text(prediction.get("model_name"))
+    decision, decision_basis = _match_winner_decision(raw, prediction)
+    decision_source, decision_anomalies = tx.decision_provenance(decision_basis)
+    features_available = prediction.get("features_available")
+    quality = prediction.get("data_quality")
+    limited_reason = (
+        "features_unavailable" if features_available is False else _quality_gap(quality)
+    )
+    anomalies = tx.merge_anomalies(
+        tx.probability_anomalies(prediction.get("prob_player_1_win"), conf),
+        tx.engine_warnings(prediction.get("warnings"), raw.get("prediction_warning")),
+        decision_anomalies,
+        ["features_unavailable"] if features_available is False else [],
+        ["naive_datetime"] if generated_at is not None and generated_at.tzinfo is None else [],
+    )
+    if not isinstance(quality, dict):
+        quality = {
+            "features_available": features_available,
+            "warnings": prediction.get("warnings") or [],
+        }
+
     return UnifiedPrediction(
         id=f"tennis_{event.id}_match_winner",
         sport=SPORT,
@@ -547,12 +620,30 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
         probabilities=probabilities,
         provider=ProviderMetadata(
             name=PROVIDER,
-            version=str(prediction.get("model_version") or "") or None,
+            version=model_version,
         ),
         oracle_score=None,
-        generated_at=_parse_dt(prediction.get("predicted_at")),
+        generated_at=generated_at,
         correct=correct,
-        decision=_match_winner_decision(raw, prediction),
+        decision=decision,
+        model=tx.model_info(model_name, model_version),
+        availability=tx.availability(conf, limited_reason=limited_reason),
+        data_freshness=tx.data_freshness(
+            predicted_at=generated_at,
+            event_data_updated_at=tx.parse_timestamp(raw.get("imported_at")),
+            live_updated_at=tx.parse_timestamp(raw.get("live_score_updated_at")),
+            odds_captured_at=tx.parse_timestamp(
+                prediction.get("odds_captured_at") or raw.get("odds_captured_at")
+            ),
+        ),
+        provenance=tx.provenance(
+            PROVIDER,
+            source=tx.clean_text(raw.get("source")) or "api-tennis",
+            data_quality=quality if isinstance(quality, dict) else None,
+            decision_source=decision_source,
+            decision_basis=decision_basis,
+        ),
+        anomalies=anomalies,
         raw=prediction,
     )
 
@@ -600,6 +691,18 @@ def map_extra_market(
     else:
         correct = _settle_tennis_market(market, selection, settlement)
 
+    generated_at = tx.parse_timestamp(market_payload.get("published_at"))
+    model_version = tx.clean_text(market_payload.get("model_version"))
+    model_name = tx.clean_text(market_payload.get("model_name"))
+    decision, decision_basis = _extra_market_decision(market_payload)
+    decision_source, decision_anomalies = tx.decision_provenance(decision_basis)
+    anomalies = tx.merge_anomalies(
+        tx.probability_anomalies(market_payload.get("probability"), confidence),
+        tx.engine_warnings(market_payload.get("warnings")),
+        decision_anomalies,
+        ["naive_datetime"] if generated_at is not None and generated_at.tzinfo is None else [],
+    )
+
     return UnifiedPrediction(
         id=f"tennis_{event.id}_{market}",
         sport=SPORT,
@@ -608,12 +711,26 @@ def map_extra_market(
         probabilities=probabilities,
         provider=ProviderMetadata(
             name=PROVIDER,
-            version=str(market_payload.get("model_version") or "") or None,
+            version=model_version,
         ),
         oracle_score=None,
-        generated_at=_parse_dt(market_payload.get("published_at")),
+        generated_at=generated_at,
         correct=correct,
-        decision=_extra_market_decision(market_payload),
+        decision=decision,
+        model=tx.model_info(model_name, model_version),
+        availability=tx.availability(confidence),
+        data_freshness=tx.data_freshness(
+            predicted_at=generated_at,
+            event_data_updated_at=tx.parse_timestamp(raw_event.get("imported_at")),
+            live_updated_at=tx.parse_timestamp(raw_event.get("live_score_updated_at")),
+        ),
+        provenance=tx.provenance(
+            PROVIDER,
+            source=tx.clean_text(raw_event.get("source")) or "api-tennis",
+            decision_source=decision_source,
+            decision_basis=decision_basis,
+        ),
+        anomalies=anomalies,
         raw=market_payload,
     )
 

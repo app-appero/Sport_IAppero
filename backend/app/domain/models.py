@@ -38,6 +38,15 @@ class LiveState(BaseModel):
     status_detail: str | None = None
 
 
+class UnavailableMarket(BaseModel):
+    """A market the engine could not predict for an event. `reason` is the engine's
+    own code (e.g. no_odds_for_market, missing_persisted_prediction); None when the
+    engine gives none. The aggregation layer never guesses a reason."""
+
+    market: str
+    reason: str | None = None
+
+
 class Event(BaseModel):
     id: str
     name: str
@@ -52,6 +61,9 @@ class Event(BaseModel):
     score: EventScore | None = None
     live: LiveState | None = None
     actual_totals: dict[str, Any] | None = None
+    # Additive. Markets the engine lists for this event without a prediction, with the
+    # reason the engine itself declares. Empty when the engine reports none.
+    unavailable_markets: list[UnavailableMarket] = Field(default_factory=list)
 
 
 class Selection(BaseModel):
@@ -74,6 +86,62 @@ class Probability(BaseModel):
 class ProviderMetadata(BaseModel):
     name: str
     version: str | None = None
+
+
+class ModelInfo(BaseModel):
+    """Model behind one prediction, as declared by the engine.
+
+    `version` is the engine's own identifier of the trained artifact: the model
+    version for tennis ("v4"), the training-run id for football. It is an
+    identifier, not a timestamp of when the prediction was computed."""
+
+    name: str | None = None
+    version: str | None = None
+
+
+class Availability(BaseModel):
+    """Whether the prediction carries a usable probability.
+
+    - available: a probability is present and the engine flags no gap in its inputs;
+    - limited: a probability is present but the engine declares a gap (`reason`);
+    - unavailable: the engine returned the market without a probability."""
+
+    status: Literal["available", "limited", "unavailable"]
+    reason: str | None = None
+
+
+class DataFreshness(BaseModel):
+    """Timestamps the engines really record. A missing value means "not recorded",
+    never "fresh". `timezone_explicit` is False when the engine sends timestamps
+    without an offset (server clock, zone not declared): they are passed through
+    unchanged, no zone is assumed."""
+
+    predicted_at: datetime | None = None
+    event_data_updated_at: datetime | None = None
+    live_updated_at: datetime | None = None
+    odds_captured_at: datetime | None = None
+    timezone_explicit: bool | None = None
+
+
+class Provenance(BaseModel):
+    """Where the numbers come from. `data_quality` is the engine's own evidence
+    report, passed through as received."""
+
+    engine: str
+    source: str | None = None
+    data_quality: dict[str, Any] | None = None
+    # Who produced `decision.code`: "provider" when the engine sent it, "bff_derived"
+    # when this BFF recovered it from odds and probability. None when there is no decision.
+    decision_source: Literal["provider", "bff_derived"] | None = None
+    # Additive. What `decision.code` rests on. None when there is no decision.
+    # - "provider_decision": the engine sent the label itself;
+    # - "provider_void_odds": this BFF applied the engine's cut to the break-even
+    #   odds published by the engine (for tennis they already include the engine's
+    #   shrink of the model probability toward the market);
+    # - "raw_probability": the engine sent neither, so the cut was applied to
+    #   1 / the raw model probability. An engine that decides on a market-adjusted
+    #   probability can reach a different code for the same match.
+    decision_basis: Literal["provider_decision", "provider_void_odds", "raw_probability"] | None = None
 
 
 class PricingInfo(BaseModel):
@@ -116,6 +184,13 @@ class UnifiedPrediction(BaseModel):
     correct: bool | None = None
     pricing: PricingInfo | None = None
     decision: DecisionInfo | None = None
+    # Additive fields (same meaning for every sport). All optional: clients that
+    # ignore them keep working, engines that do not send the data leave them empty.
+    model: ModelInfo | None = None
+    availability: Availability | None = None
+    data_freshness: DataFreshness | None = None
+    provenance: Provenance | None = None
+    anomalies: list[str] = Field(default_factory=list)
     raw: dict[str, Any] | None = Field(default=None, exclude=True)
 
 
@@ -186,6 +261,10 @@ class FeedMeta(BaseModel):
     is_complete: bool
     providers: list[ProviderFeedStatus] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    # Additive. Seconds between the snapshot build (`generated_at`) and this response.
+    snapshot_age_seconds: float | None = None
+    # Additive. True when a rebuild failed and an older snapshot is served instead.
+    is_stale: bool = False
 
 
 class FeedItem(BaseModel):

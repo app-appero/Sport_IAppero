@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     provider_read_timeout: float = 15.0
     # Aggiornamento puntuale di una partita: sincrono sul motore (import + ricalcolo di tutti i mercati).
     provider_single_refresh_timeout: float = 120.0
+    # GET-only retry/backoff towards the engines (POST refresh paths stay single-shot).
+    provider_get_max_attempts: int = 3
+    provider_get_backoff_seconds: float = 0.4
+    provider_circuit_failure_threshold: int = 5
+    provider_circuit_open_seconds: float = 30.0
 
     use_provider_fixtures: bool = False
 

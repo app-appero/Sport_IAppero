@@ -4,6 +4,7 @@ import { providerLabel } from '@/constants/providers';
 import { useThemedStyles } from '@/components/SportTheme';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import type { FeedMeta } from '@/types/api';
+import { STALE_WARNING, staleLine } from '@/utils/feedBanner';
 
 export function FeedBanner({
   meta,
@@ -19,6 +20,9 @@ export function FeedBanner({
   if (source === 'fallback') {
     lines.push('Modalità compatibilità: feed ricostruito dagli endpoint per sport.');
   }
+
+  const stale = staleLine(meta);
+  if (stale) lines.push(stale);
 
   if (meta.status === 'unavailable') {
     lines.push('Feed non disponibile: entrambi i provider sono offline.');
@@ -36,14 +40,14 @@ export function FeedBanner({
   }
 
   for (const w of meta.warnings ?? []) {
-    if (!lines.includes(w)) lines.push(w);
+    if (w !== STALE_WARNING && !lines.includes(w)) lines.push(w);
   }
   if (lines.length === 0) return null;
 
   const tone =
     meta.status === 'unavailable'
       ? 'error'
-      : meta.status === 'degraded' || source === 'fallback'
+      : meta.status === 'degraded' || source === 'fallback' || meta.is_stale
         ? 'warn'
         : 'info';
 

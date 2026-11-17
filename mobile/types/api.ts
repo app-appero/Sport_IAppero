@@ -32,6 +32,11 @@ export interface LiveState {
   status_detail: string | null;
 }
 
+export interface UnavailableMarket {
+  market: string;
+  reason?: string | null;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -45,6 +50,7 @@ export interface Event {
   score?: EventScore | null;
   live?: LiveState | null;
   actual_totals?: Record<string, number | string | null> | null;
+  unavailable_markets?: UnavailableMarket[];
 }
 
 export interface Selection {
@@ -85,6 +91,37 @@ export interface ProviderMetadata {
   version: string | null;
 }
 
+export interface ModelInfo {
+  name?: string | null;
+  version?: string | null;
+}
+
+export interface Availability {
+  status: 'available' | 'limited' | 'unavailable';
+  reason?: string | null;
+}
+
+export interface DataFreshness {
+  predicted_at?: string | null;
+  event_data_updated_at?: string | null;
+  live_updated_at?: string | null;
+  odds_captured_at?: string | null;
+  timezone_explicit?: boolean | null;
+}
+
+export interface Provenance {
+  engine: string;
+  source?: string | null;
+  data_quality?: Record<string, unknown> | null;
+  /** Who produced `decision.code`: the engine, or the BFF from odds and probability. */
+  decision_source?: 'provider' | 'bff_derived' | null;
+  /**
+   * What `decision.code` rests on. `raw_probability`: the engine sent neither its label nor its
+   * break-even odds, so the code comes from the raw model probability and can differ from the engine's.
+   */
+  decision_basis?: 'provider_decision' | 'provider_void_odds' | 'raw_probability' | null;
+}
+
 export interface UnifiedPrediction {
   id: string;
   sport: SportId | string;
@@ -97,6 +134,11 @@ export interface UnifiedPrediction {
   correct?: boolean | null;
   pricing?: PricingInfo | null;
   decision?: DecisionInfo | null;
+  model?: ModelInfo | null;
+  availability?: Availability | null;
+  data_freshness?: DataFreshness | null;
+  provenance?: Provenance | null;
+  anomalies?: string[];
 }
 
 export interface ListMeta {
@@ -167,6 +209,8 @@ export interface FeedMeta {
   is_complete: boolean;
   providers: ProviderFeedStatus[];
   warnings: string[];
+  snapshot_age_seconds?: number | null;
+  is_stale?: boolean;
 }
 
 export interface FeedItem {

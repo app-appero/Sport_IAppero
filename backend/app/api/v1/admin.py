@@ -211,6 +211,13 @@ async def refresh_all(body: RefreshRequest, actor=Depends(require_permission("re
                 logger.warning("admin refresh %s failed: %s", sport, exc)
                 err = _engine_error(exc)
                 results[sport] = {"state": "error", "ref": None, "message": err["message"], "code": err["code"]}
+    if any(r.get("state") == "started" for r in results.values()):
+        # The engines are rebuilding; expire local feed snapshots so the next read
+        # rebuilds instead of serving the pre-refresh cache as if it were current.
+        # They stay available only as a flagged stale fallback if that rebuild fails.
+        from app.services.feed_service import invalidate_feed_cache
+
+        invalidate_feed_cache()
     await _audit(maker, actor, "refresh", None, {"sports": list(results), "forced": body.force_outside_hours,
                                                  "states": {s: r["state"] for s, r in results.items()}})
     return {"started_at": datetime.now(UTC), "results": results}
@@ -238,6 +245,10 @@ async def refresh_event(
         raise _error(502, err["code"], err["message"]) from exc
     errors = result.get("errors") or {}
     state = "partial" if errors else "ok"
+    if state in {"ok", "partial"}:
+        from app.services.feed_service import invalidate_feed_cache
+
+        invalidate_feed_cache()
     await _audit(maker, actor, "refresh_event", None,
                  {"sport": sport, "event_id": event_id, "state": state, "completed": result.get("completed")})
     return {

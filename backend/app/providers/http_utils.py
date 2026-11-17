@@ -1,13 +1,65 @@
 from __future__ import annotations
 
+import asyncio
+import random
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from app.core.config import get_settings
 from app.core.exceptions import ProviderResponseError, ProviderUnavailable
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
+
+
+@dataclass
+class _CircuitState:
+    failures: int = 0
+    opened_until: float = 0.0
+
+
+_circuits: dict[str, _CircuitState] = {}
+_circuit_lock = asyncio.Lock()
+
+
+def reset_provider_circuits() -> None:
+    """Test helper: clear all in-process circuit breakers."""
+    _circuits.clear()
+
+
+def _retryable_status(status_code: int) -> bool:
+    return status_code in {429, 500, 502, 503, 504}
+
+
+async def _circuit_guard(provider: str) -> None:
+    async with _circuit_lock:
+        state = _circuits.setdefault(provider, _CircuitState())
+        now = time.monotonic()
+        if state.opened_until > now:
+            raise ProviderUnavailable(
+                provider,
+                f"Circuit open for {provider} ({int(state.opened_until - now)}s left)",
+            )
+
+
+async def _record_success(provider: str) -> None:
+    async with _circuit_lock:
+        state = _circuits.setdefault(provider, _CircuitState())
+        state.failures = 0
+        state.opened_until = 0.0
+
+
+async def _record_failure(provider: str) -> None:
+    settings = get_settings()
+    async with _circuit_lock:
+        state = _circuits.setdefault(provider, _CircuitState())
+        state.failures += 1
+        if state.failures >= max(1, settings.provider_circuit_failure_threshold):
+            state.opened_until = time.monotonic() + max(1.0, settings.provider_circuit_open_seconds)
+            state.failures = 0
 
 
 async def request_json(
@@ -20,32 +72,68 @@ async def request_json(
     json: Any = None,
     timeout: float | None = None,
 ) -> Any:
+    settings = get_settings()
+    is_read = method.upper() == "GET"
+    # Mutations stay single-shot: a refresh must not be retried blindly.
+    max_attempts = max(1, settings.provider_get_max_attempts) if is_read else 1
     extra = {"timeout": timeout} if timeout is not None else {}
-    try:
-        response = await client.request(method, path, params=params, json=json, **extra)
-    except httpx.TimeoutException as exc:
-        raise ProviderUnavailable(provider, f"Timeout calling {path}") from exc
-    except httpx.HTTPError as exc:
-        raise ProviderUnavailable(provider, f"HTTP error calling {path}: {exc}") from exc
+    last_error: Exception | None = None
 
-    if response.status_code >= 500:
-        raise ProviderUnavailable(
-            provider,
-            f"{path} returned {response.status_code}",
-            response.status_code,
-        )
-    if response.status_code >= 400:
-        raise ProviderResponseError(
-            provider,
-            f"{path} returned {response.status_code}: {response.text[:300]}",
-            response.status_code,
-        )
-    if not response.content:
-        return None
-    try:
-        return response.json()
-    except ValueError as exc:
-        raise ProviderResponseError(provider, f"{path} returned invalid JSON") from exc
+    # The breaker protects the read traffic of the feed. Mutations are rare manual
+    # admin actions (engine refresh): they are neither blocked by an open circuit nor
+    # counted by it, so a refresh still reaches the engine and its own failure (e.g. a
+    # long refresh timing out) does not cut the feed off for the open window.
+    async def record_failure() -> None:
+        if is_read:
+            await _record_failure(provider)
+
+    for attempt in range(1, max_attempts + 1):
+        if is_read:
+            await _circuit_guard(provider)
+        try:
+            response = await client.request(method, path, params=params, json=json, **extra)
+        except httpx.TimeoutException as exc:
+            last_error = ProviderUnavailable(provider, f"Timeout calling {path}")
+            await record_failure()
+            if attempt >= max_attempts:
+                raise last_error from exc
+        except httpx.HTTPError as exc:
+            last_error = ProviderUnavailable(provider, f"HTTP error calling {path}: {exc}")
+            await record_failure()
+            if attempt >= max_attempts:
+                raise last_error from exc
+        else:
+            if response.status_code >= 500 or response.status_code == 429:
+                last_error = ProviderUnavailable(
+                    provider,
+                    f"{path} returned {response.status_code}",
+                    response.status_code,
+                )
+                await record_failure()
+                if attempt >= max_attempts or not _retryable_status(response.status_code):
+                    raise last_error
+            elif response.status_code >= 400:
+                raise ProviderResponseError(
+                    provider,
+                    f"{path} returned {response.status_code}: {response.text[:300]}",
+                    response.status_code,
+                )
+            else:
+                if is_read:
+                    await _record_success(provider)
+                if not response.content:
+                    return None
+                try:
+                    return response.json()
+                except ValueError as exc:
+                    raise ProviderResponseError(provider, f"{path} returned invalid JSON") from exc
+
+        backoff = settings.provider_get_backoff_seconds * (2 ** (attempt - 1))
+        jitter = random.uniform(0.0, backoff * 0.25)
+        await asyncio.sleep(backoff + jitter)
+
+    assert last_error is not None
+    raise last_error
 
 
 def load_fixture(provider_dir: str, name: str) -> Any:

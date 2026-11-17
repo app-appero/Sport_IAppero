@@ -59,6 +59,18 @@ def reset_feed_state() -> None:
     _snapshots = None
 
 
+def invalidate_feed_cache() -> None:
+    """Expire in-memory feed snapshots after an admin refresh of the engines.
+
+    The next read rebuilds from the engines. The expired snapshot is kept only as a
+    fallback: if that rebuild fails it is served flagged stale (within
+    `cache_stale_max_seconds`) instead of a 503. Cursors of the old snapshot stop
+    working, so no page of pre-refresh data is served as current."""
+    feed_cache, snapshots = _caches()
+    feed_cache.expire_all()
+    snapshots.clear()
+
+
 @dataclass
 class ProviderSlice:
     sport: str
@@ -82,6 +94,9 @@ class FeedSnapshot:
     meta_status: str
     predictions_by_id: dict[str, UnifiedPrediction] = field(default_factory=dict)
     events_by_id: dict[str, FeedItem] = field(default_factory=dict)
+    # Set the first time this snapshot is served because a rebuild failed. It stays
+    # with the snapshot, so every later page (cursor) carries the same stale flag.
+    served_stale: bool = False
 
 
 def _filter_hash(query: FeedQuery) -> str:
@@ -372,26 +387,38 @@ async def get_feed(
         offset = max(0, offset)
 
     if snapshot is None:
+        cache_key = _cache_key(query)
         try:
-            snapshot = await feed_cache.get_or_build(
-                _cache_key(query),
+            snapshot, fallback = await feed_cache.get_or_build_ex(
+                cache_key,
                 lambda: _build_snapshot(query),
             )
-            # Re-key into snapshot store under snapshot_id
-            snapshots.put(snapshot.snapshot_id, snapshot)
         except ProviderError as exc:
-            stale = feed_cache.get_stale(_cache_key(query))
-            if stale is not None:
-                snapshot = stale
-                snapshots.put(snapshot.snapshot_id, snapshot)
-            else:
+            snapshot = feed_cache.get_stale(cache_key)
+            if snapshot is None:
                 raise ProviderError("feed", exc.message, status_code=503) from exc
+            fallback = True
+        if fallback:
+            snapshot.served_stale = True
+        # Re-key into snapshot store under snapshot_id
+        snapshots.put(snapshot.snapshot_id, snapshot)
+
+    # Pages reached through a cursor read the flag from the snapshot itself.
+    served_stale = snapshot.served_stale
 
     page_items = snapshot.items[offset : offset + limit]
     next_offset = offset + limit
     next_cursor = None
     if next_offset < len(snapshot.items):
         next_cursor = _encode_cursor(snapshot.snapshot_id, next_offset, snapshot.filter_hash)
+
+    generated = snapshot.generated_at
+    if generated.tzinfo is None:
+        generated = generated.replace(tzinfo=UTC)
+    age_seconds = max(0.0, (datetime.now(UTC) - generated.astimezone(UTC)).total_seconds())
+    warnings = list(snapshot.warnings)
+    if served_stale:
+        warnings = [*warnings, "served_from_stale_cache"]
 
     return FeedResponse(
         schema_version="1",
@@ -404,7 +431,9 @@ async def get_feed(
             status=snapshot.meta_status,
             is_complete=snapshot.is_complete,
             providers=snapshot.providers,
-            warnings=snapshot.warnings,
+            warnings=warnings,
+            snapshot_age_seconds=age_seconds,
+            is_stale=served_stale,
         ),
     )
 

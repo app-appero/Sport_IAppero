@@ -19,6 +19,7 @@ from app.domain.models import (
     Selection,
     UnifiedPrediction,
 )
+from app.providers import transparency as tx
 
 SPORT = "football"
 PROVIDER = "soccer-oracle"
@@ -227,6 +228,8 @@ def attach_live_row(row: dict[str, Any], snapshot: dict[str, Any] | None) -> dic
     updated = dict(row)
     updated["_live"] = {"minute": minute, "status_detail": detail}
     if snapshot is not None:
+        # When the engine polled this live state (`/live/fixtures` rows[].captured_at).
+        updated["_live"]["captured_at"] = snapshot.get("captured_at")
         home = _as_int(snapshot.get("home_goals"))
         away = _as_int(snapshot.get("away_goals"))
         if home is not None and away is not None:
@@ -396,6 +399,10 @@ def map_event(raw: dict[str, Any]) -> Event:
         score=score_obj,
         live=live_state,
         actual_totals=actual_totals,
+        unavailable_markets=tx.unavailable_markets(
+            raw.get("markets_unavailable"),
+            raw.get("markets_missing_reasons"),
+        ),
     )
 
 
@@ -813,6 +820,21 @@ def _resolve_correct(
     return None
 
 
+ANOMALY_FEATURES_DEFAULTED = "features_defaulted"
+
+
+def _features_defaulted(market_payload: dict[str, Any]) -> dict[str, Any]:
+    """`features_defaulted` / `features_defaulted_count` as the engine sends them."""
+    names = market_payload.get("features_defaulted")
+    names = [str(n) for n in names if n] if isinstance(names, list) else []
+    count = market_payload.get("features_defaulted_count")
+    if isinstance(count, bool) or not isinstance(count, int):
+        count = len(names)
+    if count <= 0:
+        return {}
+    return {"features_defaulted_count": count, "features_defaulted": names}
+
+
 def map_market_prediction(
     market: str,
     market_payload: dict[str, Any],
@@ -820,6 +842,7 @@ def map_market_prediction(
     *,
     three_way: dict[str, float] | None = None,
     decision_card: dict[str, Any] | None = None,
+    live_updated_at: datetime | None = None,
 ) -> UnifiedPrediction:
     selection = _selection_for_market(
         market,
@@ -868,6 +891,41 @@ def map_market_prediction(
         )
 
     correct = _resolve_correct(market, selection, event, market_payload)
+    # PLAY / BORDERLINE / NO BET always come from the engine's decision card.
+    decision = _decision_from_card(decision_card)
+
+    model_name = tx.clean_text(
+        _dig(decision_card or {}, "model_name") or market_payload.get("model_name")
+    )
+    run_id = tx.clean_text(
+        _dig(decision_card or {}, "run_id") or market_payload.get("run_id")
+    )
+    generated_at = tx.parse_timestamp(
+        market_payload.get("computed_at")
+        or _dig(decision_card or {}, "computed_at", "captured_at")
+    )
+    limited_reason = None
+    quality_payload = market_payload.get("data_quality")
+    if not isinstance(quality_payload, dict) and isinstance(decision_card, dict):
+        quality_payload = decision_card.get("data_quality")
+    data_quality = quality_payload if isinstance(quality_payload, dict) else None
+    if isinstance(data_quality, dict) and data_quality.get("xg_available") is False:
+        limited_reason = "xg_unavailable"
+    # Features the model expects and the engine filled with 0.0 for this market
+    # (sent only for predictions computed in that request, not for stored snapshots).
+    defaulted = _features_defaulted(market_payload)
+    if defaulted:
+        data_quality = {**(data_quality or {}), **defaulted}
+
+    anomalies = tx.merge_anomalies(
+        tx.probability_anomalies(
+            market_payload.get("probability")
+            or _dig(decision_card or {}, "predicted_probability", "p_model"),
+            confidence,
+        ),
+        tx.engine_warnings(market_payload.get("warnings"), (decision_card or {}).get("warnings")),
+        [ANOMALY_FEATURES_DEFAULTED] if defaulted else [],
+    )
 
     return UnifiedPrediction(
         id=f"soccer_{event.id}_{market}",
@@ -875,12 +933,23 @@ def map_market_prediction(
         event=event,
         prediction=PredictionValue(type=market, selection=selection, confidence=confidence),
         probabilities=probabilities,
-        provider=ProviderMetadata(name=PROVIDER, version=None),
+        provider=ProviderMetadata(name=PROVIDER, version=run_id),
         oracle_score=None,
-        generated_at=None,
+        generated_at=generated_at,
         correct=correct,
         pricing=_pricing_from_card(decision_card),
-        decision=_decision_from_card(decision_card),
+        decision=decision,
+        model=tx.model_info(model_name, run_id),
+        availability=tx.availability(confidence, limited_reason=limited_reason),
+        data_freshness=tx.data_freshness(predicted_at=generated_at, live_updated_at=live_updated_at),
+        provenance=tx.provenance(
+            PROVIDER,
+            source="soccer-oracle/dashboard",
+            data_quality=data_quality,
+            decision_source="provider" if decision else None,
+            decision_basis=tx.DECISION_BASIS_PROVIDER if decision else None,
+        ),
+        anomalies=anomalies,
         raw=market_payload,
     )
 
@@ -912,6 +981,11 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     event = map_event(row)
     nested = row.get("predictions")
     cards = _index_decision_cards(row)
+    row_quality = row.get("data_quality") if isinstance(row.get("data_quality"), dict) else None
+    live_hint = row.get("_live")
+    live_updated_at = (
+        tx.parse_timestamp(live_hint.get("captured_at")) if isinstance(live_hint, dict) else None
+    )
 
     if isinstance(nested, dict):
         three_way = _parse_1x2_probabilities(
@@ -929,13 +1003,17 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 continue
             if not isinstance(market_payload, dict):
                 continue
+            payload = dict(market_payload)
+            if row_quality is not None and "data_quality" not in payload:
+                payload["data_quality"] = row_quality
             out.append(
                 map_market_prediction(
                     mkey,
-                    market_payload,
+                    payload,
                     event,
                     three_way=three_way if mkey in {"h2h", "dc"} else None,
                     decision_card=cards.get(mkey),
+                    live_updated_at=live_updated_at,
                 )
             )
 
@@ -951,6 +1029,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way,
                     decision_card=cards.get("h2h") or cards.get("1x2"),
+                    live_updated_at=live_updated_at,
                 ),
             )
         if three_way is not None and not any(p.prediction.type == "dc" for p in out):
@@ -968,6 +1047,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way,
                     decision_card=cards.get("dc"),
+                    live_updated_at=live_updated_at,
                 )
             )
         return out
@@ -979,6 +1059,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 item,
                 event,
                 decision_card=cards.get(str(item.get("market") or "")),
+                live_updated_at=live_updated_at,
             )
             for item in nested
             if isinstance(item, dict)
@@ -992,6 +1073,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 row,
                 event,
                 decision_card=cards.get(market),
+                live_updated_at=live_updated_at,
             )
         ]
     return []
