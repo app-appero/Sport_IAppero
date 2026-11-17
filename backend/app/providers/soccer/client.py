@@ -656,8 +656,11 @@ class SoccerProvider(SportProvider):
                 return []
         if not isinstance(detail, dict):
             return []
+        # Real detail payloads are envelopes (`overview.fixture` / `fixture` + top-level
+        # cards): flatten first, so the live snapshot is matched on the row's fixture_id/status.
+        row = mapper.normalize_match_detail(detail)
         return mapper.map_day_payload(
-            mapper.enrich_day_payload({"rows": [detail]}, live or {})
+            mapper.enrich_day_payload({"rows": [row]}, live or {})
         )
 
     async def get_prediction(

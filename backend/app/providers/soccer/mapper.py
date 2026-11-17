@@ -1098,6 +1098,15 @@ def _normalize_match_row(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def normalize_match_detail(payload: Any) -> Any:
+    """A match-detail envelope as a flat day row (flat rows pass through).
+
+    Normalizing before `enrich_day_payload` lets the live snapshot attach to the
+    row itself, with the row's own status, as for the day feed.
+    """
+    return _normalize_match_row(payload) if isinstance(payload, dict) else payload
+
+
 def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     row = _normalize_match_row(raw)
     event = map_event(row)
