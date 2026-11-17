@@ -9,6 +9,7 @@ import { SportThemeProvider, useSportPalette, useThemedStyles } from '@/componen
 import { marketLabel } from '@/constants/markets';
 import { fonts, radii, spacing, type Palette, fs } from '@/constants/theme';
 import { usePredictionDetail } from '@/hooks/queries';
+import { DECISION_DISCLAIMER } from '@/utils/decisionFilter';
 import { formatApiError } from '@/utils/formatApiError';
 import { outcomeTone, scoreForMarket } from '@/utils/outcome';
 import { selectionLabel } from '@/utils/selectionLabel';
@@ -162,7 +163,7 @@ function PredictionDetail() {
           })}
         </View>
 
-        <Text style={styles.section}>Valore e quote</Text>
+        <Text style={styles.section}>Stima del modello e quote</Text>
         {decision?.low_reliability ? <LowReliabilityBadge /> : null}
         {hasExtras ? (
           <View style={styles.board}>
@@ -173,7 +174,7 @@ function PredictionDetail() {
             />
             <InfoRow
               styles={styles}
-              label="EV"
+              label="EV stimato"
               value={fmtEv(pricing?.expected_value ?? null)}
             />
             <InfoRow
@@ -204,6 +205,7 @@ function PredictionDetail() {
             probabilità degli esiti sopra.
           </Text>
         )}
+        {hasExtras ? <Text style={styles.disclaimer}>{DECISION_DISCLAIMER}</Text> : null}
       </ScrollView>
     </>
   );
@@ -322,4 +324,5 @@ const makeStyles = (colors: Palette) =>
       lineHeight: fs(18),
     },
     muted: { fontFamily: fonts.body, fontSize: fs(14), color: colors.inkMuted },
+    disclaimer: { fontFamily: fonts.body, fontSize: fs(12), lineHeight: fs(16), color: colors.inkMuted },
   });
