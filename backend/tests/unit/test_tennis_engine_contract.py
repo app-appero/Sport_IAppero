@@ -7,7 +7,8 @@ Payloads are built on the field names found in the engine's code on branch
 `NextFixtureWithPrediction`, backend/src/app/services/predictions.py):
   items[].odds_captured_at, items[].imported_at, items[].live_score_updated_at,
   items[].prediction_warning, items[].prediction.{model_name, model_version,
-  predicted_at, features_available, warnings, data_quality{status, reasons, ...}},
+  predicted_at, features_available, warnings, data_quality{status, reasons,
+  systemic_gaps, details, evaluated, not_evaluated}},
   items[].extra_markets[].{model_name, model_version, published_at}.
 """
 
@@ -65,18 +66,18 @@ def _tennis_row(**overrides) -> dict:
             "data_quality": {
                 "status": "limited",
                 "reasons": ["few_bookmakers"],
-                "systemic_gaps": [],
+                "systemic_gaps": ["enrichment_features_unavailable"],
                 "details": {
                     "player_1_prior_matches": None,
                     "player_2_prior_matches": None,
                     "surface_known": True,
                     "ranking_available": None,
                     "bookmaker_count": 2,
-                    "unavailable_feature_columns": [],
+                    "unavailable_feature_columns": ["player_1_age", "player_2_age"],
                     "low_history_threshold": 5,
                     "few_bookmakers_threshold": 3,
                 },
-                "evaluated": ["surface", "odds", "bookmaker_count"],
+                "evaluated": ["surface", "odds", "bookmaker_count", "enrichment_features"],
                 "not_evaluated": ["player_history", "ranking"],
             },
         },
@@ -132,8 +133,12 @@ def test_tennis_data_quality_is_passed_through_and_a_declared_gap_limits_availab
     assert winner.availability.status == "limited"
     assert winner.availability.reason == "few_bookmakers"
 
+    # `systemic_gaps` (inputs serving lacks for every match) do not downgrade the engine's
+    # status, so they do not limit availability here either; they stay in data_quality.
     row["prediction"]["data_quality"] = {**row["prediction"]["data_quality"], "status": "sufficient", "reasons": []}
-    assert _by_market(row)["match_winner"].availability.status == "available"
+    sufficient = _by_market(row)["match_winner"]
+    assert sufficient.availability.status == "available"
+    assert sufficient.provenance.data_quality["systemic_gaps"] == ["enrichment_features_unavailable"]
 
     row["prediction"]["data_quality"] = {"status": "insufficient", "reasons": ["missing_odds", "surface_unknown"]}
     insufficient = _by_market(row)["match_winner"].availability
