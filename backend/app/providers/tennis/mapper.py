@@ -385,6 +385,13 @@ def map_event(raw: dict[str, Any]) -> Event:
     if live_state is not None:
         status = "live"  # the provider says "Set 2": the app only needs to know it is in progress
 
+    # The engine sets `prediction_warning` (e.g. missing_persisted_prediction) on a row
+    # it returns without the match-winner prediction: pass its code on as the reason.
+    unavailable = []
+    prediction_warning = tx.clean_text(raw.get("prediction_warning"))
+    if prediction_warning and not isinstance(raw.get("prediction"), dict):
+        unavailable = tx.unavailable_markets(["match_winner"], default_reason=prediction_warning)
+
     return Event(
         id=event_id or name or "unknown",
         name=name or "Unknown match",
@@ -397,7 +404,7 @@ def map_event(raw: dict[str, Any]) -> Event:
         score=score_obj,
         live=live_state,
         actual_totals=actual_totals,
-        unavailable_markets=[],
+        unavailable_markets=unavailable,
     )
 
 
@@ -536,6 +543,20 @@ def _extra_market_decision(
     )
 
 
+def _quality_gap(quality: Any) -> str | None:
+    """Gap the engine declares in `prediction.data_quality` ({"status": sufficient |
+    limited | insufficient, "reasons": [...]}): its first reason code, None when the
+    status is sufficient or the report is missing."""
+    if not isinstance(quality, dict):
+        return None
+    status = str(quality.get("status") or "").strip().lower()
+    if status not in {"limited", "insufficient"}:
+        return None
+    reasons = quality.get("reasons")
+    first = tx.clean_text(reasons[0]) if isinstance(reasons, list) and reasons else None
+    return first or f"data_quality_{status}"
+
+
 def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | None:
     prediction = raw.get("prediction")
     if not isinstance(prediction, dict):
@@ -570,9 +591,10 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
     decision, decision_basis = _match_winner_decision(raw, prediction)
     decision_source, decision_anomalies = tx.decision_provenance(decision_basis)
     features_available = prediction.get("features_available")
-    limited_reason = None
-    if features_available is False:
-        limited_reason = "features_unavailable"
+    quality = prediction.get("data_quality")
+    limited_reason = (
+        "features_unavailable" if features_available is False else _quality_gap(quality)
+    )
     anomalies = tx.merge_anomalies(
         tx.probability_anomalies(prediction.get("prob_player_1_win"), conf),
         tx.engine_warnings(prediction.get("warnings"), raw.get("prediction_warning")),
@@ -580,7 +602,6 @@ def map_match_winner(raw: dict[str, Any], event: Event) -> UnifiedPrediction | N
         ["features_unavailable"] if features_available is False else [],
         ["naive_datetime"] if generated_at is not None and generated_at.tzinfo is None else [],
     )
-    quality = prediction.get("data_quality")
     if not isinstance(quality, dict):
         quality = {
             "features_available": features_available,
