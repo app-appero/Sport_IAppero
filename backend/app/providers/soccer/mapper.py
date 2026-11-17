@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -298,7 +299,10 @@ def index_live_fixtures(payload: Any) -> dict[str, dict[str, Any]]:
 
 
 def enrich_day_payload(payload: Any, live_by_id: dict[str, dict[str, Any]]) -> Any:
-    """Copy a dashboard payload, attaching the live snapshot to each row."""
+    """Copy a dashboard payload, attaching the live snapshot to each row.
+
+    Match-detail envelopes are flattened first, so the snapshot lands on the match row
+    (where `map_event` reads score and minute) and not on the wrapper around it."""
     if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list):
         return payload
     rows: list[Any] = []
@@ -306,6 +310,7 @@ def enrich_day_payload(payload: Any, live_by_id: dict[str, dict[str, Any]]) -> A
         if not isinstance(row, dict):
             rows.append(row)
             continue
+        row = _normalize_match_row(row)
         fixture_id = row.get("fixture_id", row.get("id"))
         snapshot = live_by_id.get(str(fixture_id)) if fixture_id is not None else None
         rows.append(attach_live_row(row, snapshot))
@@ -763,6 +768,60 @@ def _decision_from_card(card: dict[str, Any] | None) -> DecisionInfo | None:
     )
 
 
+def _cards_by_market(raw: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {}
+    cards = raw.get("decision_cards")
+    if not isinstance(cards, list):
+        return out
+    for card in cards:
+        if isinstance(card, dict) and card.get("market"):
+            out.setdefault(str(card["market"]), []).append(card)
+    return out
+
+
+def _label_key(value: Any) -> str:
+    """Same folding as the engine's `_normalize_text`: "Home/Draw" -> "homedraw", "Over 2.5" -> "over25"."""
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+# The app labels double chance 1X / X2 / 12; the engine's cards name the outcomes.
+_DC_CARD_OUTCOMES = {"1x": "homedraw", "x2": "drawaway", "12": "homeaway"}
+
+
+def _card_for_selection(
+    selection: Selection,
+    confidence: float | None,
+    candidates: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    """The decision card of the pick the app shows, when the market has several cards.
+
+    Match detail sends one card per outcome for the 1X2 board and the double chance (plus the
+    legacy binary card), and official plays add cards next to the model ones. The best card of
+    the market can then be another outcome than the displayed selection. Among the cards of the
+    same outcome, the one pricing the displayed probability wins (DC 1X from the 1X2 board, not
+    the legacy binary). None when no card matches: the caller keeps the market's best card.
+    """
+    if not candidates:
+        return None
+    wanted = {_label_key(selection.id), _label_key(selection.name)} - {""}
+    wanted |= {_DC_CARD_OUTCOMES[key] for key in list(wanted) if key in _DC_CARD_OUTCOMES}
+    matches = [
+        (index, card)
+        for index, card in enumerate(candidates)
+        if {_label_key(card.get("outcome")), _label_key(card.get("pick"))} & wanted
+    ]
+    if not matches:
+        return None
+
+    def rank(item: tuple[int, dict[str, Any]]) -> tuple[float, bool, int]:
+        index, card = item
+        p = _clamp_confidence(card.get("predicted_probability"))
+        gap = abs(p - confidence) if p is not None and confidence is not None else 1.0
+        return (gap, card.get("is_market_best") is not True, index)
+
+    return min(matches, key=rank)[1]
+
+
 def _index_decision_cards(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     cards = raw.get("decision_cards")
@@ -820,7 +879,10 @@ def map_market_prediction(
     *,
     three_way: dict[str, float] | None = None,
     decision_card: dict[str, Any] | None = None,
+    decision_candidates: list[dict[str, Any]] | None = None,
 ) -> UnifiedPrediction:
+    """`decision_card` is the market's best card; `decision_candidates` are all the cards that
+    may price this prediction, and the one matching the displayed selection replaces it."""
     selection = _selection_for_market(
         market,
         market_payload.get("prediction"),
@@ -859,6 +921,8 @@ def map_market_prediction(
                 )
             ]
 
+    decision_card = _card_for_selection(selection, confidence, decision_candidates) or decision_card
+
     # When we already have a full outcome board (1x2 / both binary sides), keep
     # those probabilities intact. Decision-card p only fills confidence if the
     # board did not yield a value for the recommended pick.
@@ -885,26 +949,51 @@ def map_market_prediction(
     )
 
 
+_ENVELOPE_KEYS = (
+    "predictions",
+    "decision_cards",
+    "best_decision",
+    "actual_totals",
+    "score",
+    "status",
+    "phase",
+)
+
+
+def _blank(value: Any) -> bool:
+    return value is None or (isinstance(value, (list, dict)) and not value)
+
+
 def _normalize_match_row(raw: dict[str, Any]) -> dict[str, Any]:
-    """Flatten dashboard match / oracle-detail envelopes into a day-row shape."""
-    if "fixture_id" in raw or "home" in raw:
+    """Flatten the engine's match-detail envelopes into a day-row shape; flat rows pass through.
+
+    - `/dashboard/match/{id}`: `{"fixture": row, "decision_cards": [...], "predictions": {...}, ...}`
+    - `/dashboard/match/{id}/oracle-detail`: `{"fixture_id": id, "overview": {"fixture": row, ...},
+      "probabilities": [...], ...}` where `probabilities` are the same decision cards.
+
+    The row inside both is serialized without decisions (`decision_cards: []`, `best_decision: None`):
+    the cards live next to it. Envelope values fill what the row leaves missing or empty and never
+    replace what it already has.
+    """
+    overview = raw.get("overview")
+    if isinstance(overview, dict) and isinstance(overview.get("fixture"), dict):
+        fixture = overview["fixture"]
+        envelope = dict(raw)
+        if "decision_cards" not in envelope and isinstance(raw.get("probabilities"), list):
+            envelope["decision_cards"] = raw["probabilities"]
+    elif "fixture_id" in raw or "home" in raw:
         return raw
-    fixture = raw.get("fixture")
-    if isinstance(fixture, dict):
-        merged = {**fixture}
-        for key in (
-            "predictions",
-            "decision_cards",
-            "best_decision",
-            "actual_totals",
-            "score",
-            "status",
-            "phase",
-        ):
-            if key in raw and key not in merged:
-                merged[key] = raw[key]
-        return merged
-    return raw
+    elif isinstance(raw.get("fixture"), dict):
+        fixture, envelope = raw["fixture"], raw
+    else:
+        return raw
+    merged = {**fixture}
+    for key in _ENVELOPE_KEYS:
+        if key not in envelope:
+            continue
+        if key not in merged or (_blank(merged[key]) and not _blank(envelope[key])):
+            merged[key] = envelope[key]
+    return merged
 
 
 def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
@@ -912,6 +1001,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     event = map_event(row)
     nested = row.get("predictions")
     cards = _index_decision_cards(row)
+    by_market = _cards_by_market(row)
 
     if isinstance(nested, dict):
         three_way = _parse_1x2_probabilities(
@@ -929,13 +1019,19 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 continue
             if not isinstance(market_payload, dict):
                 continue
+            board = three_way if mkey in {"h2h", "dc"} else None
+            candidates = by_market.get(mkey, [])
+            if mkey == "h2h" and board is not None:
+                # The 1X2 board is folded into h2h: its per-outcome cards price the same pick.
+                candidates = candidates + by_market.get("1x2", [])
             out.append(
                 map_market_prediction(
                     mkey,
                     market_payload,
                     event,
-                    three_way=three_way if mkey in {"h2h", "dc"} else None,
+                    three_way=board,
                     decision_card=cards.get(mkey),
+                    decision_candidates=candidates,
                 )
             )
 
@@ -951,6 +1047,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way,
                     decision_card=cards.get("h2h") or cards.get("1x2"),
+                    decision_candidates=by_market.get("h2h", []) + by_market.get("1x2", []),
                 ),
             )
         if three_way is not None and not any(p.prediction.type == "dc" for p in out):
@@ -968,6 +1065,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way,
                     decision_card=cards.get("dc"),
+                    decision_candidates=by_market.get("dc", []),
                 )
             )
         return out
@@ -979,6 +1077,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 item,
                 event,
                 decision_card=cards.get(str(item.get("market") or "")),
+                decision_candidates=by_market.get(str(item.get("market") or "")),
             )
             for item in nested
             if isinstance(item, dict)
@@ -992,6 +1091,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 row,
                 event,
                 decision_card=cards.get(market),
+                decision_candidates=by_market.get(market),
             )
         ]
     return []

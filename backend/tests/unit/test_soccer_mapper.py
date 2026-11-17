@@ -113,9 +113,93 @@ def test_match_detail_1x2_board_enriches_h2h_and_dc():
     assert {p.key for p in ou.probabilities} == {"over", "under"}
     assert ou.prediction.selection.id == "under"
     assert ou.pricing is not None
-    assert ou.pricing.expected_value == pytest.approx(0.12400686347473755)
+    assert ou.pricing.expected_value == pytest.approx(0.0332401691378994)
     assert ou.decision is not None
-    assert ou.decision.code == "BORDERLINE"
+    assert ou.decision.code == "NO BET"
+    assert ou.decision.policy_version == "decision_policy_v3_market_blend"
+
+
+# Both fixtures are the engine's real responses for fixture 1552176, built by running
+# DashboardService.get_match_detail / OracleMatchDetailService.build_oracle_match_detail
+# with DB and API-Sports stubbed: the match row inside carries `decision_cards: []`
+# and the cards sit next to it (`decision_cards` / `probabilities`).
+DETAIL_FIXTURES = ["oracle_detail.json", "match.json"]
+
+
+@pytest.mark.parametrize("name", DETAIL_FIXTURES)
+def test_match_detail_envelope_maps_every_market_with_its_decision(name):
+    payload = load_fixture("soccer", name)
+    row = payload["overview"]["fixture"] if name == "oracle_detail.json" else payload["fixture"]
+    assert row["decision_cards"] == [] and row["best_decision"] is None  # the shape that hid the cards
+
+    preds = mapper.map_day_payload({"rows": [payload]})
+
+    assert len(preds) == 10
+    assert all(p.decision is not None and p.decision.code for p in preds)
+    assert all(p.event.id == "1552176" and p.event.name == "Feyenoord vs Utrecht" for p in preds)
+    assert preds[0].event.score is not None and preds[0].event.score.display == "5-0"
+    by_type = {p.prediction.type: p for p in preds}
+    assert {p.key for p in by_type["h2h"].probabilities} == {"home", "draw", "away"}
+    assert by_type["cards_line_6_5"].decision.code == "SENZA QUOTA"
+    assert by_type["cards_line_6_5"].decision.low_reliability is True
+
+
+@pytest.mark.parametrize("name", DETAIL_FIXTURES)
+def test_match_detail_decision_is_the_card_of_the_displayed_pick(name):
+    """DC has four cards (legacy binary + 1X/X2/12 from the 1X2 board) and the market's best one
+    is Home/Away BORDERLINE: the 1X shown in the app must carry the 1X card, not that one."""
+    preds = mapper.map_day_payload({"rows": [load_fixture("soccer", name)]})
+    by_type = {p.prediction.type: p for p in preds}
+
+    dc = by_type["dc"]
+    assert dc.prediction.selection.name == "1X"
+    assert dc.prediction.confidence == pytest.approx(0.73)
+    assert dc.decision.code == "NO BET"
+    assert dc.pricing.odds_decimal == pytest.approx(1.06)
+    assert dc.pricing.expected_value == pytest.approx(-0.1131)
+
+    # h2h shows the 1X2 board: priced by its Home card, not by the legacy binary one.
+    h2h = by_type["h2h"]
+    assert h2h.prediction.selection.name == "Feyenoord"
+    assert h2h.prediction.confidence == pytest.approx(0.62)
+    assert h2h.pricing.expected_value == pytest.approx(-0.13434812314019684)
+
+
+def test_detail_envelope_never_replaces_what_the_row_already_has():
+    row_card = {"market": "h2h", "pick": "Home", "outcome": "Home", "value_label": "PLAY"}
+    envelope_card = {"market": "h2h", "pick": "Home", "outcome": "Home", "value_label": "NO BET"}
+    payload = {
+        "fixture": {
+            "fixture_id": 7,
+            "home": "A",
+            "away": "B",
+            "status": "NS",
+            "predictions": {"h2h": {"prediction": 1, "probability": 0.6}},
+            "decision_cards": [row_card],
+        },
+        "decision_cards": [envelope_card],
+        "predictions": {"h2h": {"prediction": 0, "probability": 0.1}},
+    }
+    [pred] = mapper.map_day_payload({"rows": [payload]})
+    assert pred.prediction.selection.id == "home"
+    assert pred.decision.code == "PLAY"
+
+
+@pytest.mark.parametrize("name", DETAIL_FIXTURES)
+def test_live_snapshot_reaches_the_match_row_inside_a_detail_envelope(name):
+    payload = load_fixture("soccer", name)
+    row = payload["overview"]["fixture"] if name == "oracle_detail.json" else payload["fixture"]
+    row.update(status="2H", phase="live", score={"home": 1, "away": 0})
+    live = {"1552176": {"fixture_id": 1552176, "status": "2H", "elapsed_minute": 67,
+                        "home_goals": 2, "away_goals": 0}}
+
+    preds = mapper.map_day_payload(mapper.enrich_day_payload({"rows": [payload]}, live))
+
+    h2h = next(p for p in preds if p.prediction.type == "h2h")
+    assert h2h.event.live is not None and h2h.event.live.minute == 67
+    assert h2h.event.score.display == "2-0"
+    assert h2h.correct is None  # still open while the match is on
+    assert h2h.decision is not None
 
 
 def test_day_feed_keeps_provider_decision_labels():

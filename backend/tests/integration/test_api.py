@@ -105,6 +105,23 @@ def test_event_predictions(client: TestClient):
     assert body["meta"]["count"] >= 2
 
 
+def test_football_event_detail_shows_predictions_with_decision(client: TestClient):
+    """The fixture engine answers the oracle-detail route with its real envelope shape."""
+    for path in ("/api/v1/events/1552176/predictions", "/api/v1/events/1552176"):
+        response = client.get(path, params={"sport": "football"})
+        assert response.status_code == 200
+        body = response.json()
+        items = body["items"] if "items" in body else body["predictions"]
+        assert len(items) == 10
+        assert all(item["decision"] and item["decision"]["code"] for item in items)
+        # Three outcomes on h2h: these come from the match detail, not from the day-feed fallback.
+        h2h = next(item for item in items if item["prediction"]["type"] == "h2h")
+        assert {p["key"] for p in h2h["probabilities"]} == {"home", "draw", "away"}
+        dc = next(item for item in items if item["prediction"]["type"] == "dc")
+        assert dc["prediction"]["selection"]["name"] == "1X"
+        assert dc["decision"]["code"] == "NO BET"
+
+
 def test_liveness_and_ready(client: TestClient):
     health = client.get("/health").json()
     assert health["status"] == "ok"
