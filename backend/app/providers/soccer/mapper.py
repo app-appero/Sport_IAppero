@@ -228,6 +228,8 @@ def attach_live_row(row: dict[str, Any], snapshot: dict[str, Any] | None) -> dic
     updated = dict(row)
     updated["_live"] = {"minute": minute, "status_detail": detail}
     if snapshot is not None:
+        # When the engine polled this live state (`/live/fixtures` rows[].captured_at).
+        updated["_live"]["captured_at"] = snapshot.get("captured_at")
         home = _as_int(snapshot.get("home_goals"))
         away = _as_int(snapshot.get("away_goals"))
         if home is not None and away is not None:
@@ -818,6 +820,21 @@ def _resolve_correct(
     return None
 
 
+ANOMALY_FEATURES_DEFAULTED = "features_defaulted"
+
+
+def _features_defaulted(market_payload: dict[str, Any]) -> dict[str, Any]:
+    """`features_defaulted` / `features_defaulted_count` as the engine sends them."""
+    names = market_payload.get("features_defaulted")
+    names = [str(n) for n in names if n] if isinstance(names, list) else []
+    count = market_payload.get("features_defaulted_count")
+    if isinstance(count, bool) or not isinstance(count, int):
+        count = len(names)
+    if count <= 0:
+        return {}
+    return {"features_defaulted_count": count, "features_defaulted": names}
+
+
 def map_market_prediction(
     market: str,
     market_payload: dict[str, Any],
@@ -825,6 +842,7 @@ def map_market_prediction(
     *,
     three_way: dict[str, float] | None = None,
     decision_card: dict[str, Any] | None = None,
+    live_updated_at: datetime | None = None,
 ) -> UnifiedPrediction:
     selection = _selection_for_market(
         market,
@@ -893,6 +911,11 @@ def map_market_prediction(
     data_quality = quality_payload if isinstance(quality_payload, dict) else None
     if isinstance(data_quality, dict) and data_quality.get("xg_available") is False:
         limited_reason = "xg_unavailable"
+    # Features the model expects and the engine filled with 0.0 for this market
+    # (sent only for predictions computed in that request, not for stored snapshots).
+    defaulted = _features_defaulted(market_payload)
+    if defaulted:
+        data_quality = {**(data_quality or {}), **defaulted}
 
     anomalies = tx.merge_anomalies(
         tx.probability_anomalies(
@@ -901,6 +924,7 @@ def map_market_prediction(
             confidence,
         ),
         tx.engine_warnings(market_payload.get("warnings"), (decision_card or {}).get("warnings")),
+        [ANOMALY_FEATURES_DEFAULTED] if defaulted else [],
     )
 
     return UnifiedPrediction(
@@ -917,7 +941,7 @@ def map_market_prediction(
         decision=decision,
         model=tx.model_info(model_name, run_id),
         availability=tx.availability(confidence, limited_reason=limited_reason),
-        data_freshness=tx.data_freshness(predicted_at=generated_at),
+        data_freshness=tx.data_freshness(predicted_at=generated_at, live_updated_at=live_updated_at),
         provenance=tx.provenance(
             PROVIDER,
             source="soccer-oracle/dashboard",
@@ -958,6 +982,10 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     nested = row.get("predictions")
     cards = _index_decision_cards(row)
     row_quality = row.get("data_quality") if isinstance(row.get("data_quality"), dict) else None
+    live_hint = row.get("_live")
+    live_updated_at = (
+        tx.parse_timestamp(live_hint.get("captured_at")) if isinstance(live_hint, dict) else None
+    )
 
     if isinstance(nested, dict):
         three_way = _parse_1x2_probabilities(
@@ -985,6 +1013,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way if mkey in {"h2h", "dc"} else None,
                     decision_card=cards.get(mkey),
+                    live_updated_at=live_updated_at,
                 )
             )
 
@@ -1000,6 +1029,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way,
                     decision_card=cards.get("h2h") or cards.get("1x2"),
+                    live_updated_at=live_updated_at,
                 ),
             )
         if three_way is not None and not any(p.prediction.type == "dc" for p in out):
@@ -1017,6 +1047,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     event,
                     three_way=three_way,
                     decision_card=cards.get("dc"),
+                    live_updated_at=live_updated_at,
                 )
             )
         return out
@@ -1028,6 +1059,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 item,
                 event,
                 decision_card=cards.get(str(item.get("market") or "")),
+                live_updated_at=live_updated_at,
             )
             for item in nested
             if isinstance(item, dict)
@@ -1041,6 +1073,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 row,
                 event,
                 decision_card=cards.get(market),
+                live_updated_at=live_updated_at,
             )
         ]
     return []
