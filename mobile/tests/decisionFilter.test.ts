@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   applyDecisionFilter,
+  DECISION_DISCLAIMER,
   decisionCode,
   decisionHint,
   parseDecisionFilter,
@@ -13,11 +14,20 @@ import type { FeedItem } from '../types/api.ts';
 const pred = (id: string, code: string | null) =>
   ({ id, decision: code == null ? null : { code } }) as FeedItem['predictions'][number];
 
-test('each state has a plain explanation', () => {
-  assert.match(decisionHint('all'), /paga di più/);
-  assert.match(decisionHint('PLAY'), /paga più/);
-  assert.match(decisionHint('BORDERLINE'), /poco di più/);
-  assert.match(decisionHint('NO BET'), /paga meno/);
+test('each state has a plain explanation: model probability against the odds', () => {
+  assert.match(decisionHint('all'), /^Play: .*Borderline: .*No bet: /);
+  assert.match(decisionHint('PLAY'), /^Play: il modello .*più alta di quella indicata dalla quota\./);
+  assert.match(decisionHint('BORDERLINE'), /^Borderline: .*solo di poco più alta/);
+  assert.match(decisionHint('NO BET'), /^No bet: .*non è più alta di quella della quota\./);
+});
+
+test('every explanation says it is a model estimate, not a guarantee, and promises no gain', () => {
+  assert.equal(DECISION_DISCLAIMER, 'Stima del modello rispetto alla quota: non è una garanzia di vincita.');
+  for (const filter of ['all', 'PLAY', 'BORDERLINE', 'NO BET'] as const) {
+    const hint = decisionHint(filter);
+    assert.ok(hint.endsWith(` ${DECISION_DISCLAIMER}`), hint);
+    assert.doesNotMatch(hint, /paga|vale la giocata|vantaggio|guadagn|sicur/i);
+  }
 });
 
 test('decision codes accept the provider labels and ignore anything else', () => {
