@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -793,6 +794,93 @@ def _index_decision_cards(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return out
 
 
+# Detail envelopes (`/dashboard/match/{id}`, `/oracle-detail`) leave the row's own
+# `decision_cards` empty and send the cards one level up. Those cards are kept
+# aside under this key and matched by market AND outcome: there one market can
+# hold several outcomes (3-way `1x2`/`dc` cards, official ledger cards).
+DETAIL_CARDS_KEY = "_detail_decision_cards"
+
+# Markets whose decision can also come from another card market (same outcomes).
+_DETAIL_CARD_MARKETS: dict[str, tuple[str, ...]] = {"h2h": ("h2h", "1x2")}
+_THREE_WAY_OUTCOMES = {"home": "home", "draw": "draw", "away": "away"}
+_DC_OUTCOMES = {"1x": "homedraw", "x2": "drawaway", "12": "homeaway"}
+_LINE_PREFIXES = ("under_over_", "cards_line_", "corners_line_")
+
+
+def _norm_text(value: Any) -> str:
+    """Same normalization the engine uses to compare markets/outcomes."""
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+def _card_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [card for card in value if isinstance(card, dict)]
+
+
+def _engine_outcome_keys(market: str, selection: Selection) -> set[str]:
+    """Normalized engine outcome names (`card.outcome`) for the BFF selection."""
+    sel = _norm_text(selection.id)
+    if market in {"h2h", "1x2"}:
+        return {_THREE_WAY_OUTCOMES[sel]} if sel in _THREE_WAY_OUTCOMES else set()
+    if market == "dc":
+        return {_DC_OUTCOMES[sel]} if sel in _DC_OUTCOMES else set()
+    if market == "goal_no_goal":
+        if sel in {"goal", "yes", "1"}:
+            return {"yes"}
+        if sel in {"nogoal", "no", "0"}:
+            return {"no"}
+        return set()
+    for prefix in _LINE_PREFIXES:
+        if market.startswith(prefix):
+            line = _norm_text(market.removeprefix(prefix))
+            if sel in {"over", "1"}:
+                return {f"over{line}"}
+            if sel in {"under", "0"}:
+                return {f"under{line}"}
+            return set()
+    return {key for key in (sel, _norm_text(selection.name)) if key}
+
+
+def _detail_card_for(
+    cards: list[dict[str, Any]],
+    market: str,
+    market_payload: dict[str, Any],
+    event: Event,
+) -> dict[str, Any] | None:
+    """The envelope card for this market and for the outcome the BFF shows.
+
+    No card for that outcome means no decision: a card of the same market on
+    another outcome is never borrowed. Among cards on the same outcome the
+    official one wins (the engine itself puts it in place of the model card),
+    then the card of the same model run, then the engine's own order.
+    """
+    selection = _selection_for_market(market, market_payload.get("prediction"), event, market_payload)
+    wanted = _engine_outcome_keys(market, selection)
+    if not wanted:
+        return None
+    run_id = market_payload.get("run_id")
+    for card_market in _DETAIL_CARD_MARKETS.get(market, (market,)):
+        market_key = _norm_text(card_market)
+        candidates = [
+            card
+            for card in cards
+            if _norm_text(card.get("market")) == market_key
+            and _norm_text(card.get("outcome") or card.get("pick")) in wanted
+        ]
+        if not candidates:
+            continue
+        official = next((card for card in candidates if card.get("is_official") is True), None)
+        if official is not None:
+            return official
+        if run_id:
+            same_run = next((card for card in candidates if card.get("run_id") == run_id), None)
+            if same_run is not None:
+                return same_run
+        return candidates[0]
+    return None
+
+
 def _event_in_play(event: Event) -> bool:
     if event.live is not None and event.live.is_live:
         return True
@@ -954,8 +1042,42 @@ def map_market_prediction(
     )
 
 
+def _with_envelope_extras(
+    merged: dict[str, Any], raw: dict[str, Any], envelope_cards: Any
+) -> dict[str, Any]:
+    """Envelope cards when the row has none; live snapshot attached to the envelope."""
+    if not _card_list(merged.get("decision_cards")) and not isinstance(merged.get("best_decision"), dict):
+        cards = _card_list(envelope_cards)
+        if cards:
+            merged[DETAIL_CARDS_KEY] = cards
+    if not merged.get("predictions") and isinstance(raw.get("predictions"), dict) and raw["predictions"]:
+        merged["predictions"] = raw["predictions"]
+    if isinstance(raw.get("_live"), dict):
+        # `enrich_day_payload` ran on the envelope: its live score/totals are the fresh ones.
+        merged["_live"] = raw["_live"]
+        for key in ("score", "actual_totals"):
+            if key in raw:
+                merged[key] = raw[key]
+    return merged
+
+
 def _normalize_match_row(raw: dict[str, Any]) -> dict[str, Any]:
-    """Flatten dashboard match / oracle-detail envelopes into a day-row shape."""
+    """Flatten dashboard match / oracle-detail envelopes into a day-row shape.
+
+    - `/oracle-detail`: `{fixture_id, overview: {fixture: row}, probabilities: [card], ...}`;
+    - `/dashboard/match/{id}`: `{fixture: row, decision_cards: [card], predictions, ...}`;
+    - a flat row (day feed, older detail payloads) passes through unchanged.
+    """
+    overview = raw.get("overview")
+    if isinstance(overview, dict) and "fixture" in overview:
+        fixture = overview.get("fixture")
+        if not isinstance(fixture, dict):
+            # Engine warning `fixture_not_found`: nothing to map.
+            return {"fixture_id": raw["fixture_id"]} if raw.get("fixture_id") is not None else {}
+        merged = {**fixture}
+        if merged.get("fixture_id") is None and raw.get("fixture_id") is not None:
+            merged["fixture_id"] = raw["fixture_id"]
+        return _with_envelope_extras(merged, raw, raw.get("probabilities"))
     if "fixture_id" in raw or "home" in raw:
         return raw
     fixture = raw.get("fixture")
@@ -972,7 +1094,7 @@ def _normalize_match_row(raw: dict[str, Any]) -> dict[str, Any]:
         ):
             if key in raw and key not in merged:
                 merged[key] = raw[key]
-        return merged
+        return _with_envelope_extras(merged, raw, raw.get("decision_cards"))
     return raw
 
 
@@ -981,11 +1103,23 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     event = map_event(row)
     nested = row.get("predictions")
     cards = _index_decision_cards(row)
+    # Row cards (day feed, flat detail rows) keep the lookup by market. Envelope
+    # cards, used only when the row has none, are matched by market and outcome.
+    detail_cards = [] if cards else _card_list(row.get(DETAIL_CARDS_KEY))
     row_quality = row.get("data_quality") if isinstance(row.get("data_quality"), dict) else None
     live_hint = row.get("_live")
     live_updated_at = (
         tx.parse_timestamp(live_hint.get("captured_at")) if isinstance(live_hint, dict) else None
     )
+
+    def card_for(market: str, payload: dict[str, Any], *row_keys: str) -> dict[str, Any] | None:
+        if detail_cards:
+            return _detail_card_for(detail_cards, market, payload, event) if market else None
+        for key in row_keys or (market,):
+            card = cards.get(key)
+            if card:
+                return card
+        return None
 
     if isinstance(nested, dict):
         three_way = _parse_1x2_probabilities(
@@ -1012,7 +1146,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     payload,
                     event,
                     three_way=three_way if mkey in {"h2h", "dc"} else None,
-                    decision_card=cards.get(mkey),
+                    decision_card=card_for(mkey, payload),
                     live_updated_at=live_updated_at,
                 )
             )
@@ -1021,14 +1155,15 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
         if three_way is not None and not any(p.prediction.type == "h2h" for p in out):
             argmax = max(three_way.items(), key=lambda kv: kv[1])[0]
             code = {"home": 1, "away": 2, "draw": 0}[argmax]
+            h2h_payload = {"prediction": code, "probability": three_way[argmax]}
             out.insert(
                 0,
                 map_market_prediction(
                     "h2h",
-                    {"prediction": code, "probability": three_way[argmax]},
+                    h2h_payload,
                     event,
                     three_way=three_way,
-                    decision_card=cards.get("h2h") or cards.get("1x2"),
+                    decision_card=card_for("h2h", h2h_payload, "h2h", "1x2"),
                     live_updated_at=live_updated_at,
                 ),
             )
@@ -1040,13 +1175,14 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
             }
             best_dc = max(dc_board.items(), key=lambda kv: kv[1])[0]
             code = {"1X": 1, "12": 2, "X2": 0}[best_dc]
+            dc_payload = {"prediction": code, "probability": dc_board[best_dc]}
             out.append(
                 map_market_prediction(
                     "dc",
-                    {"prediction": code, "probability": dc_board[best_dc]},
+                    dc_payload,
                     event,
                     three_way=three_way,
-                    decision_card=cards.get("dc"),
+                    decision_card=card_for("dc", dc_payload),
                     live_updated_at=live_updated_at,
                 )
             )
@@ -1058,7 +1194,11 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 str(item.get("market") or item.get("type") or "unknown"),
                 item,
                 event,
-                decision_card=cards.get(str(item.get("market") or "")),
+                decision_card=card_for(
+                    str(item.get("market") or item.get("type") or "unknown"),
+                    item,
+                    str(item.get("market") or ""),
+                ),
                 live_updated_at=live_updated_at,
             )
             for item in nested
@@ -1072,7 +1212,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 market,
                 row,
                 event,
-                decision_card=cards.get(market),
+                decision_card=card_for(market, row),
                 live_updated_at=live_updated_at,
             )
         ]

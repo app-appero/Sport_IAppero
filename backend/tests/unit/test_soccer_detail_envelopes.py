@@ -27,7 +27,13 @@ engine's own pure functions (`DashboardService._build_decision_cards`,
 
 from __future__ import annotations
 
+import copy
+
+import pytest
+
+from app.providers import transparency as tx
 from app.providers.http_utils import load_fixture
+from app.providers.soccer import mapper
 
 
 def _envelopes() -> tuple[dict, dict]:
@@ -112,3 +118,162 @@ def test_envelope_cards_hold_several_outcomes_for_1x2_and_dc():
     # The dc model predicts class 1 (Home/Draw), the best dc card is another outcome.
     assert oracle["overview"]["fixture"]["predictions"]["dc"]["prediction"] == 1
     assert best_dc["outcome"] != "Home/Draw"
+
+
+# --- mapping (BFF) -------------------------------------------------------------
+
+DC_MODEL_RUN = "dc_20260916T042341754757Z"
+ONE_X_TWO_RUN = "1x2_test_fixture"
+
+
+def _map(payload: dict) -> dict:
+    return {p.prediction.type: p for p in mapper.map_day_payload({"rows": [payload]})}
+
+
+def _card(payload: dict, market: str, outcome: str, **match) -> dict:
+    cards = payload.get("decision_cards") or payload.get("probabilities")
+    return next(
+        c
+        for c in cards
+        if c["market"] == market and c["outcome"] == outcome and all(c.get(k) == v for k, v in match.items())
+    )
+
+
+@pytest.mark.parametrize("name", ["oracle_detail_envelope.json", "match_detail_envelope.json"])
+def test_detail_envelope_maps_predictions_with_provider_decisions(name):
+    payload = load_fixture("soccer", name)
+    by_type = _map(payload)
+
+    expected = {m for m in load_fixture("soccer", "match_detail_envelope.json")["predictions"] if m != "1x2"}
+    assert set(by_type) == expected
+    for prediction in by_type.values():
+        assert prediction.event.id == "1552176"
+        assert prediction.event.name == "Feyenoord vs Utrecht"
+        assert prediction.event.score is not None and prediction.event.score.display == "5-0"
+        assert prediction.decision is not None and prediction.decision.code
+        assert prediction.provenance.decision_source == "provider"
+        assert prediction.provenance.decision_basis == tx.DECISION_BASIS_PROVIDER
+
+    ou = by_type["under_over_3_5"]
+    card = _card(payload, "under_over_3_5", "Under 3.5")
+    assert ou.prediction.selection.id == "under"
+    assert ou.decision.code == "BORDERLINE"
+    assert ou.decision.policy_version == card["policy_version"]
+    assert ou.pricing is not None
+    assert ou.pricing.expected_value == pytest.approx(card["ev"])
+    assert ou.pricing.odds_decimal == pytest.approx(card["odd"])
+
+    # The 3-way board still folds into h2h/dc.
+    assert {p.key for p in by_type["h2h"].probabilities} == {"home", "draw", "away"}
+    assert by_type["h2h"].decision.code == "NO BET"
+    assert by_type["h2h"].model.version == "h2h_20260916T042043734030Z"
+
+    six_five = by_type["cards_line_6_5"]
+    assert six_five.decision.code == "SENZA QUOTA"
+    assert six_five.decision.low_reliability is True
+
+
+def test_detail_envelope_card_is_matched_on_outcome_not_on_market_best():
+    """dc shows 1X: the official Home/Away card is market best, but another outcome."""
+    payload = load_fixture("soccer", "oracle_detail_envelope.json")
+    official = _card(payload, "dc", "Home/Away")
+    assert official["is_market_best"] is True and official["value_label"] == "BORDERLINE"
+
+    dc = _map(payload)["dc"]
+    assert dc.prediction.selection.id == "1X"
+    model_card = _card(payload, "dc", "Home/Draw", run_id=DC_MODEL_RUN)
+    assert dc.decision.code == model_card["value_label"] == "NO BET"
+    # Two Home/Draw cards (dc model, 1x2-derived): the one of the dc model run wins.
+    assert dc.model.version == DC_MODEL_RUN
+    assert dc.pricing.expected_value == pytest.approx(model_card["ev"])
+
+
+def test_detail_envelope_official_card_wins_on_the_same_outcome():
+    payload = load_fixture("soccer", "match_detail_envelope.json")
+    official = copy.deepcopy(_card(payload, "dc", "Home/Away"))
+    official.update(outcome="Home/Draw", pick="Home/Draw", value_label="PLAY", is_market_best=False)
+    payload["decision_cards"].append(official)
+
+    dc = _map(payload)["dc"]
+    assert dc.decision.code == "PLAY"
+    assert dc.model.version == ONE_X_TWO_RUN
+
+
+def test_detail_envelope_draw_pick_takes_the_1x2_draw_card():
+    """h2h code 0 shows "Pareggio": the h2h "Home" card is another outcome."""
+    payload = load_fixture("soccer", "match_detail_envelope.json")
+    payload["fixture"]["predictions"]["h2h"]["prediction"] = 0
+
+    h2h = _map(payload)["h2h"]
+    assert h2h.prediction.selection.id == "draw"
+    draw_card = _card(payload, "1x2", "Draw")
+    assert h2h.decision.code == draw_card["value_label"]
+    assert h2h.pricing.odds_decimal == pytest.approx(draw_card["odd"])
+    assert h2h.model.version == ONE_X_TWO_RUN
+
+
+def test_detail_envelope_synthesized_h2h_uses_the_argmax_1x2_card():
+    payload = load_fixture("soccer", "oracle_detail_envelope.json")
+    del payload["overview"]["fixture"]["predictions"]["h2h"]
+    payload["probabilities"] = [c for c in payload["probabilities"] if c["market"] != "h2h"]
+
+    h2h = _map(payload)["h2h"]
+    assert h2h.prediction.selection.id == "home"
+    home_card = _card(payload, "1x2", "Home")
+    assert home_card["is_official"] is True
+    assert h2h.decision.code == home_card["value_label"]
+    assert h2h.pricing.expected_value == pytest.approx(home_card["ev"])
+
+
+def test_detail_envelope_without_a_card_for_the_shown_outcome_has_no_decision():
+    payload = load_fixture("soccer", "match_detail_envelope.json")
+    # The line signal flips the shown side to Over: the only card is Under 3.5.
+    payload["fixture"]["predictions"]["cards_line_3_5"]["line_market_signal"]["direction"] = "over"
+
+    line = _map(payload)["cards_line_3_5"]
+    assert line.prediction.selection.id == "over"
+    assert line.decision is None
+    assert line.pricing is None
+    assert line.provenance.decision_source is None
+
+
+def test_detail_envelope_row_cards_still_win_when_present():
+    """A row that already carries cards keeps the lookup by market (day-feed rule)."""
+    payload = load_fixture("soccer", "match_detail_envelope.json")
+    flat = load_fixture("soccer", "match.json")
+    payload["fixture"]["decision_cards"] = flat["decision_cards"]
+
+    ou = _map(payload)["under_over_3_5"]
+    flat_card = next(c for c in flat["decision_cards"] if c["market"] == "under_over_3_5")
+    assert ou.pricing.expected_value == pytest.approx(flat_card["ev"])
+
+
+def test_oracle_detail_without_fixture_maps_nothing():
+    payload = load_fixture("soccer", "oracle_detail_envelope.json")
+    payload["overview"]["fixture"] = None
+    payload["warnings"] = ["fixture_not_found"]
+    assert mapper.map_day_payload({"rows": [payload]}) == []
+
+
+@pytest.mark.parametrize("name", ["oracle_detail.json", "match.json"])
+def test_flat_detail_rows_keep_mapping_as_before(name):
+    by_type = _map(load_fixture("soccer", name))
+    assert len(by_type) == 10
+    assert all(p.decision is not None for p in by_type.values())
+    assert {p.provenance.decision_source for p in by_type.values()} == {"provider"}
+    assert by_type["under_over_3_5"].decision.code == "BORDERLINE"
+    assert by_type["under_over_3_5"].pricing.expected_value == pytest.approx(0.12400686347473755)
+    assert by_type["dc"].model.version == DC_MODEL_RUN
+
+
+def test_live_snapshot_on_the_oracle_envelope_reaches_the_row():
+    payload = load_fixture("soccer", "oracle_detail_envelope.json")
+    row = payload["overview"]["fixture"]
+    row.update(status="NS", phase="live", score={"home": None, "away": None})
+    live = {"1552176": {"fixture_id": 1552176, "status": "2H", "elapsed_minute": 63, "home_goals": 2, "away_goals": 0}}
+
+    enriched = mapper.enrich_day_payload({"rows": [payload]}, live)
+    h2h = next(p for p in mapper.map_day_payload(enriched) if p.prediction.type == "h2h")
+    assert h2h.event.live is not None and h2h.event.live.minute == 63
+    assert h2h.event.score is not None and h2h.event.score.display == "2-0"
+    assert h2h.decision is not None
