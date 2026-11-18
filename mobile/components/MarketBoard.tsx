@@ -16,7 +16,7 @@ type Props = {
   date?: string;
 };
 
-/** Market card: all outcomes + Consigliata badge; tap opens EV/detail page. */
+/** Market card: all outcomes + "Scelta del modello" badge; tap opens EV/detail page. */
 export function MarketBoard({ item, date }: Props) {
   const router = useRouter();
   const colors = useSportPalette();
@@ -77,7 +77,7 @@ export function MarketBoard({ item, date }: Props) {
                 </Text>
                 {isRecommended ? (
                   <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                    <Text style={styles.badgeText}>Consigliata</Text>
+                    <Text style={styles.badgeText}>Scelta del modello</Text>
                   </View>
                 ) : null}
               </View>

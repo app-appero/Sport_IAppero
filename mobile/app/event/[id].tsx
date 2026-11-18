@@ -139,7 +139,7 @@ function EventDetail() {
         ) : null}
         {active && !showingPlayers ? (
           <Text style={styles.subtitle}>
-            {visibleMarkets.length} mercati · {activeLabel} · il badge Consigliata è l’unica usata in statistica
+            {visibleMarkets.length} mercati · {activeLabel} · la scelta del modello è l’unica contata in statistica
           </Text>
         ) : null}
         {active ? (

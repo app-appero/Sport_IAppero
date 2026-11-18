@@ -153,7 +153,7 @@ function PredictionDetail() {
                   <Text style={styles.rowLabel}>{selectionLabel(prob.label)}</Text>
                   {isRecommended ? (
                     <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                      <Text style={styles.badgeText}>Consigliata</Text>
+                      <Text style={styles.badgeText}>Scelta del modello</Text>
                     </View>
                   ) : null}
                 </View>
