@@ -49,6 +49,50 @@ def test_map_markets():
     assert all(m.sport == "football" for m in markets)
 
 
+def test_binary_h2h_dc_class_zero_follow_the_engine_model():
+    """The engine's h2h/dc models are binary (home_win, home_or_draw).
+
+    Class 0 is "Not Home" (X2) for h2h and "Away" (2) for dc, as the engine
+    itself names them: it was shown as "Pareggio"/"X2" with P(class 1), and
+    settled as such, so the engine's (right) flags were overridden.
+    """
+    draw_event = Event(
+        id="e1",
+        name="A vs B",
+        score=EventScore(home=2, away=2, display="2-2"),
+        status="FT",
+    )
+    away_event = Event(
+        id="e2",
+        name="C vs D",
+        score=EventScore(home=1, away=2, display="1-2"),
+        status="FT",
+    )
+
+    away = mapper.map_market_prediction(
+        "dc",
+        {"prediction": 0, "probability": 0.4, "correct": False},
+        draw_event,
+    )
+    assert away.prediction.selection.id == "away"
+    assert away.prediction.selection.name == "2"
+    assert away.prediction.confidence == pytest.approx(0.6)
+    assert away.correct is False
+
+    not_home = mapper.map_market_prediction(
+        "h2h",
+        {"prediction": 0, "probability": 0.2, "correct": False},
+        away_event,
+    )
+    assert not_home.prediction.selection.id == "not_home"
+    assert not_home.prediction.selection.name == "X2"
+    assert not_home.prediction.confidence == pytest.approx(0.8)
+    # Score wins over the upstream flag: an away win is a Not Home hit.
+    assert not_home.correct is True
+    not_home_draw = mapper.map_market_prediction("h2h", {"prediction": 0, "probability": 0.2}, draw_event)
+    assert not_home_draw.correct is True
+
+
 def test_settle_overrides_wrong_provider_correct_flags():
     """X2 must hit on 2-2; DRAW must miss on 1-2 — ignore bad upstream flags."""
     draw_event = Event(
@@ -66,7 +110,7 @@ def test_settle_overrides_wrong_provider_correct_flags():
 
     x2 = mapper.map_market_prediction(
         "dc",
-        {"prediction": 0, "probability": 0.4, "correct": False},
+        {"prediction": "X2", "probability": 0.4, "correct": False},
         draw_event,
     )
     assert x2.prediction.selection.name == "X2"
@@ -74,7 +118,7 @@ def test_settle_overrides_wrong_provider_correct_flags():
 
     draw_miss = mapper.map_market_prediction(
         "h2h",
-        {"prediction": 0, "probability": 0.2, "correct": True},
+        {"prediction": "draw", "probability": 0.2, "correct": True},
         away_event,
     )
     assert draw_miss.prediction.selection.id == "draw"
@@ -170,14 +214,23 @@ def test_binary_confidence_uses_one_minus_p_for_class_zero():
     assert over.prediction.selection.id == "over"
     assert over.prediction.confidence == pytest.approx(0.74)
 
-    # h2h is multi-way: draw at 11% stays 11% (do not flip).
+    # A 3-way draw pick carries its own probability: 11% stays 11% (do not flip).
     draw = mapper.map_market_prediction(
         "h2h",
-        {"prediction": 0, "probability": 0.11},
+        {"prediction": "draw", "probability": 0.11},
         event,
     )
     assert draw.prediction.selection.id == "draw"
     assert draw.prediction.confidence == pytest.approx(0.11)
+
+    # The binary h2h model's class 0 is Not Home: P = 1 - P(home).
+    not_home = mapper.map_market_prediction(
+        "h2h",
+        {"prediction": 0, "probability": 0.11},
+        event,
+    )
+    assert not_home.prediction.selection.id == "not_home"
+    assert not_home.prediction.confidence == pytest.approx(0.89)
 
 
 def test_settle_soccer_market_helpers():
@@ -365,3 +418,27 @@ def test_decision_carries_low_reliability_flag():
     plain = {"value_label": "PLAY", "value_reason": "ok", "low_reliability": False}
     assert mapper._decision_from_card(plain).low_reliability is None
     assert mapper._decision_from_card({"value_label": "PLAY"}).low_reliability is None
+
+
+def _day_row(fixture_id: str) -> dict:
+    payload = load_fixture("soccer", "day.json")
+    return next(r for r in payload["rows"] if str(r["fixture_id"]) == fixture_id)
+
+
+def _day_map(row: dict) -> dict:
+    return {p.prediction.type: p for p in mapper.map_day_payload({"rows": [row]})}
+
+
+def test_day_feed_binary_h2h_class_zero_is_not_home():
+    """Fiorentina-Napoli: the engine's h2h model says Not Home (P(home) = 0.28)."""
+    row = _day_row("1550130")
+    raw = row["predictions"]["h2h"]
+    assert raw["prediction"] == 0
+
+    pred = _day_map(row)["h2h"]
+    assert pred.prediction.selection.id == "not_home"
+    assert pred.prediction.selection.name == "X2"
+    assert pred.prediction.confidence == pytest.approx(1.0 - raw["probability"])
+    # The engine's own "Not Home" card (SENZA QUOTA) belongs to this pick.
+    assert pred.decision.code == "SENZA QUOTA"
+

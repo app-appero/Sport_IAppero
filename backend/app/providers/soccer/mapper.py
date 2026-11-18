@@ -31,18 +31,26 @@ PROVIDER = "soccer-oracle"
 _LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT"}
 _FINAL_STATUSES = {"FT", "AET", "PEN", "ABD", "CANC", "PST", "WO", "AWD"}
 
-# Soccer Oracle h2h uses 1=home, X/0?=draw variants, 2=away in several exports.
-# Observed live payload: prediction int 1 with home win => home.
+# The engine's `h2h` and `dc` models are binary (`direct_market_expert`:
+# `h2h` = home_win, `dc` = home_or_draw). Their `prediction` is 1 or 0 and their
+# `probability` is P(class 1), as for the line markets. Class 0 is "Not Home"
+# (draw or away, the X2 bet) for `h2h` and "Away" (the 2 bet) for `dc`.
+# The 3-way picks the BFF builds from a `1x2` board use the string codes
+# home/draw/away and 1X/X2/12 instead, so they never collide with class 0.
 H2H_LABELS = {
     1: ("home", "Home"),
+    0: ("not_home", "X2"),
     2: ("away", "Away"),
-    0: ("draw", "Pareggio"),
     "1": ("home", "Home"),
+    "0": ("not_home", "X2"),
     "2": ("away", "Away"),
-    "0": ("draw", "Pareggio"),
+    "home": ("home", "Home"),
+    "draw": ("draw", "Pareggio"),
+    "away": ("away", "Away"),
     "X": ("draw", "Pareggio"),
     "x": ("draw", "Pareggio"),
 }
+_BINARY_CLASS_ZERO = (0, "0")
 
 
 def _as_list(payload: Any) -> list[Any]:
@@ -444,7 +452,10 @@ def _selection_for_market(
         return Selection(id="under", name="Under")
 
     if market == "dc":
-        mapping = {1: "1X", 2: "12", 0: "X2", "1": "1X", "2": "12", "0": "X2"}
+        if prediction_code in _BINARY_CLASS_ZERO:
+            # Class 0 of the binary 1X model: the away win.
+            return Selection(id="away", name="2")
+        mapping = {1: "1X", 2: "12", "1": "1X", "2": "12"}
         label = mapping.get(prediction_code, str(prediction_code))
         # Keep id aligned with the human label so settlement stays stable.
         return Selection(id=label, name=label)
@@ -474,6 +485,8 @@ def _settle_soccer_market(market: str, selection: Selection, event: Event) -> bo
             return h > a
         if sel == "away":
             return a > h
+        if sel == "not_home":
+            return a >= h
         if sel in {"draw", "x"} or name in {"DRAW", "PAREGGIO", "X"}:
             return h == a
         return None
@@ -482,6 +495,8 @@ def _settle_soccer_market(market: str, selection: Selection, event: Event) -> bo
         if score is None or score.home is None or score.away is None:
             return None
         h, a = int(score.home), int(score.away)
+        if sel == "away":
+            return a > h
         label = name or sel.upper()
         if label == "1X":
             return h >= a
@@ -599,11 +614,16 @@ def _confidence_for_selection(market: str, market_payload: dict[str, Any]) -> fl
 
     For binary soccer markets, `probability` is P(class 1) (over / goal), not
     always P(chosen side). When prediction is class 0 (under / no_goal), use 1-p.
-    h2h / dc are multi-way: keep p as-is (already outcome probability).
+    The engine's `h2h` / `dc` models are binary too: class 0 (X2 / 2) is 1-p.
+    Any other h2h / dc code (3-way picks) already carries its own probability.
     """
     p = _clamp_confidence(_dig(market_payload, "probability", "confidence", "p_model"))
     if p is None:
         return None
+    if market in {"h2h", "dc"}:
+        if market_payload.get("prediction") in _BINARY_CLASS_ZERO:
+            return max(0.0, min(1.0, 1.0 - p))
+        return p
     if not _is_binary_soccer_market(market):
         return p
 
@@ -697,6 +717,22 @@ def _h2h_probabilities_from_1x2(
         Probability(key="draw", label="Pareggio", value=three_way["draw"]),
         Probability(key="away", label=away, value=three_way["away"]),
     ]
+
+
+def _three_way_value(selection_id: str | None, three_way: dict[str, float]) -> float | None:
+    """P(selection) from a home/draw/away board, for h2h and dc selections."""
+    parts = {
+        "home": ("home",),
+        "draw": ("draw",),
+        "away": ("away",),
+        "not_home": ("draw", "away"),
+        "1x": ("home", "draw"),
+        "x2": ("draw", "away"),
+        "12": ("home", "away"),
+    }.get((selection_id or "").lower())
+    if parts is None:
+        return None
+    return max(0.0, min(1.0, sum(three_way[key] for key in parts)))
 
 
 def _dc_probabilities_from_1x2(three_way: dict[str, float]) -> list[Probability]:
@@ -802,8 +838,8 @@ DETAIL_CARDS_KEY = "_detail_decision_cards"
 
 # Markets whose decision can also come from another card market (same outcomes).
 _DETAIL_CARD_MARKETS: dict[str, tuple[str, ...]] = {"h2h": ("h2h", "1x2")}
-_THREE_WAY_OUTCOMES = {"home": "home", "draw": "draw", "away": "away"}
-_DC_OUTCOMES = {"1x": "homedraw", "x2": "drawaway", "12": "homeaway"}
+_THREE_WAY_OUTCOMES = {"home": "home", "draw": "draw", "away": "away", "nothome": "nothome"}
+_DC_OUTCOMES = {"1x": "homedraw", "x2": "drawaway", "12": "homeaway", "away": "away"}
 _LINE_PREFIXES = ("under_over_", "cards_line_", "corners_line_")
 
 
@@ -942,15 +978,17 @@ def map_market_prediction(
     probabilities: list[Probability] = []
     confidence: float | None
 
-    if market == "h2h" and three_way is not None:
-        probabilities = _h2h_probabilities_from_1x2(three_way, event)
-        # Recommended pick stays the legacy h2h prediction; confidence from board.
-        matched = next((p for p in probabilities if p.key == selection.id), None)
-        confidence = matched.value if matched else three_way.get(selection.id or "", None)
-    elif market == "dc" and three_way is not None:
-        probabilities = _dc_probabilities_from_1x2(three_way)
-        matched = next((p for p in probabilities if p.key == selection.id), None)
-        confidence = matched.value if matched else _confidence_for_selection(market, market_payload)
+    if market in {"h2h", "dc"} and three_way is not None:
+        probabilities = (
+            _h2h_probabilities_from_1x2(three_way, event)
+            if market == "h2h"
+            else _dc_probabilities_from_1x2(three_way)
+        )
+        # Recommended pick stays the legacy prediction; its probability comes
+        # from the board, also for the binary picks X2 (h2h) and 2 (dc).
+        confidence = _three_way_value(selection.id, three_way)
+        if confidence is None:
+            confidence = _confidence_for_selection(market, market_payload)
     elif _is_binary_soccer_market(market):
         probabilities = _binary_side_probabilities(market, market_payload, selection)
         matched = next((p for p in probabilities if p.key == (selection.id or "")), None)
@@ -1163,8 +1201,8 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
         # Detail payload with 1x2 but missing legacy h2h: synthesize recommended from argmax.
         if three_way is not None and not any(p.prediction.type == "h2h" for p in out):
             argmax = max(three_way.items(), key=lambda kv: kv[1])[0]
-            code = {"home": 1, "away": 2, "draw": 0}[argmax]
-            h2h_payload = {"prediction": code, "probability": three_way[argmax]}
+            # String code: 0 would read as the binary model's "Not Home".
+            h2h_payload = {"prediction": argmax, "probability": three_way[argmax]}
             out.insert(
                 0,
                 map_market_prediction(
@@ -1183,8 +1221,8 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 "12": three_way["home"] + three_way["away"],
             }
             best_dc = max(dc_board.items(), key=lambda kv: kv[1])[0]
-            code = {"1X": 1, "12": 2, "X2": 0}[best_dc]
-            dc_payload = {"prediction": code, "probability": dc_board[best_dc]}
+            # String code: 0 would read as the binary model's "Away".
+            dc_payload = {"prediction": best_dc, "probability": dc_board[best_dc]}
             out.append(
                 map_market_prediction(
                     "dc",

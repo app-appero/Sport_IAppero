@@ -199,10 +199,25 @@ def test_detail_envelope_official_card_wins_on_the_same_outcome():
     assert dc.model.version == ONE_X_TWO_RUN
 
 
-def test_detail_envelope_draw_pick_takes_the_1x2_draw_card():
-    """h2h code 0 shows "Pareggio": the h2h "Home" card is another outcome."""
+def test_detail_envelope_not_home_pick_borrows_no_card():
+    """h2h code 0 is the binary model's Not Home (X2): neither the h2h "Home"
+    card nor the 1x2 "Draw"/"Away" cards are that bet, so no decision."""
     payload = load_fixture("soccer", "match_detail_envelope.json")
     payload["fixture"]["predictions"]["h2h"]["prediction"] = 0
+    three_way = payload["fixture"]["predictions"]["1x2"]["probabilities"]
+
+    h2h = _map(payload)["h2h"]
+    assert h2h.prediction.selection.id == "not_home"
+    assert h2h.prediction.selection.name == "X2"
+    assert h2h.prediction.confidence == pytest.approx(three_way["DRAW"] + three_way["AWAY"])
+    assert h2h.decision is None
+    assert h2h.pricing is None
+
+
+def test_detail_envelope_draw_pick_takes_the_1x2_draw_card():
+    """A draw pick: the h2h "Home" card is another outcome, the 1x2 Draw card wins."""
+    payload = load_fixture("soccer", "match_detail_envelope.json")
+    payload["fixture"]["predictions"]["h2h"]["prediction"] = "X"
 
     h2h = _map(payload)["h2h"]
     assert h2h.prediction.selection.id == "draw"
