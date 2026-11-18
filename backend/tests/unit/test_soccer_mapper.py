@@ -429,6 +429,55 @@ def _day_map(row: dict) -> dict:
     return {p.prediction.type: p for p in mapper.map_day_payload({"rows": [row]})}
 
 
+def test_day_feed_official_card_on_the_other_side_is_not_borrowed():
+    """An official PLAY captured on Under 2.5 is the market's best card, but the
+    feed shows Over 2.5: the Over card's decision, not the official one."""
+    row = _day_row("1552176")
+    over = next(c for c in row["decision_cards"] if c["market"] == "under_over_2_5")
+    over["is_market_best"] = False
+    official = {
+        **over,
+        "outcome": "Under 2.5",
+        "pick": "Under 2.5",
+        "value_label": "PLAY",
+        "odd": 3.1,
+        "is_official": True,
+        "is_market_best": True,
+    }
+    row["decision_cards"].insert(0, official)
+
+    pred = _day_map(row)["under_over_2_5"]
+    assert pred.prediction.selection.id == "over"
+    assert pred.decision.code == over["value_label"] == "NO BET"
+    assert pred.pricing.odds_decimal != pytest.approx(3.1)
+
+
+def test_day_feed_official_card_on_the_shown_side_wins():
+    row = _day_row("1552176")
+    model = next(c for c in row["decision_cards"] if c["market"] == "goal_no_goal")
+    row["decision_cards"].append({**model, "value_label": "PLAY", "is_official": True, "is_market_best": False})
+
+    pred = _day_map(row)["goal_no_goal"]
+    assert pred.prediction.selection.id == "goal"
+    assert pred.decision.code == "PLAY"
+
+
+def test_day_feed_three_way_dc_cards_match_the_shown_outcome():
+    """With 3-way dc cards the market's best (Draw/Away PLAY) is another bet than
+    the 1X shown: the Home/Draw card's decision is used."""
+    row = _day_row("1552176")
+    home_draw = next(c for c in row["decision_cards"] if c["market"] == "dc")
+    home_draw["is_market_best"] = False
+    row["decision_cards"].insert(
+        0,
+        {**home_draw, "outcome": "Draw/Away", "pick": "Draw/Away", "value_label": "PLAY", "is_market_best": True},
+    )
+
+    pred = _day_map(row)["dc"]
+    assert pred.prediction.selection.id == "1X"
+    assert pred.decision.code == home_draw["value_label"] == "NO BET"
+
+
 def test_day_feed_binary_h2h_class_zero_is_not_home():
     """Fiorentina-Napoli: the engine's h2h model says Not Home (P(home) = 0.28)."""
     row = _day_row("1550130")
@@ -442,3 +491,9 @@ def test_day_feed_binary_h2h_class_zero_is_not_home():
     # The engine's own "Not Home" card (SENZA QUOTA) belongs to this pick.
     assert pred.decision.code == "SENZA QUOTA"
 
+
+def test_day_feed_line_cards_named_by_class_code_still_match():
+    """Older engine builds name the cards line card "0"/"1" (class code)."""
+    pred = _day_map(_day_row("1552176"))["cards_line_3_5"]
+    assert pred.prediction.selection.id == "under"
+    assert pred.decision is not None and pred.decision.code == "SENZA QUOTA"

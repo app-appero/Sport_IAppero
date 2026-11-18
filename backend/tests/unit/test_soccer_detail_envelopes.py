@@ -253,7 +253,7 @@ def test_detail_envelope_without_a_card_for_the_shown_outcome_has_no_decision():
 
 
 def test_detail_envelope_row_cards_still_win_when_present():
-    """A row that already carries cards keeps the lookup by market (day-feed rule)."""
+    """A row that already carries cards uses them, not the envelope cards."""
     payload = load_fixture("soccer", "match_detail_envelope.json")
     flat = load_fixture("soccer", "match.json")
     payload["fixture"]["decision_cards"] = flat["decision_cards"]

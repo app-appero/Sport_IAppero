@@ -807,39 +807,15 @@ def _decision_from_card(card: dict[str, Any] | None) -> DecisionInfo | None:
     )
 
 
-def _index_decision_cards(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
-    cards = raw.get("decision_cards")
-    if not isinstance(cards, list):
-        return out
-    for card in cards:
-        if not isinstance(card, dict):
-            continue
-        market = card.get("market")
-        if not market:
-            continue
-        key = str(market)
-        # Prefer is_market_best when multiple cards share a market.
-        prev = out.get(key)
-        if prev is None or card.get("is_market_best") is True:
-            out[key] = card
-    best = raw.get("best_decision")
-    if isinstance(best, dict) and best.get("market"):
-        key = str(best["market"])
-        out.setdefault(key, best)
-    return out
-
-
 # Detail envelopes (`/dashboard/match/{id}`, `/oracle-detail`) leave the row's own
 # `decision_cards` empty and send the cards one level up. Those cards are kept
-# aside under this key and matched by market AND outcome: there one market can
-# hold several outcomes (3-way `1x2`/`dc` cards, official ledger cards).
+# aside under this key and used only when the row has no cards of its own.
 DETAIL_CARDS_KEY = "_detail_decision_cards"
 
 # Markets whose decision can also come from another card market (same outcomes).
-_DETAIL_CARD_MARKETS: dict[str, tuple[str, ...]] = {"h2h": ("h2h", "1x2")}
-_THREE_WAY_OUTCOMES = {"home": "home", "draw": "draw", "away": "away", "nothome": "nothome"}
-_DC_OUTCOMES = {"1x": "homedraw", "x2": "drawaway", "12": "homeaway", "away": "away"}
+_CARD_MARKETS: dict[str, tuple[str, ...]] = {"h2h": ("h2h", "1x2")}
+_THREE_WAY_OUTCOMES = {"home": {"home"}, "draw": {"draw"}, "away": {"away"}, "nothome": {"nothome", "noncasa"}}
+_DC_OUTCOMES = {"1x": {"homedraw"}, "x2": {"drawaway"}, "12": {"homeaway"}, "away": {"away"}}
 _LINE_PREFIXES = ("under_over_", "cards_line_", "corners_line_")
 
 
@@ -854,66 +830,88 @@ def _card_list(value: Any) -> list[dict[str, Any]]:
     return [card for card in value if isinstance(card, dict)]
 
 
-def _engine_outcome_keys(market: str, selection: Selection) -> set[str]:
-    """Normalized engine outcome names (`card.outcome`) for the BFF selection."""
+def _row_cards(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """The row's decision cards plus `best_decision` when it is not among them."""
+    cards = _card_list(row.get("decision_cards"))
+    best = row.get("best_decision")
+    if isinstance(best, dict) and best.get("market") and not any(card == best for card in cards):
+        cards.append(best)
+    return cards
+
+
+def _engine_outcome_keys(market: str, selection: Selection) -> set[str] | None:
+    """Normalized engine outcome names (`card.outcome`) for the BFF selection.
+
+    `None` for a market whose outcome names are not known here; an empty set
+    for a known market whose selection has no engine outcome.
+    """
     sel = _norm_text(selection.id)
     if market in {"h2h", "1x2"}:
-        return {_THREE_WAY_OUTCOMES[sel]} if sel in _THREE_WAY_OUTCOMES else set()
+        return set(_THREE_WAY_OUTCOMES.get(sel, ()))
     if market == "dc":
-        return {_DC_OUTCOMES[sel]} if sel in _DC_OUTCOMES else set()
+        return set(_DC_OUTCOMES.get(sel, ()))
     if market == "goal_no_goal":
         if sel in {"goal", "yes", "1"}:
-            return {"yes"}
+            return {"yes", "goal"}
         if sel in {"nogoal", "no", "0"}:
-            return {"no"}
+            return {"no", "nogoal"}
         return set()
     for prefix in _LINE_PREFIXES:
         if market.startswith(prefix):
             line = _norm_text(market.removeprefix(prefix))
+            # Older engine builds name the line card by the class code (1 = over).
             if sel in {"over", "1"}:
-                return {f"over{line}"}
+                return {f"over{line}", "1"}
             if sel in {"under", "0"}:
-                return {f"under{line}"}
+                return {f"under{line}", "0"}
             return set()
-    return {key for key in (sel, _norm_text(selection.name)) if key}
+    return None
 
 
-def _detail_card_for(
+def _preferred_card(candidates: list[dict[str, Any]], run_id: Any) -> dict[str, Any]:
+    """Official card first (the engine puts it in place of the model card), then
+    the card of the same model run, then the market's best, then engine order."""
+    official = next((card for card in candidates if card.get("is_official") is True), None)
+    if official is not None:
+        return official
+    if run_id:
+        same_run = next((card for card in candidates if card.get("run_id") == run_id), None)
+        if same_run is not None:
+            return same_run
+    best = next((card for card in candidates if card.get("is_market_best") is True), None)
+    return best if best is not None else candidates[0]
+
+
+def _card_for_selection(
     cards: list[dict[str, Any]],
     market: str,
     market_payload: dict[str, Any],
     event: Event,
 ) -> dict[str, Any] | None:
-    """The envelope card for this market and for the outcome the BFF shows.
+    """The card for this market and for the outcome the BFF shows.
 
-    No card for that outcome means no decision: a card of the same market on
-    another outcome is never borrowed. Among cards on the same outcome the
-    official one wins (the engine itself puts it in place of the model card),
-    then the card of the same model run, then the engine's own order.
+    One engine market can hold cards on several outcomes (3-way `1x2`/`dc`
+    cards, an official card captured on another side). No card for the shown
+    outcome means no decision: a card on another outcome is never borrowed.
+    Only for a market whose outcome names are unknown the market's own card
+    is used, as before.
     """
     selection = _selection_for_market(market, market_payload.get("prediction"), event, market_payload)
     wanted = _engine_outcome_keys(market, selection)
-    if not wanted:
-        return None
     run_id = market_payload.get("run_id")
-    for card_market in _DETAIL_CARD_MARKETS.get(market, (market,)):
+    for card_market in _CARD_MARKETS.get(market, (market,)):
         market_key = _norm_text(card_market)
-        candidates = [
-            card
-            for card in cards
-            if _norm_text(card.get("market")) == market_key
-            and _norm_text(card.get("outcome") or card.get("pick")) in wanted
-        ]
-        if not candidates:
-            continue
-        official = next((card for card in candidates if card.get("is_official") is True), None)
-        if official is not None:
-            return official
-        if run_id:
-            same_run = next((card for card in candidates if card.get("run_id") == run_id), None)
-            if same_run is not None:
-                return same_run
-        return candidates[0]
+        same_market = [card for card in cards if _norm_text(card.get("market")) == market_key]
+        if wanted is None:
+            candidates = same_market
+        else:
+            candidates = [
+                card
+                for card in same_market
+                if _norm_text(card.get("outcome") or card.get("pick")) in wanted
+            ]
+        if candidates:
+            return _preferred_card(candidates, run_id)
     return None
 
 
@@ -1149,24 +1147,17 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
     row = _normalize_match_row(raw)
     event = map_event(row)
     nested = row.get("predictions")
-    cards = _index_decision_cards(row)
-    # Row cards (day feed, flat detail rows) keep the lookup by market. Envelope
-    # cards, used only when the row has none, are matched by market and outcome.
-    detail_cards = [] if cards else _card_list(row.get(DETAIL_CARDS_KEY))
+    # Row cards (day feed, flat detail rows), else the envelope cards of a detail:
+    # both matched by market and by the outcome shown.
+    cards = _row_cards(row) or _card_list(row.get(DETAIL_CARDS_KEY))
     row_quality = row.get("data_quality") if isinstance(row.get("data_quality"), dict) else None
     live_hint = row.get("_live")
     live_updated_at = (
         tx.parse_timestamp(live_hint.get("captured_at")) if isinstance(live_hint, dict) else None
     )
 
-    def card_for(market: str, payload: dict[str, Any], *row_keys: str) -> dict[str, Any] | None:
-        if detail_cards:
-            return _detail_card_for(detail_cards, market, payload, event) if market else None
-        for key in row_keys or (market,):
-            card = cards.get(key)
-            if card:
-                return card
-        return None
+    def card_for(market: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        return _card_for_selection(cards, market, payload, event) if market and cards else None
 
     if isinstance(nested, dict):
         three_way = _parse_1x2_probabilities(
@@ -1210,7 +1201,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                     h2h_payload,
                     event,
                     three_way=three_way,
-                    decision_card=card_for("h2h", h2h_payload, "h2h", "1x2"),
+                    decision_card=card_for("h2h", h2h_payload),
                     live_updated_at=live_updated_at,
                 ),
             )
@@ -1241,11 +1232,7 @@ def map_row_predictions(raw: dict[str, Any]) -> list[UnifiedPrediction]:
                 str(item.get("market") or item.get("type") or "unknown"),
                 item,
                 event,
-                decision_card=card_for(
-                    str(item.get("market") or item.get("type") or "unknown"),
-                    item,
-                    str(item.get("market") or ""),
-                ),
+                decision_card=card_for(str(item.get("market") or ""), item),
                 live_updated_at=live_updated_at,
             )
             for item in nested
