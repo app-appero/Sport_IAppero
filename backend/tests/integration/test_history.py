@@ -255,7 +255,8 @@ async def test_breakdown_by_competition_counts_both_sides_and_orders_by_prese(tm
     try:
         fixture = Path(__file__).parent.parent / "fixtures" / "soccer" / "official_plays.json"
         records = map_ledger_payload(json.loads(fixture.read_text()))
-        # 1579486 under_over_3_5 lost (Roma-Lazio), 1579487 h2h won (Roma-Milan), 1579490 h2h lost (post-kickoff: excluded)
+        # 1579486 under_over_3_5 lost (Roma-Lazio), 1579487 h2h won (Roma-Milan),
+        # 1579490 h2h lost (post-kickoff: excluded)
         extra_win = replace(records[1], source_ref="extra-win", market="goal_no_goal", settlement_status="won")
         corners = replace(records[1], source_ref="corners-x", market="corners", settlement_status="won")
         await record_ledger(records + [extra_win, corners])

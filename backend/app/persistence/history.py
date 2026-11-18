@@ -275,7 +275,7 @@ async def _known_competition_names(session: AsyncSession) -> dict[tuple[str, str
     return names
 
 
-def _ranked(entities: dict[str, "_Entity"]) -> list[dict[str, Any]]:
+def _ranked(entities: dict[str, _Entity]) -> list[dict[str, Any]]:
     """Most "prese" first, then higher rate, then name. Markets of each entity by rate (then by decided)."""
     out = []
     for name, ent in entities.items():
